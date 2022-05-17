@@ -10,7 +10,8 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)
 int flatfs_get_sb(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data, struct vfsmount *mnt)
 {
-	return get_sb_nodev(fs_type, flags, data, flatfs_fill_super, mnt);//内存文件系统，无实际设备
+	//return get_sb_nodev(fs_type, flags, data, flatfs_fill_super, mnt);//内存文件系统，无实际设备
+	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
 	//return mount_bdev(fs_type, flags, dev_name, data, lightfs_fill_super);//后续替换
 }
 
