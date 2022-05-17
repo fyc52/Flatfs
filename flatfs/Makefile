@@ -1,5 +1,5 @@
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
-PWD       := $(shell pwd)
+KERNELDIR ?= /lib/modules/$(shell uname -r)/build  	#内核源码树的目录
+PWD       := $(shell pwd)   #工作目录
 
 obj-m += flatfs.o #obj-m:告知Kbuild编译成.ko模块
 
