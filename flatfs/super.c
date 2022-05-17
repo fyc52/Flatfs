@@ -28,7 +28,7 @@ static struct file_system_type flatfs_fs_type = { //文件系统最基本的变�
 	/*  .fs_flags */
 };
 
-static int __init init_flatfs_fs(void) 
+static int __init init_flatfs_fs(void) //__init表示该函数旨在初始化期间使用，模块装载后就扔掉，释放内存
 {
 	return register_filesystem(&flatfs_fs_type); //内核文件系统API
 }
