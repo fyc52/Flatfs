@@ -12,7 +12,7 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)
  * actual work of flatfs is done in flatfs_fill_super
  */
 static struct dentry *flatfs_mount(struct file_system_type *fs_type,
-        int flags, const char *dev_name, void *data, struct vfsmount *mnt)
+        int flags, const char *dev_name, void *data)
 {
 	//return get_sb_nodev(fs_type, flags, data, flatfs_fill_super, mnt);//内存文件系统，无实际设备
 	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
