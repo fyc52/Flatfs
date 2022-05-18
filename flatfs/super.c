@@ -17,7 +17,45 @@ struct super_operations flatfs_super_ops = {
 
 static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//mount时被调用，会创建一个sb
 {
-	printk("fill sb of flatfs\n");
+	struct inode *inode;
+	struct samplefs_sb_info *sfs_sb;
+
+	sb->s_maxbytes = MAX_LFS_FILESIZE; /* NB: may be too large for mem */
+	sb->s_blocksize = PAGE_CACHE_SIZE;
+	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
+	sb->s_magic = SAMPLEFS_MAGIC;
+	sb->s_op = &samplefs_super_ops;
+	sb->s_time_gran = 1; /* 1 nanosecond time granularity */
+
+/* Eventually replace iget with:
+	inode = samplefs_get_inode(sb, S_IFDIR | 0755, 0); */
+
+	inode = iget(sb, SAMPLEFS_ROOT_I);
+
+	if (!inode)
+		return -ENOMEM;
+
+	sb->s_fs_info = kzalloc(sizeof(struct samplefs_sb_info), GFP_KERNEL);
+	sfs_sb = SFS_SB(sb);
+	if (!sfs_sb) {
+		iput(inode);
+		return -ENOMEM;
+	}
+
+	sb->s_root = d_alloc_root(inode);
+	if (!sb->s_root) {
+		iput(inode);
+		kfree(sfs_sb);
+		return -ENOMEM;
+	}
+
+	/* below not needed for many fs - but an example of per fs sb data */
+	sfs_sb->local_nls = load_nls_default();
+	
+	samplefs_parse_mount_options(data, sfs_sb);
+	
+	/* FS-FILLIN your filesystem specific mount logic/checks here */
+
 	return 0;
 }
 /*
