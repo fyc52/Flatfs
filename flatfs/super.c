@@ -15,7 +15,7 @@ struct super_operations flatfs_super_ops = {
 	.put_super      = flatfs_put_super,
 };
 
-static int flatfs_fill_super(struct super_block * sb, void * data, int silent)
+static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//mount时被调用，会创建一个sb
 {
 	printk("fill sb of flatfs\n");
 	return 0;
