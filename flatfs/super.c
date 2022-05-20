@@ -18,41 +18,41 @@ struct super_operations flatfs_super_ops = {
 static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//mount时被调用，会创建一个sb
 {
 	struct inode *inode;
-	struct samplefs_sb_info *sfs_sb;
+	struct flatfs_sb_info *ffs_sb;
 
 	sb->s_maxbytes = MAX_LFS_FILESIZE; /* NB: may be too large for mem */
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
-	sb->s_magic = SAMPLEFS_MAGIC;
-	sb->s_op = &samplefs_super_ops;
+	sb->s_magic = FLATFS_MAGIC;
+	sb->s_op = &flatfs_super_ops;
 	sb->s_time_gran = 1; /* 1 nanosecond time granularity */
 
 /* Eventually replace iget with:
-	inode = samplefs_get_inode(sb, S_IFDIR | 0755, 0); */
+	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); */
 
-	inode = iget(sb, SAMPLEFS_ROOT_I);
+	inode = iget(sb, FLATFS_ROOT_I);
 
 	if (!inode)
 		return -ENOMEM;
 
-	sb->s_fs_info = kzalloc(sizeof(struct samplefs_sb_info), GFP_KERNEL);
-	sfs_sb = SFS_SB(sb);
-	if (!sfs_sb) {
+	sb->s_fs_info = kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);//kzalloc=kalloc+memset（0）
+	ffs_sb = FFS_SB(sb);
+	if (!ffs_sb) {
 		iput(inode);
 		return -ENOMEM;
 	}
 
-	sb->s_root = d_alloc_root(inode);
-	if (!sb->s_root) {
+	sb->s_root = d_alloc_root(inode);//用来为fs的根目录（并不一定是系统全局文件系统的根“／”）分配dentry对象。它以根目录的inode对象指针为参数。函数中会将d_parent指向自身，注意，这是判断一个fs的根目录的唯一准则
+	if (!sb->s_root) {//分配结果检测，如果失败
 		iput(inode);
-		kfree(sfs_sb);
+		kfree(ffs_sb);
 		return -ENOMEM;
 	}
 
-	/* below not needed for many fs - but an example of per fs sb data */
-	sfs_sb->local_nls = load_nls_default();
+	/* 非必要 - but an example of per fs sb data */
+	ffs_sb->local_nls = load_nls_default();
 	
-	samplefs_parse_mount_options(data, sfs_sb);
+	flatfs_parse_mount_options(data, ffs_sb);//解析mount操作配置
 	
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
 
@@ -65,8 +65,8 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
-	//return get_sb_nodev(fs_type, flags, data, flatfs_fill_super, mnt);//内存文件系统，无实际设备
-	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
+	return get_sb_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备
+	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
 	//return mount_bdev(fs_type, flags, dev_name, data, lightfs_fill_super);//后续替换
 }
 
