@@ -11,10 +11,9 @@
    require any information beyond the generic info which is already in
    struct super_block */
 struct flatfs_sb_info {//一般会包含信息和数据结构，kevin的db就是在这里实现的
-	unsigned int rsize;
-	unsigned int wsize;
+
 	int mnt_flags;
-	struct nls_table *local_nls;
+	
 };
 
 static inline struct flatfs_sb_info *

@@ -4,26 +4,26 @@
 #include <linux/version.h>
 #include <linux/nls.h>
 #include "flatfs.h"
-
+flatfs_parse_mount_options(
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
 	return 0;
 }
 static void
 flatfs_put_super(struct super_block *sb)
 {
-	struct samplefs_sb_info *sfs_sb;
+	struct flatfs_sb_info *ffs_sb;
 
-	sfs_sb = SFS_SB(sb);
-	if (sfs_sb == NULL) {
+	ffs_sb = FFS_SB(sb);
+	if (ffs_sb == NULL) {
 		/* Empty superblock info passed to unmount */
 		return;
 	}
 
-	unload_nls(sfs_sb->local_nls);
+	
  
 	/* FS-FILLIN your fs specific umount logic here */
 
-	kfree(sfs_sb);
+	kfree(ffs_sb);
 	return;
 }
 struct super_operations flatfs_super_ops = {
@@ -31,6 +31,8 @@ struct super_operations flatfs_super_ops = {
 	.drop_inode     = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super      = flatfs_put_super,
 };
+
+
 
 static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//mount时被调用，会创建一个sb
 {
@@ -65,11 +67,6 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 		kfree(ffs_sb);
 		return -ENOMEM;
 	}
-
-	/* 非必要 - but an example of per fs sb data */
-	ffs_sb->local_nls = load_nls_default();
-	
-	flatfs_parse_mount_options(data, ffs_sb);//解析mount操作配置
 	
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
 
@@ -82,7 +79,7 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
-	return get_sb_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备
+	return get_sb_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
 	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);//后续替换
 }
 
