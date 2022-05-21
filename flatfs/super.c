@@ -4,6 +4,8 @@
 #include <linux/version.h>
 #include <linux/nls.h>
 #include<linux/slab.h>
+#include <linux/proc_fs.h>
+#include <linux/backing-dev.h>
 #include "flatfs.h"
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
