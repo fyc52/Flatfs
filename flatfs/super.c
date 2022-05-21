@@ -20,22 +20,22 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
 
-	sb->s_maxbytes = MAX_LFS_FILESIZE; /* NB: may be too large for mem */
-	sb->s_blocksize = PAGE_CACHE_SIZE;
-	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
-	sb->s_magic = FLATFS_MAGIC;
-	sb->s_op = &flatfs_super_ops;
-	sb->s_time_gran = 1; /* 1 nanosecond time granularity */
+	sb->s_maxbytes = MAX_LFS_FILESIZE; /*文件大小上限*/
+	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE ; //以字节为单位的块大小
+	sb->s_blocksize_bits = FLATFS_BSTORE_BLOCKSIZE_BITS; //以位为单位的块大小
+	sb->s_magic = FLATFS_MAGIC; //可能是用来内存分配的地址
+	sb->s_op = &flatfs_super_ops;//sb操作
+	sb->s_time_gran = 1; /* 时间戳的粒度（单位为纳秒) */
 
 /* Eventually replace iget with:
 	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); */
 
-	inode = iget(sb, FLATFS_ROOT_I);
+	inode = iget(sb, FLATFS_ROOT_I);//分配根目录的inode,增加引用计数，对应iput
 
 	if (!inode)
 		return -ENOMEM;
 
-	sb->s_fs_info = kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);//kzalloc=kalloc+memset（0）
+	sb->s_fs_info = kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);//kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
 	ffs_sb = FFS_SB(sb);
 	if (!ffs_sb) {
 		iput(inode);
@@ -66,8 +66,7 @@ static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
 	return get_sb_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备
-	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
-	//return mount_bdev(fs_type, flags, dev_name, data, lightfs_fill_super);//后续替换
+	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);//后续替换
 }
 
 static void flatfs_kill_sb(struct super_block *sb)
