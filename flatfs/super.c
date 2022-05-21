@@ -104,7 +104,7 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 		return -ENOMEM;
 	}
 
-	sb->s_root = d_alloc_root(inode);//用来为fs的根目录（并不一定是系统全局文件系统的根“／”）分配dentry对象。它以根目录的inode对象指针为参数。函数中会将d_parent指向自身，注意，这是判断一个fs的根目录的唯一准则
+	sb->s_root = d_make_root(inode);//用来为fs的根目录（并不一定是系统全局文件系统的根“／”）分配dentry对象。它以根目录的inode对象指针为参数。函数中会将d_parent指向自身，注意，这是判断一个fs的根目录的唯一准则
 	if (!sb->s_root) {//分配结果检测，如果失败
 		iput(inode);
 		kfree(ffs_sb);
