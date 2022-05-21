@@ -4,7 +4,7 @@
 #include <linux/version.h>
 #include <linux/nls.h>
 #include "flatfs.h"
-flatfs_parse_mount_options(
+
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
 	return 0;
 }
