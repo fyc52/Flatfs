@@ -3,6 +3,7 @@
 #include <linux/pagemap.h>
 #include <linux/version.h>
 #include <linux/nls.h>
+#include<linux/slab.h>
 #include "flatfs.h"
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
