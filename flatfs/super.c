@@ -8,6 +8,9 @@
 #include <linux/backing-dev.h>
 #include "flatfs.h"
 
+extern struct file_operations ffs_file_operations;
+extern struct address_space_operations ffs_aops;
+
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
 	return 0;
 }
