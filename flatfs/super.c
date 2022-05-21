@@ -27,13 +27,49 @@ flatfs_put_super(struct super_block *sb)
 	kfree(ffs_sb);
 	return;
 }
+
 struct super_operations flatfs_super_ops = {
 	.statfs         = flatfs_super_statfs,
 	.drop_inode     = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super      = flatfs_put_super,
 };
 
+struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
+{
+        struct inode * inode = new_inode(sb);//https://blog.csdn.net/weixin_43836778/article/details/90236819
+	struct flatfs_sb_info * ffs_sb = FFS_SB(sb);
 
+        if (inode) {
+                inode->i_mode = mode;//访问权限,https://zhuanlan.zhihu.com/p/78724124
+                inode->i_uid = current->fsuid;/* Low 16 bits of Owner Uid */
+                inode->i_gid = current->fsgid;/* Low 16 bits of Group Id */
+                inode->i_blocks = 0;//文件的块数
+                inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;//访问、修改、创建时间
+		printk(KERN_INFO "about to set inode ops\n");
+		inode->i_mapping->a_ops = &ffs_aops;//相关的地址映射
+		//inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
+                switch (mode & S_IFMT) {/* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位*/
+                default:
+			init_special_inode(inode, mode, dev);
+			break;
+                case S_IFREG:/* regular 普通文件*/
+			printk(KERN_INFO "file inode\n");
+			//inode->i_op = &ffs_file_inode_ops;
+			inode->i_fop =  &ffs_file_operations;
+			break;
+                case S_IFDIR:/* directory 目录文件*/
+			printk(KERN_INFO "directory inode ffs_sb: %p\n",ffs_sb);
+			//inode->i_op = &ffs_dir_inode_ops;
+			//inode->i_fop = &simple_dir_operations;
+
+                        /* link == 2 (for initial ".." and "." entries) */
+                        inode->i_nlink++;//i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
+						break;
+                }
+        }
+        return inode;
+	
+}
 
 static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//mount时被调用，会创建一个sb
 {
@@ -47,10 +83,9 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 	sb->s_op = &flatfs_super_ops;//sb操作
 	sb->s_time_gran = 1; /* 时间戳的粒度（单位为纳秒) */
 
-/* Eventually replace iget with:
-	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); */
+	printk(KERN_INFO "flatfs: fill super\n");
 
-	inode = iget(sb, FLATFS_ROOT_I);//分配根目录的inode,增加引用计数，对应iput
+	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0);//分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
 
 	if (!inode)
 		return -ENOMEM;
