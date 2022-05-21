@@ -8,10 +8,27 @@
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
 	return 0;
 }
+static void
+flatfs_put_super(struct super_block *sb)
+{
+	struct samplefs_sb_info *sfs_sb;
 
+	sfs_sb = SFS_SB(sb);
+	if (sfs_sb == NULL) {
+		/* Empty superblock info passed to unmount */
+		return;
+	}
+
+	unload_nls(sfs_sb->local_nls);
+ 
+	/* FS-FILLIN your fs specific umount logic here */
+
+	kfree(sfs_sb);
+	return;
+}
 struct super_operations flatfs_super_ops = {
 	.statfs         = flatfs_super_statfs,
-	.drop_inode     = generic_delete_inode, /* Not needed, is the default */
+	.drop_inode     = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super      = flatfs_put_super,
 };
 
