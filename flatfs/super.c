@@ -53,7 +53,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 		printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops;//相关的地址映射
 		//inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
-                switch (mode & S_IFMT) {/* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位*/ https://blog.csdn.net/wang93IT/article/details/72832775
+                switch (mode & S_IFMT) {/* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位,https://blog.csdn.net/wang93IT/article/details/72832775*/
                 default:
 			init_special_inode(inode, mode, dev);
 			break;
