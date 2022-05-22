@@ -49,7 +49,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
                 inode->i_uid = current_fsuid();/* Low 16 bits of Owner Uid */
                 inode->i_gid = current_fsgid();/* Low 16 bits of Group Id */
                 inode->i_blocks = 0;//文件的块数
-                inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;//访问、修改、创建时间
+                inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);//访问、修改、发生改变的时间
 		printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops;//相关的地址映射
 		//inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
