@@ -39,7 +39,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 		d_instantiate(dentry, inode);
 		dget(dentry);   /* Extra count - pin the dentry in core */
 		error = 0;
-		dir->i_mtime = dir->i_ctime = CURRENT_TIME;
+		dir->i_mtime = dir->i_ctime = current_time(dir);
 
 		/* real filesystems would normally use i_size_write function */
 		dir->i_size += 0x20;  /* bogus small size for each dir entry */
@@ -102,7 +102,7 @@ struct inode_operations ffs_dir_inode_ops = {
 };
 
 struct inode_operations ffs_symlink_inode_ops = {
-	.get_link		= ffs_get_link,
+	//.get_link		= ffs_get_link,
 	//.setattr		= ffs_setattr,
 	//.getattr		= ffs_getattr,
 };

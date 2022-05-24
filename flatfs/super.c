@@ -11,7 +11,7 @@
 extern struct inode_operations ffs_symlink_inode_ops;
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
-extern struct file_operations ffs_file_operations;
+extern struct file_operations ffs_file_file_ops;
 extern struct address_space_operations ffs_aops;
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf) {
@@ -54,7 +54,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
                 inode->i_blocks = 0;//文件的块数
                 inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);//访问、修改、发生改变的时间
 		printk(KERN_INFO "about to set inode ops\n");
-		inode->i_mapping->a_ops = &ffs_aops;//相关的地址映射
+		inode->i_mapping->a_ops = &ffs_aops;//page cache操作
 		//inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
                 switch (mode & S_IFMT) {/* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位,https://blog.csdn.net/wang93IT/article/details/72832775*/
                 default:
@@ -63,19 +63,19 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
                 case S_IFREG:/* regular 普通文件*/
 			printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
-			inode->i_fop =  &ffs_file_operations;
+			inode->i_fop =  &ffs_file_file_ops;
 			break;
                 case S_IFDIR:/* directory 目录文件*/
 			printk(KERN_INFO "directory inode ffs_sb: %p\n",ffs_sb);
 			inode->i_op = &ffs_dir_inode_ops;
 			inode->i_fop = &simple_dir_operations;
-
 			/* link == 2 (for initial ".." and "." entries) */
             set_nlink(inode,2);//i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
 			break;
                 case S_IFLNK://symlink
 			inode->i_op = &ffs_symlink_inode_ops;
-			break;}
+			break;
+			}
         }
         return inode;
 	

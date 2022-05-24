@@ -28,18 +28,19 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 
-struct address_space_operations ffs_aops = {
-	//.readpage       = simple_readpage,
+struct address_space_operations ffs_aops = {// page cache访问接口
+	.readpage       = simple_readpage,
 };
 
-struct file_operations ffs_file_operations = {
-	// .read           = do_sync_read,
-	// .aio_read	= generic_file_aio_read,
-	// .write          = do_sync_write,
-	// .aio_write	= generic_file_aio_write,
-	// .mmap           = generic_file_mmap,
-	// .fsync          = simple_sync_file,
-	// .sendfile       = generic_file_sendfile,
-	// .llseek         = generic_file_llseek,
+struct file_operations ffs_file_file_ops = {
+	.read           = do_sync_read,
+	//.aio_read		= generic_file_aio_read,
+	.write          = do_sync_write,
+	//.aio_write		= generic_file_aio_write,
+	//.read_iter		= generic_file_read_iter,
+	//.write_iter		= generic_file_write_iter,
+	.mmap           = generic_file_mmap,
+	.fsync          = simple_sync_file,
+	.llseek         = generic_file_llseek,
 };
 
