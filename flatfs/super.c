@@ -8,6 +8,9 @@
 #include <linux/backing-dev.h>
 #include "flatfs.h"
 
+extern struct inode_operations ffs_symlink_inode_ops;
+extern struct inode_operations ffs_dir_inode_ops;
+extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_operations;
 extern struct address_space_operations ffs_aops;
 
@@ -59,19 +62,19 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			break;
                 case S_IFREG:/* regular 普通文件*/
 			printk(KERN_INFO "file inode\n");
-			//inode->i_op = &ffs_file_inode_ops;
+			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop =  &ffs_file_operations;
 			break;
                 case S_IFDIR:/* directory 目录文件*/
 			printk(KERN_INFO "directory inode ffs_sb: %p\n",ffs_sb);
-			//inode->i_op = &ffs_dir_inode_ops;
-			//inode->i_fop = &simple_dir_operations;
+			inode->i_op = &ffs_dir_inode_ops;
+			inode->i_fop = &simple_dir_operations;
 
 			/* link == 2 (for initial ".." and "." entries) */
             set_nlink(inode,2);//i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
 			break;
-                case S_IFLNK:
-			//inode->i_op = &page_symlink_inode_operations;
+                case S_IFLNK://symlink
+			inode->i_op = &ffs_symlink_inode_ops;
 			break;}
         }
         return inode;
