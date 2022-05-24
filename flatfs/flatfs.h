@@ -12,7 +12,7 @@
    struct super_block */
 struct flatfs_sb_info {//一般会包含信息和数据结构，kevin的db就是在这里实现的
 
-	int mnt_flags;
+	int flags;
 	
 };
 
