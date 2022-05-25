@@ -33,9 +33,9 @@ struct address_space_operations ffs_aops = {// page cache访问接口
 };
 
 struct file_operations ffs_file_file_ops = {
-	.read           = do_sync_read,
+	.read_iter		= generic_file_read_iter,
 	//.aio_read		= generic_file_aio_read,
-	.write          = do_sync_write,
+	.write_iter		= generic_file_write_iter,
 	//.aio_write		= generic_file_aio_write,
 	//.read_iter		= generic_file_read_iter,
 	//.write_iter		= generic_file_write_iter,
