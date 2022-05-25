@@ -21,7 +21,7 @@ static void
 flatfs_put_super(struct super_block *sb)
 {
 	struct flatfs_sb_info *ffs_sb;
-
+	printk(KERN_INFO "put super of flatfs\n");
 	ffs_sb = FFS_SB(sb);
 	if (ffs_sb == NULL) {
 		/* Empty superblock info passed to unmount */
@@ -56,8 +56,8 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 		printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops;//page cache操作
 		//inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
-                switch (mode & S_IFMT) {/* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位,https://blog.csdn.net/wang93IT/article/details/72832775*/
-                default:
+            switch (mode & S_IFMT) {/* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位,https://blog.csdn.net/wang93IT/article/details/72832775*/
+            default:
 			init_special_inode(inode, mode, dev);
 			break;
                 case S_IFREG:/* regular 普通文件*/
@@ -126,13 +126,15 @@ static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
 	//return get_sb_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
+	printk(KERN_INFO "start mount of flatfs\n");
 	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
 }
 
 static void flatfs_kill_sb(struct super_block *sb)
 {
-	//sync_filesystem(sb);
-	//kill_block_super(sb);
+	printk(KERN_INFO "kill_sb of flatfs\n");
+	sync_filesystem(sb);
+	kill_block_super(sb);
 }
 
 static struct file_system_type flatfs_fs_type = { //文件系统最基本的变量

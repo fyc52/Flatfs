@@ -66,39 +66,39 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, int mode,
 	return ffs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
 
-static int ffs_get_link(struct inode * dir, struct dentry *dentry, 
-			const char * symname)
-{
-	struct inode *inode;
-	int error = -ENOSPC;
+// static int ffs_get_link(struct inode * dir, struct dentry *dentry, 
+// 			const char * symname)
+// {
+// 	struct inode *inode;
+// 	int error = -ENOSPC;
 
-	inode = samplefs_get_inode(dir->i_sb, S_IFLNK|S_IRWXUGO, 0);
-	if (inode) {
-		int l = strlen(symname)+1;
-		error = page_symlink(inode, symname, l);
-		if (!error) {
-			if (dir->i_mode & S_ISGID)
-				inode->i_gid = dir->i_gid;
-			d_instantiate(dentry, inode);
-			dget(dentry);
-			dir->i_mtime = dir->i_ctime = CURRENT_TIME;
-		} else
-			iput(inode);
-	}
-	return error;
-}
+// 	inode = samplefs_get_inode(dir->i_sb, S_IFLNK|S_IRWXUGO, 0);
+// 	if (inode) {
+// 		int l = strlen(symname)+1;
+// 		error = page_symlink(inode, symname, l);
+// 		if (!error) {
+// 			if (dir->i_mode & S_ISGID)
+// 				inode->i_gid = dir->i_gid;
+// 			d_instantiate(dentry, inode);
+// 			dget(dentry);
+// 			dir->i_mtime = dir->i_ctime = CURRENT_TIME;
+// 		} else
+// 			iput(inode);
+// 	}
+// 	return error;
+// }
 struct inode_operations ffs_file_inode_ops = {
-        .getattr        = simple_getattr,
+       // .getattr        = simple_getattr,
 };
 
 struct inode_operations ffs_dir_inode_ops = {
-	.create         = ffs_create,
+	//.create         = ffs_create,
 	.lookup         = ffs_lookup,
-	.unlink         = simple_unlink,
+	//.unlink         = simple_unlink,
 	.mkdir          = ffs_mkdir,
 	.rmdir          = simple_rmdir,
 	.mknod          = ffs_mknod,
-	.rename         = simple_rename,
+	//.rename         = simple_rename,
 };
 
 struct inode_operations ffs_symlink_inode_ops = {

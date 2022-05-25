@@ -29,7 +29,7 @@
 #include <linux/fs.h>
 
 struct address_space_operations ffs_aops = {// page cache访问接口
-	.readpage       = simple_readpage,
+	//.readpage       = simple_readpage,
 };
 
 struct file_operations ffs_file_file_ops = {
@@ -40,7 +40,7 @@ struct file_operations ffs_file_file_ops = {
 	//.read_iter		= generic_file_read_iter,
 	//.write_iter		= generic_file_write_iter,
 	.mmap           = generic_file_mmap,
-	.fsync          = simple_sync_file,
+	//.fsync          = simple_sync_file,
 	.llseek         = generic_file_llseek,
 };
 
