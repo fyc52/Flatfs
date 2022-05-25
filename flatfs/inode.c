@@ -8,23 +8,22 @@ extern struct inode *flatfs_get_inode(struct super_block *sb, int mode,
 					dev_t dev);
 
 
-static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, 
-				struct nameidata *nd)
+static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
 	struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
 	if (dentry->d_name.len > NAME_MAX)
 		return ERR_PTR(-ENAMETOOLONG);
-	if (ffs_sb->flags & ffs_MNT_CASE)
-		dentry->d_op = &ffs_ci_dentry_ops;
-	else
-		dentry->d_op = &ffs_dentry_ops;
+	// if (ffs_sb->flags & ffs_MNT_CASE)
+	// 	dentry->d_op = &ffs_ci_dentry_ops;
+	// else
+	// 	dentry->d_op = &ffs_dentry_ops;
 
 	d_add(dentry, NULL);
 	return NULL;
 }
 
 static int
-ffs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
+ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);
 	int error = -ENOSPC;
