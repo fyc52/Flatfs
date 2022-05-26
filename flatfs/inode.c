@@ -95,7 +95,7 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bo
 // 	return error;
 // }
 struct inode_operations ffs_file_inode_ops = {
-       // .getattr        = simple_getattr,
+    .getattr        = simple_getattr,
 };
 
 struct inode_operations ffs_dir_inode_ops = {
