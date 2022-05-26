@@ -22,6 +22,10 @@ flatfs_put_super(struct super_block *sb)
 {
 	struct flatfs_sb_info *ffs_sb;
 	printk(KERN_INFO "put super of flatfs\n");
+	printk(KERN_ALERT "--------------[umount] dump_stack start----------------");
+	dump_stack();
+	printk(KERN_ALERT "--------------[umount] dump_stack end----------------");
+	
 	ffs_sb = FFS_SB(sb);
 	if (ffs_sb == NULL) {
 		/* Empty superblock info passed to unmount */
