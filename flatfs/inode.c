@@ -8,7 +8,7 @@ extern struct inode *flatfs_get_inode(struct super_block *sb, int mode,
 					dev_t dev);
 
 
-static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
+static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
 	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
 	// if (dentry->d_name.len > NAME_MAX)
@@ -23,7 +23,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 }
 
 static int
-ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
+ffs_mknod(struct inode *dir, struct dentry *dentry, short unsigned int mode, unsigned int dev)
 {
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);
 	int error = -ENOSPC;
@@ -47,7 +47,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 }
 
 
-static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
+static int ffs_mkdir(struct inode * dir, struct dentry * dentry, short unsigned int mode)
 {
 	int retval = 0;
 	
@@ -96,7 +96,7 @@ struct inode_operations ffs_dir_inode_ops = {
 	//.unlink         = simple_unlink,
 	.mkdir          = ffs_mkdir,
 	.rmdir          = simple_rmdir,
-	.mknod          = ffs_mknod,
+	.mknod          = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
 	//.rename         = simple_rename,
 };
 
