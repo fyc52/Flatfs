@@ -23,7 +23,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 }
 
 static int
-ffs_mknod(struct inode *dir, struct dentry *dentry, short unsigned int mode, unsigned int dev)
+ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);
 	int error = -ENOSPC;
@@ -47,7 +47,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, short unsigned int mode, uns
 }
 
 
-static int ffs_mkdir(struct inode * dir, struct dentry * dentry, short unsigned int mode)
+static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 {
 	int retval = 0;
 	
