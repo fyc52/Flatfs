@@ -64,8 +64,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	return retval;
 }
 
-static int ffs_create(struct inode *dir, struct dentry *dentry, int mode,
-			struct nameidata *nd)
+static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
 	printk(KERN_INFO "flatfs create");
 	printk(KERN_ALERT "--------------[create] dump_stack start----------------");
