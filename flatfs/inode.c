@@ -10,6 +10,7 @@ extern struct inode *flatfs_get_inode(struct super_block *sb, int mode,
 
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
+	printk(KERN_INFO "flatfs lookup");
 	printk(KERN_ALERT "--------------[lookup] dump_stack start----------------");
 	dump_stack();
 	printk(KERN_ALERT "--------------[lookup] dump_stack end----------------");
@@ -66,6 +67,10 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 static int ffs_create(struct inode *dir, struct dentry *dentry, int mode,
 			struct nameidata *nd)
 {
+	printk(KERN_INFO "flatfs create");
+	printk(KERN_ALERT "--------------[create] dump_stack start----------------");
+	dump_stack();
+	printk(KERN_ALERT "--------------[create] dump_stack end----------------");
 	return ffs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
 
@@ -95,9 +100,9 @@ struct inode_operations ffs_file_inode_ops = {
 };
 
 struct inode_operations ffs_dir_inode_ops = {
-	//.create         = ffs_create,
+	.create         = ffs_create,
 	.lookup         = ffs_lookup,
-	//.unlink         = simple_unlink,
+	.unlink         = simple_unlink,
 	.mkdir          = ffs_mkdir,
 	.rmdir          = simple_rmdir,
 	.mknod          = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
