@@ -40,8 +40,6 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		error = 0;
 		dir->i_mtime = dir->i_ctime = current_time(dir);
 
-		/* real filesystems would normally use i_size_write function */
-		dir->i_size += 0x20;  /* bogus small size for each dir entry */
 	}
 	return error;
 }
@@ -49,6 +47,9 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 
 static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 {
+	printk(KERN_ALERT "--------------[mkdir] dump_stack start----------------");
+	dump_stack();
+	printk(KERN_ALERT "--------------[mkdir] dump_stack end----------------");
 	int retval = 0;
 	
 	retval = ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
