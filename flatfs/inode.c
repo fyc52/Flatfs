@@ -10,6 +10,9 @@ extern struct inode *flatfs_get_inode(struct super_block *sb, int mode,
 
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
+	printk(KERN_ALERT "--------------[lookup] dump_stack start----------------");
+	dump_stack();
+	printk(KERN_ALERT "--------------[lookup] dump_stack end----------------");
 	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
 	// if (dentry->d_name.len > NAME_MAX)
 	// 	return ERR_PTR(-ENAMETOOLONG);
@@ -35,7 +38,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 			if (S_ISDIR(mode))
 				inode->i_mode |= S_ISGID;
 		}
-		d_instantiate(dentry, inode);
+		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联,只有目录类型的inode才会调用该函数指针。
 		dget(dentry);   /* Extra count - pin the dentry in core */
 		error = 0;
 		dir->i_mtime = dir->i_ctime = current_time(dir);
