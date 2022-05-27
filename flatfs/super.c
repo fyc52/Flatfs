@@ -6,9 +6,16 @@
 #include<linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/backing-dev.h>
+#include <linux/time.h>
+#include <linux/init.h>
+#include <linux/string.h>
+#include <linux/sched.h>
+#include <linux/parser.h>
+#include <linux/magic.h>
+#include <linux/uaccess.h>
 #include "flatfs.h"
 
-extern struct inode_operations ffs_symlink_inode_ops;
+
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;
@@ -25,7 +32,7 @@ flatfs_put_super(struct super_block *sb)
 	printk(KERN_ALERT "--------------[umount] dump_stack start----------------");
 	dump_stack();
 	printk(KERN_ALERT "--------------[umount] dump_stack end----------------");
-	
+
 	ffs_sb = FFS_SB(sb);
 	if (ffs_sb == NULL) {
 		/* Empty superblock info passed to unmount */
@@ -74,10 +81,11 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			inode->i_op = &ffs_dir_inode_ops;
 			inode->i_fop = &simple_dir_operations;
 			/* link == 2 (for initial ".." and "." entries) */
-            set_nlink(inode,2);//i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
+            inc_nlink(inode);//i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
 			break;
                 case S_IFLNK://symlink
-			inode->i_op = &ffs_symlink_inode_ops;
+			inode->i_op = &page_symlink_inode_operations;
+			inode_nohighmem(inode);
 			break;
 			}
         }
@@ -129,9 +137,9 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
-	//return get_sb_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
+	return mount_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
 	printk(KERN_INFO "start mount of flatfs\n");
-	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
+	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
 }
 
 static void flatfs_kill_sb(struct super_block *sb)

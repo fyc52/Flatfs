@@ -51,16 +51,16 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 
 static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 {
-	printk(KERN_ALERT "--------------[mkdir] dump_stack start----------------");
-	dump_stack();
-	printk(KERN_ALERT "--------------[mkdir] dump_stack end----------------");
+	// printk(KERN_ALERT "--------------[mkdir] dump_stack start----------------");
+	// dump_stack();
+	// printk(KERN_ALERT "--------------[mkdir] dump_stack end----------------");
+	printk(KERN_INFO "flatfs mkdir");
 	int retval = 0;
 	
 	retval = ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
 
-	/* link count is two for dir, for dot and dot dot */
 	if (!retval)
-		set_nlink(dir,2);
+		inc_nlink(dir);
 	return retval;
 }
 
@@ -95,21 +95,39 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bo
 // 	return error;
 // }
 struct inode_operations ffs_file_inode_ops = {
-    .getattr        = simple_getattr,
+    .setattr	= simple_setattr,
+	.getattr	= simple_getattr,
 };
+
+static int flatfs_symlink(struct inode * dir, struct dentry *dentry, const char * symname)
+{
+	struct inode *inode;
+	int error = -ENOSPC;
+
+	inode = flatfs_get_inode(dir->i_sb, dir, S_IFLNK|S_IRWXUGO, 0);
+	if (inode) {
+		int l = strlen(symname)+1;
+		error = page_symlink(inode, symname, l);
+		if (!error) {
+			d_instantiate(dentry, inode);
+			dget(dentry);
+			dir->i_mtime = dir->i_ctime = current_time(dir);
+		} else
+			iput(inode);
+	}
+	return error;
+}
 
 struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,
-	.lookup         = ffs_lookup,
+	.lookup         = simple_lookup,
+	.link			= simple_link,
 	.unlink         = simple_unlink,
-	.mkdir          = ffs_mkdir,
+	.symlink		= flatfs_symlik,
+	.mkdir          = ffs_mkdir,ffs_dir_inode_ops
 	.rmdir          = simple_rmdir,
 	.mknod          = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
-	//.rename         = simple_rename,
+	.rename         = simple_rename,
 };
 
-struct inode_operations ffs_symlink_inode_ops = {
-	//.get_link		= ffs_get_link,
-	//.setattr		= ffs_setattr,
-	//.getattr		= ffs_getattr,
-};
+

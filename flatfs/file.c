@@ -29,18 +29,24 @@
 #include <linux/fs.h>
 
 struct address_space_operations ffs_aops = {// page cache访问接口
-	//.readpage       = simple_readpage,
+	.readpage	= simple_readpage,
+	.write_begin	= simple_write_begin,
+	.write_end	= simple_write_end,
+	.set_page_dirty	= __set_page_dirty_no_writeback,
 };
 
+static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
+		unsigned long addr, unsigned long len, unsigned long pgoff,
+		unsigned long flags)
+{
+	return current->mm->get_unmapped_area(file, addr, len, pgoff, flags);
+}
 struct file_operations ffs_file_file_ops = {
 	.read_iter		= generic_file_read_iter,
-	//.aio_read		= generic_file_aio_read,
 	.write_iter		= generic_file_write_iter,
-	//.aio_write		= generic_file_aio_write,
-	//.read_iter		= generic_file_read_iter,
-	//.write_iter		= generic_file_write_iter,
 	.mmap           = generic_file_mmap,
-	//.fsync          = simple_sync_file,
+	.fsync			= noop_fsync,
 	.llseek         = generic_file_llseek,
+	.get_unmapped_area	= flatfs_mmu_get_unmapped_area,
 };
 
