@@ -44,7 +44,7 @@ static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
 struct file_operations ffs_file_file_ops = {
 	.read_iter		= generic_file_read_iter,
 	.write_iter		= generic_file_write_iter,
-	.mmap           = generic_file_mmap,
+//	.mmap           = generic_file_mmap,
 	.fsync			= noop_fsync,
 	.llseek         = generic_file_llseek,
 	.get_unmapped_area	= flatfs_mmu_get_unmapped_area,
