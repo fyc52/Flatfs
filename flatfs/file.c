@@ -27,6 +27,7 @@
 
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/mm.h>
 
 struct address_space_operations ffs_aops = {// page cache访问接口
 	.readpage	= simple_readpage,

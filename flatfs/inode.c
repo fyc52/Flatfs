@@ -11,9 +11,9 @@ extern struct inode *flatfs_get_inode(struct super_block *sb, int mode,
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
 	printk(KERN_INFO "flatfs lookup");
-	printk(KERN_ALERT "--------------[lookup] dump_stack start----------------");
-	dump_stack();
-	printk(KERN_ALERT "--------------[lookup] dump_stack end----------------");
+	// printk(KERN_ALERT "--------------[lookup] dump_stack start----------------");
+	// dump_stack();
+	// printk(KERN_ALERT "--------------[lookup] dump_stack end----------------");
 	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
 	// if (dentry->d_name.len > NAME_MAX)
 	// 	return ERR_PTR(-ENAMETOOLONG);
@@ -120,7 +120,7 @@ struct inode_operations ffs_file_inode_ops = {
 
 struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,
-	.lookup         = simple_lookup,
+	.lookup         = simple_lookup,//to do : look up parent dir for child‘s name
 	.link			= simple_link,
 	.unlink         = simple_unlink,
 	//.symlink		= flatfs_symlik,
