@@ -47,6 +47,5 @@ struct file_operations ffs_file_file_ops = {
 //	.mmap           = generic_file_mmap,
 	.fsync			= noop_fsync,
 	.llseek         = generic_file_llseek,
-	.get_unmapped_area	= flatfs_mmu_get_unmapped_area,
 };
 

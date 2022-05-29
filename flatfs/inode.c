@@ -40,7 +40,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 				inode->i_mode |= S_ISGID;
 		}
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联,只有目录类型的inode才会调用该函数指针。
-		dget(dentry);   /* Extra count - pin the dentry in core */
+		dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，后期需修改 */
 		error = 0;
 		dir->i_mtime = dir->i_ctime = current_time(dir);
 
@@ -99,24 +99,24 @@ struct inode_operations ffs_file_inode_ops = {
 	.getattr	= simple_getattr,
 };
 
-static int flatfs_symlink(struct inode * dir, struct dentry *dentry, const char * symname)
-{
-	struct inode *inode;
-	int error = -ENOSPC;
+// static int flatfs_symlink(struct inode * dir, struct dentry *dentry, const char * symname)
+// {
+// 	struct inode *inode;
+// 	int error = -ENOSPC;
 
-	inode = flatfs_get_inode(dir->i_sb, dir, S_IFLNK|S_IRWXUGO, 0);
-	if (inode) {
-		int l = strlen(symname)+1;
-		error = page_symlink(inode, symname, l);
-		if (!error) {
-			d_instantiate(dentry, inode);
-			dget(dentry);
-			dir->i_mtime = dir->i_ctime = current_time(dir);
-		} else
-			iput(inode);
-	}
-	return error;
-}
+// 	inode = flatfs_get_inode(dir->i_sb, dir, S_IFLNK|S_IRWXUGO, 0);
+// 	if (inode) {
+// 		int l = strlen(symname)+1;
+// 		error = page_symlink(inode, symname, l);
+// 		if (!error) {
+// 			d_instantiate(dentry, inode);
+// 			dget(dentry);
+// 			dir->i_mtime = dir->i_ctime = current_time(dir);
+// 		} else
+// 			iput(inode);
+// 	}
+// 	return error;
+// }
 
 struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,

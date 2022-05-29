@@ -83,10 +83,10 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			/* link == 2 (for initial ".." and "." entries) */
             inc_nlink(inode);//i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
 			break;
-                case S_IFLNK://symlink
-			inode->i_op = &page_symlink_inode_operations;
-			inode_nohighmem(inode);
-			break;
+            //     case S_IFLNK://symlink
+			// inode->i_op = &page_symlink_inode_operations;
+			// inode_nohighmem(inode);
+			// break;
 			}
         }
         return inode;
