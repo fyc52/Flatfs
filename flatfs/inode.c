@@ -6,24 +6,20 @@ extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
 extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, 
 					dev_t dev);
-
-
+//调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
+//dir:父目录的inode；
+//dentry：本目录的dentry，需要关联到本目录的inode
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
+	int r, err;
+	struct dentry *ret;
+	struct inode *inode;
 	printk(KERN_INFO "flatfs lookup");
-	// printk(KERN_ALERT "--------------[lookup] dump_stack start----------------");
-	// dump_stack();
-	// printk(KERN_ALERT "--------------[lookup] dump_stack end----------------");
-	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
-	// if (dentry->d_name.len > NAME_MAX)
-	// 	return ERR_PTR(-ENAMETOOLONG);
-	// if (ffs_sb->flags & ffs_MNT_CASE)
-	// 	dentry->d_op = &ffs_ci_dentry_ops;
-	// else
-	// 	dentry->d_op = &ffs_dentry_ops;
 
-	// d_add(dentry, NULL);
-	return NULL;
+	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
+
+	ret = d_splice_alias(inode, dentry);
+	return ret;
 }
 
 static int
