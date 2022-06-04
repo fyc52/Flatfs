@@ -55,7 +55,7 @@ struct super_operations flatfs_super_ops = {
 
 struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 {
-        struct inode * inode = new_inode(sb);//https://blog.csdn.net/weixin_43836778/article/details/90236819
+    struct inode * inode = new_inode(sb);//https://blog.csdn.net/weixin_43836778/article/details/90236819
 	struct flatfs_sb_info * ffs_sb = FFS_SB(sb);
 
         if (inode) {

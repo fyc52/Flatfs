@@ -6,6 +6,12 @@ extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
 extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, 
 					dev_t dev);
+
+struct inode *flatfs_iget(struct super_block *sb, unsigned long ino){
+
+return;
+
+};					
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
 //dir:父目录的inode；
 //dentry：本目录的dentry，需要关联到本目录的inode
@@ -15,11 +21,17 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct dentry *ret;
 	struct inode *inode;
 	printk(KERN_INFO "flatfs lookup");
-
+	ino = flatfs_inode_by_name(dir, &dentry->d_name);//不用查询目录文件，计算出ino
 	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
-
-	ret = d_splice_alias(inode, dentry);
-	return ret;
+	inode = NULL;
+	if (ino) {
+		inode = flatfs_iget(dir->i_sb, ino);//这里不用读盘了，直接返回有效的inode结构
+		if (inode == ERR_PTR(-ESTALE)) {
+			return ERR_PTR(-EIO);
+		}
+	}
+	return = d_splice_alias(inode, dentry);//将inode与dentry绑定
+	
 }
 
 static int
@@ -63,9 +75,9 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
 	printk(KERN_INFO "flatfs create");
-	printk(KERN_ALERT "--------------[create] dump_stack start----------------");
-	dump_stack();
-	printk(KERN_ALERT "--------------[create] dump_stack end----------------");
+	// printk(KERN_ALERT "--------------[create] dump_stack start----------------");
+	// dump_stack();
+	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");
 	return ffs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
 
