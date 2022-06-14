@@ -23,7 +23,8 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	printk(KERN_INFO "flatfs lookup");
 	ino = flatfs_inode_by_name(dir, &dentry->d_name);//不用查询目录文件，计算出ino
 	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
-	inode = NULL;
+	
+	inode->i_ino = ino;
 	if (ino) {
 		inode = flatfs_iget(dir->i_sb, ino);//这里不用读盘了，直接返回有效的inode结构
 		if (inode == ERR_PTR(-ESTALE)) {
@@ -63,13 +64,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[mkdir] dump_stack end----------------");
 	printk(KERN_INFO "flatfs mkdir");
-	int retval = 0;
-	
-	retval = ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
-
-	if (!retval)
-		inc_nlink(dir);
-	return retval;
+	return ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
 }
 
 static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
