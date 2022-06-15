@@ -38,9 +38,9 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 static int
 ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
-	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);
+	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配内存结构体
 	int error = -ENOSPC;
-	
+	//todo:分配ino
 	printk(KERN_INFO "flatfs: mknod\n");
 	if (inode) {
 		if (dir->i_mode & S_ISGID) {
@@ -52,7 +52,8 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，后期需修改 */
 		error = 0;
 		dir->i_mtime = dir->i_ctime = current_time(dir);
-
+		i_size_write(dir, dir_size + 1);
+		mark_inode_dirty(dir);//标记父目录为脏
 	}
 	return error;
 }

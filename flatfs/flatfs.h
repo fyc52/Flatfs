@@ -1,10 +1,26 @@
+#ifdef FLATFS_H
+#define FLATFS_H
+
+#include <linux/list.h>
+#include <linux/fs.h>
+#include <linux/rwsem.h>
+#include <linux/fscache.h>
+#include <linux/list_sort.h>
+#include <linux/slab.h>
+#include <linux/ktime.h>
+
+
+
 #define FLATFS_ROOT_I 2
 /* helpful if this is different than other fs */
 #define FLATFS_MAGIC     0x73616d70 /* "FLAT" */
 #define FLATFS_BSTORE_BLOCKSIZE		PAGE_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS	PAGE_SHIFT
 
-
+struct ffs_inode{//磁盘inode，仅用于恢复时读取
+   unsigned int size;//尺寸
+   uint64_t var; //lba
+}
 
 /* This is an example of filesystem specific mount data that a file system might
    want to store.  FS per-superblock data varies widely and some fs do not
@@ -21,3 +37,11 @@ FFS_SB(struct super_block *sb)
 {
 	return sb->s_fs_info;//文件系统特殊信息
 }
+
+typedef struct flatfs_inode_info{//用于同步内存缓冲区数据
+   struct inode vfs_inode;
+   struct rw_semaphore inode_lock;//读写锁
+   struct ffs_inode ino;//包含size,ino
+} ffs_inode_info;
+
+#endif
