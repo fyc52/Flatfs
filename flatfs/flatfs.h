@@ -20,12 +20,10 @@
 struct ffs_inode{//磁盘inode，仅用于恢复时读取
    unsigned int size;//尺寸
    uint64_t var; //lba
+   uint64_t ts;//时间戳
 }
 
-/* This is an example of filesystem specific mount data that a file system might
-   want to store.  FS per-superblock data varies widely and some fs do not
-   require any information beyond the generic info which is already in
-   struct super_block */
+/* ffs在内存superblock */
 struct flatfs_sb_info {//一般会包含信息和数据结构，kevin的db就是在这里实现的
 
 	int flags;
@@ -40,8 +38,8 @@ FFS_SB(struct super_block *sb)
 
 typedef struct flatfs_inode_info{//用于同步内存缓冲区数据
    struct inode vfs_inode;
-   struct rw_semaphore inode_lock;//读写锁
-   struct ffs_inode ino;//包含size,ino
+   //struct rw_semaphore inode_lock;//读写锁
+   struct ffs_inode ffs_inode;//包含size,ino
 } ffs_inode_info;
 
 #endif
