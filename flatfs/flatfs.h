@@ -17,10 +17,16 @@
 #define FLATFS_BSTORE_BLOCKSIZE		PAGE_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS	PAGE_SHIFT
 
+struct ffs_lba{
+unsigned long var;//ino
+unsigned size;  
+unsigned offset;
+}
+
 struct ffs_inode{//磁盘inode，仅用于恢复时读取
-   unsigned int size;//尺寸
-   uint64_t var; //lba
-   uint64_t ts;//时间戳
+   unsigned size;//尺寸
+   unsigned long var; //ino
+   unsigned long ts;//时间戳
 }
 
 /* ffs在内存superblock */
