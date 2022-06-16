@@ -36,10 +36,6 @@ FFS_SB(struct super_block *sb)
 	return sb->s_fs_info;//文件系统特殊信息
 }
 
-typedef struct flatfs_inode_info{//用于同步内存缓冲区数据
-   struct inode vfs_inode;
-   //struct rw_semaphore inode_lock;//读写锁
-   struct ffs_inode ffs_inode;//包含size,ino
-} ffs_inode_info;
+
 
 #endif
