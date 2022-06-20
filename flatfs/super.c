@@ -90,7 +90,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			// inode_nohighmem(inode);
 			// break;
 			}
-			//todo:分配ino,无需设置inode_bitmap;以后要改成从字符串计算得到ino
+			//todo:分配ino,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
 			inode->i_ino = atoi(dentry->d_name.name);
         }
         return inode;
@@ -141,9 +141,9 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
-	//return mount_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
+	return mount_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
 	printk(KERN_INFO "start mount of flatfs\n");
-	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
+	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
 }
 
 static void flatfs_kill_sb(struct super_block *sb)

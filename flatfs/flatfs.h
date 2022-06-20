@@ -1,4 +1,4 @@
-#ifdef FLATFS_H
+#ifndef FLATFS_H
 #define FLATFS_H
 
 #include <linux/list.h>
@@ -10,7 +10,7 @@
 #include <linux/ktime.h>
 
 
-
+#define META_LBA_OFFSET//数据区域要从这里开始计算
 #define FLATFS_ROOT_I 2
 /* helpful if this is different than other fs */
 #define FLATFS_MAGIC     0x73616d70 /* "FLAT" */
@@ -24,9 +24,9 @@ unsigned offset;
 }
 
 struct ffs_inode{//磁盘inode，仅用于恢复时读取
-   unsigned size;//尺寸
+   unsigned int size;//尺寸
    unsigned long var; //ino
-   unsigned long ts;//时间戳
+
 }
 
 /* ffs在内存superblock */
