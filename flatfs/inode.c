@@ -15,7 +15,7 @@ struct inode *flatfs_iget(struct super_block *sb, unsigned long ino){
 
 unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry){
 	//todo:分配ino,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
-	return simple_strtoul(dentry->d_name.name);
+	return simple_strtoul(dentry->d_name.name, NULL, 0);
 }
 
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
