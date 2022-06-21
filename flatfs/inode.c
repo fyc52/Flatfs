@@ -88,7 +88,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	return 0;
 }
 
-static int lightfs_unlink(struct inode *dir, struct dentry *dentry)
+static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
 	// to do: 删除磁盘 inode(lba通过inode->ino转换而来)
@@ -158,7 +158,7 @@ struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,
 	.lookup         = simple_lookup,//to do : look up parent dir for child‘s name
 	.link			= simple_link,
-	.unlink         = simple_unlink,
+	.unlink         = ffs_unlink,
 	//.symlink		= flatfs_symlik,
 	.mkdir          = ffs_mkdir,
 	.rmdir          = ffs_rmdir,
