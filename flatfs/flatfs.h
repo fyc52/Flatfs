@@ -17,15 +17,17 @@
 #define FLATFS_BSTORE_BLOCKSIZE		PAGE_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS	PAGE_SHIFT
 
+
+
 struct ffs_lba{
 unsigned long var;//ino
 unsigned size;  
 unsigned offset;
 }
-
+//在磁盘存放的位置：lba=0+ino；（lba0用于存sb）
 struct ffs_inode{//磁盘inode，仅用于恢复时读取
    unsigned int size;//尺寸
-   unsigned long var; //ino
+   unsigned long var; //ino/lba,充当数据指针
 
 }
 

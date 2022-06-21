@@ -90,8 +90,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			// inode_nohighmem(inode);
 			// break;
 			}
-			//todo:分配ino,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
-			inode->i_ino = atoi(dentry->d_name.name);
+					
         }
         return inode;
 	
