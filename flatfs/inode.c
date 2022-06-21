@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <stdlib.h>
 #include <linux/fs.h>
 #include "flatfs.h"
 
@@ -9,7 +10,6 @@ extern struct inode *flatfs_get_inode(struct super_block *sb, int mode,
 
 struct inode *flatfs_iget(struct super_block *sb, unsigned long ino){
 
-return;
 
 };			
 
@@ -27,15 +27,15 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct dentry *ret;
 	struct inode *inode;
 	printk(KERN_INFO "flatfs lookup");
-	unsigned long ino = flatfs_inode_by_name(dir, &dentry->d_name);	//不用查询目录文件，计算出ino
+	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
 	
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);
 	
-	return = d_splice_alias(inode, dentry);//将inode与dentry绑定
+	return d_splice_alias(inode, dentry);//将inode与dentry绑定
 }
 
-static int ffs_add_entry(struct inode *dir){
+void ffs_add_entry(struct inode *dir){
 	loff_t dir_size = i_size_read(dir);
 	i_size_write(dir, dir_size + 1);//父目录vfs inode i_size+1
 	mark_inode_dirty(dir);//标记父目录为脏
@@ -49,7 +49,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	inode->i_ino = flatfs_inode_by_name(dir,dentry);//为新inode分配ino#
 	printk(KERN_INFO "flatfs: mknod\n");
 	if (inode) {
-		spin_lock(dir->i_lock);
+		//spin_lock(dir->i_lock);
 		if (dir->i_mode & S_ISGID) {
 			inode->i_gid = dir->i_gid;
 			if (S_ISDIR(mode))
@@ -60,7 +60,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联,只有目录类型的inode才会调用该函数指针。
 		
 		ffs_add_entry(dir);//写父目录
-		spin_unlock(dir->i_lock);
+		//spin_unlock(dir->i_lock);
 		//同步数据
 		return 0;
 	}
