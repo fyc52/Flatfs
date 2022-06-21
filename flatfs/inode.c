@@ -8,10 +8,7 @@ extern struct dentry_operations ffs_ci_dentry_ops;
 extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, 
 					dev_t dev);
 
-struct inode *flatfs_iget(struct super_block *sb, unsigned long ino){
 
-
-};			
 
 unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry){
 	//todo:分配ino,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
