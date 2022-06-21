@@ -13,7 +13,7 @@
 #include <linux/parser.h>
 #include <linux/magic.h>
 #include <linux/uaccess.h>
-#include <cstdlib>
+//#include <cstdlib>
 #include <iostream>
 #include "flatfs.h"
 
@@ -140,9 +140,9 @@ static int flatfs_fill_super(struct super_block * sb, void * data, int silent)//
 static struct dentry *flatfs_mount(struct file_system_type *fs_type,
         int flags, const char *dev_name, void *data)
 {
-	return mount_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
+	//return mount_nodev(fs_type, flags, data, flatfs_fill_super);//内存文件系统，无实际设备,https://zhuanlan.zhihu.com/p/482045070
 	printk(KERN_INFO "start mount of flatfs\n");
-	//return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
+	return mount_bdev(fs_type, flags, dev_name, data, flatfs_fill_super);
 }
 
 static void flatfs_kill_sb(struct super_block *sb)

@@ -13,9 +13,9 @@ return;
 
 };			
 
-unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry, struct inode *inode){
+unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry){
 	//todo:分配ino,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
-	inode->i_ino = atoi(dentry->d_name.name);
+	return atoi(dentry->d_name.name);
 }
 
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
@@ -27,18 +27,12 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct dentry *ret;
 	struct inode *inode;
 	printk(KERN_INFO "flatfs lookup");
-	ino = flatfs_inode_by_name(dir, &dentry->d_name, inode);//不用查询目录文件，计算出ino
-	// struct flatfs_sb_info * ffs_sb = FFS_SB(dir->i_sb);
+	unsigned long ino = flatfs_inode_by_name(dir, &dentry->d_name);	//不用查询目录文件，计算出ino
 	
-	inode->i_ino = ino;
-	if (ino) {
-		inode = flatfs_iget(dir->i_sb, ino);//这里不用读盘了，直接返回有效的inode结构
-		if (inode == ERR_PTR(-ESTALE)) {
-			return ERR_PTR(-EIO);
-		}
-	}
+	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
+	inode = iget_locked(dir->i_sb, ino);
+	
 	return = d_splice_alias(inode, dentry);//将inode与dentry绑定
-	
 }
 
 static int ffs_add_entry(struct inode *dir){
@@ -52,7 +46,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
-	flatfs_inode_by_name(dir,dentry,inode);//为inode分配ino#
+	inode->i_ino = flatfs_inode_by_name(dir,dentry);//为新inode分配ino#
 	printk(KERN_INFO "flatfs: mknod\n");
 	if (inode) {
 		spin_lock(dir->i_lock);
