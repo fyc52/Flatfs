@@ -14,7 +14,7 @@
 #include <linux/magic.h>
 #include <linux/uaccess.h>
 //#include <cstdlib>
-#include <iostream>
+//#include <iostream>
 #include "flatfs.h"
 
 
