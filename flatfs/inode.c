@@ -44,7 +44,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
 	inode->i_ino = flatfs_inode_by_name(dir,dentry);//为新inode分配ino#
-	printk(KERN_INFO "flatfs: mknod\n");
+	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
 	if (inode) {
 		//spin_lock(dir->i_lock);
 		if (dir->i_mode & S_ISGID) {
@@ -52,11 +52,12 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 			if (S_ISDIR(mode))
 				inode->i_mode |= S_ISGID;
 		}
-		dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，弃用 */
+		//dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，弃用 */
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联,只有目录类型的inode才会调用该函数指针。
 		
 		ffs_add_entry(dir);//写父目录
+		printk(KERN_INFO "flatfs: mknod dir size is = %llu\n",dir->i_size);
 		//spin_unlock(dir->i_lock);
 		//同步数据
 		return 0;
