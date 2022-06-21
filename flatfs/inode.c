@@ -80,10 +80,14 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	struct inode * inode = d_inode(dentry);
 	loff_t dir_size;
 	// to do: 删除磁盘dentry目录的inode(lba通过inode->ino转换而来)
-	dir_size = i_size_read(inode);
-	clear_nlink(inode);
-	mark_inode_dirty(inode);
 	
+	int err = ffs_unlink(dir,dentry);
+	if(!err){
+		inode->i_size = 0;
+		inode_dec_link_count(inode);
+		inode_dec_link_count(dir);
+	}
+
 	//to do:减少全局size table中父目录的size,并更新磁盘上父目录的inode.size
 
 	return 0;
