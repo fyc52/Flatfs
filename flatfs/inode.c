@@ -74,24 +74,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	printk(KERN_INFO "flatfs mkdir");
 	return ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
 }
-//目录的nlink在创建子目录和删除时均不变，因此只需要清楚被删除的目录的nlink即可
-static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
-{
-	struct inode * inode = d_inode(dentry);
-	loff_t dir_size;
-	// to do: 删除磁盘dentry目录的inode(lba通过inode->ino转换而来)
-	
-	int err = ffs_unlink(dir,dentry);
-	if(!err){
-		inode->i_size = 0;
-		inode_dec_link_count(inode);
-		inode_dec_link_count(dir);
-	}
 
-	//to do:减少全局size table中父目录的size,并更新磁盘上父目录的inode.size
-
-	return 0;
-}
 
 static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 {
@@ -104,6 +87,26 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	//to do:减少全局size table中父目录的size,并更新磁盘上父目录的inode.size
 	return 0;
 }
+
+static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
+{
+	struct inode * inode = d_inode(dentry);
+	loff_t dir_size;
+	// to do: 考虑是否处理子目录和子文件
+	
+	int err = ffs_unlink(dir,dentry);
+	if(!err){
+		inode->i_size = 0;
+		inode_dec_link_count(inode);
+		inode_dec_link_count(dir);
+	}
+
+	
+
+	return 0;
+}
+
+
 
 static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
