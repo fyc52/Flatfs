@@ -74,6 +74,32 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	printk(KERN_INFO "flatfs mkdir");
 	return ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
 }
+//目录的nlink在创建子目录和删除时均不变，因此只需要清楚被删除的目录的nlink即可
+static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
+{
+	struct inode * inode = d_inode(dentry);
+	loff_t dir_size;
+
+	dir_size = i_size_read(inode);
+	clear_nlink(inode);
+	mark_inode_dirty(inode);
+	
+
+	return 0;
+}
+
+static int lightfs_unlink(struct inode *dir, struct dentry *dentry)
+{
+	struct inode *inode = dentry->d_inode;
+	flatfs_inode_by_name
+	// to do: 删除磁盘 inode
+	inode_dec_link_count(inode);
+	loff_t dir_size = i_size_read(dir);
+	i_size_write(dir, dir_size - 1);
+	mark_inode_dirty(dir);
+	//to do:减少全局size table中dir的size,并更新磁盘目录inode.size
+	return 0;
+}
 
 static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
@@ -136,7 +162,7 @@ struct inode_operations ffs_dir_inode_ops = {
 	.unlink         = simple_unlink,
 	//.symlink		= flatfs_symlik,
 	.mkdir          = ffs_mkdir,
-	.rmdir          = simple_rmdir,
+	.rmdir          = ffs_rmdir,
 	.mknod          = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
 	.rename         = simple_rename,
 };
