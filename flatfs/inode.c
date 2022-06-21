@@ -91,8 +91,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 static int lightfs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
-	flatfs_inode_by_name
-	// to do: 删除磁盘 inode
+	// to do: 删除磁盘 inode(lba通过inode->ino转换而来)
 	inode_dec_link_count(inode);
 	loff_t dir_size = i_size_read(dir);
 	i_size_write(dir, dir_size - 1);
