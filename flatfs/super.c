@@ -73,7 +73,6 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
-			inc_nlink(inode);//普通文件的硬连接数为1
 			break;
 		case S_IFDIR: /* directory 目录文件*/
 
