@@ -67,7 +67,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[mkdir] dump_stack end----------------");
 	printk(KERN_INFO "flatfs mkdir");
-	ret = ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
+	int ret = ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
 	if (!ret)
 		inc_nlink(dir);
 	return ret;
