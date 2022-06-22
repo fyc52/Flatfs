@@ -47,11 +47,6 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
 	if (inode) {
 		//spin_lock(dir->i_lock);
-		if (dir->i_mode & S_ISGID) {
-			inode->i_gid = dir->i_gid;
-			if (S_ISDIR(mode))
-				inode->i_mode |= S_ISGID;
-		}
 		dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，弃用 */
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联,只有目录类型的inode才会调用该函数指针。
@@ -72,7 +67,10 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[mkdir] dump_stack end----------------");
 	printk(KERN_INFO "flatfs mkdir");
-	return ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
+	ret = ffs_mknod(dir, dentry, mode | S_IFDIR, 0);
+	if (!ret)
+		inc_nlink(dir);
+	return ret;
 }
 
 
