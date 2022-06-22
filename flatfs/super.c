@@ -73,13 +73,13 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
+			inc_nlink(inode);//普通文件的硬连接数为1
 			break;
 		case S_IFDIR: /* directory 目录文件*/
 
 			inode->i_op = &ffs_dir_inode_ops;
 			inode->i_fop = &simple_dir_operations;
-			/* link == 2 (for initial ".." and "." entries) */
-			inc_nlink(inode); // i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2
+			inc_nlink(inode); // i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2；这里只加1，外层再加1
 			break;
 			//     case S_IFLNK://symlink
 			// inode->i_op = &page_symlink_inode_operations;

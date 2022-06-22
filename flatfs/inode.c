@@ -49,7 +49,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		//spin_lock(dir->i_lock);
 		dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，弃用 */
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
-		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联,只有目录类型的inode才会调用该函数指针。
+		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
 		
 		ffs_add_entry(dir);//写父目录
 		printk(KERN_INFO "flatfs: mknod dir size is = %llu\n",dir->i_size);
