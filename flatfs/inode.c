@@ -165,7 +165,7 @@ struct inode_operations ffs_file_inode_ops = {
 
 struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,
-	.lookup         = ffs_lookup,//to do : look up parent dir for child‘s name
+	.lookup         = simple_lookup,//to do : look up parent dir for child‘s name
 	.link			= simple_link,
 	.unlink         = ffs_unlink,
 	//.symlink		= flatfs_symlik,
