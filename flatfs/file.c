@@ -52,6 +52,7 @@ struct file_operations ffs_file_file_ops = {
 
 static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	printk(KERN_INFO "flatfs read dir");
+	return 0;
 }
 
 static const struct file_operations ffs_dir_operations = {
