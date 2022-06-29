@@ -1,6 +1,6 @@
 #include <linux/module.h>
 #include <linux/fs.h>
-#include "flatfs.h"
+#include "flatfs_d.h"
 
 
 char calculate_filename(char *name)

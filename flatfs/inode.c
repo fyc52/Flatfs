@@ -1,7 +1,7 @@
 #include <linux/module.h>
 //#include <stdlib.h>//内核模块不能使用
 #include <linux/fs.h>
-#include "flatfs.h"
+#include "flatfs_d.h"
 
 
 extern struct dentry_operations ffs_dentry_ops;

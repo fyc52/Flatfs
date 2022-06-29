@@ -15,7 +15,7 @@
 #include <linux/uaccess.h>
 //#include <cstdlib>
 //#include <iostream>
-#include "flatfs.h"
+#include "flatfs_d.h"
 
 
 extern struct inode_operations ffs_dir_inode_ops;

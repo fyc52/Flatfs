@@ -1,5 +1,4 @@
-#ifndef FLATFS_H
-#define FLATFS_H
+
 
 #include <linux/list.h>
 #include <linux/fs.h>
@@ -47,4 +46,3 @@ FFS_SB(struct super_block *sb)
 }
 
 
-#endif
