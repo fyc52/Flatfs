@@ -9,5 +9,5 @@
 3. 目前挂载在内存上；之后需要挂载到盘上并修改sb，inode，file等数据结构的分配方式
 
 ## How to run
-
-编译生成.ko模块，sudo insmod flatfs.ko,然后 mount文件系统到bdev
+先运行femu，下载flatfs代码
+make编译生成.ko模块，sudo insmod flatfs.ko,然后 mount文件系统到bdev

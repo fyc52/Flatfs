@@ -170,4 +170,4 @@ static void __exit exit_flatfs_fs(void)
 }
 
 module_init(init_flatfs_fs) //宏：模块加载, 调用init_flatfs_fs
-	module_exit(exit_flatfs_fs)
+module_exit(exit_flatfs_fs)
