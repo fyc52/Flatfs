@@ -2,7 +2,7 @@
 //#include <stdlib.h>//内核模块不能使用
 #include <linux/fs.h>
 #include "flatfs.h"
-#include "parse_fname.h"
+
 
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;

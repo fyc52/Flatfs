@@ -16,7 +16,7 @@
 //#include <cstdlib>
 //#include <iostream>
 #include "flatfs.h"
-#include "parse_fname.h"
+
 
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
