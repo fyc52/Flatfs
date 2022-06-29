@@ -21,6 +21,7 @@ extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;
 extern struct address_space_operations ffs_aops;
+extern struct file_operations ffs_dir_operations;
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {
