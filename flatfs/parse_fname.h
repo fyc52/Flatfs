@@ -1,3 +1,6 @@
+#ifndef PAERSENAME_H
+#define PAERSENAME_H
+
 #define TOTAL_DEPTH 8
 
 
@@ -50,3 +53,5 @@ unsigned long calculate_slba(struct inode* dir, struct dentry* dentry)
 
 	return var;
 }
+
+#endif
