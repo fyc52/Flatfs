@@ -1,3 +1,6 @@
+#include "flatfs.h"
+
+
 char calculate_filename(char *name)
 {
 	int i = 0;
