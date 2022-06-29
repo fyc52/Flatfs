@@ -50,3 +50,13 @@ struct file_operations ffs_file_file_ops = {
 	.llseek         = generic_file_llseek,
 };
 
+static int ffs_readdir(struct file *file, struct dir_context *ctx){
+	printk(KERN_INFO "flatfs read dir");
+}
+
+static const struct file_operations ffs_dir_operations = {
+	.read			= generic_read_dir,
+	.iterate		= ffs_readdir,
+	//.fsync		= lightfs_fsync,
+	//.release		= lightfs_dir_release,
+};
