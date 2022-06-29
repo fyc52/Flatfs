@@ -14,8 +14,8 @@ extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
 
 unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry){
 	//todo:分配ino==slba,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
-	//return simple_strtoul(dentry->d_name.name, NULL, 0);
-	return calculate_slba(dir,dentry);
+	return simple_strtoul(dentry->d_name.name, NULL, 0);
+	//return calculate_slba(dir,dentry);
 }
 
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
@@ -165,7 +165,7 @@ struct inode_operations ffs_file_inode_ops = {
 
 struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,
-	.lookup         = simple_lookup,//to do : look up parent dir for child‘s name
+	.lookup         = ffs_lookup,//to do : change to ffs_lookup
 	.link			= simple_link,
 	.unlink         = ffs_unlink,
 	//.symlink		= flatfs_symlik,
