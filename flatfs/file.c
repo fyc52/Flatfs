@@ -55,7 +55,7 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	return 0;
 }
 
-static const struct file_operations ffs_dir_operations = {
+struct file_operations ffs_dir_operations = {
 	.read			= generic_read_dir,
 	.iterate		= ffs_readdir,
 	//.fsync		= lightfs_fsync,
