@@ -104,7 +104,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	printk(KERN_INFO "flatfs: fill super\n");
 
 	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
-
+	inode->i_ino = 0x00000000UL;//为根inode分配ino#
 	if (!inode)
 		return -ENOMEM;
 
