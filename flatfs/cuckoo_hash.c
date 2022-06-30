@@ -2,10 +2,10 @@
 //#include <stdlib.h>
 //#include <unistd.h>
 //#include <malloc.h>
-#include <sys/mman.h>
+//#include <sys/mman.h>
 #include <string.h>
 #include <time.h>
-#include <sys/time.h>
+//#include <sys/time.h>
 
 #include "cuckoo_hash.h"
 #include "hash.h"
