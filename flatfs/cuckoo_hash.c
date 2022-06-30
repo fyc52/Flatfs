@@ -85,14 +85,14 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
     if (table_len < PAGE_SIZE || table_len % PAGE_SIZE != 0)
     {
         printk(KERN_INFO "cuckoo table size error, not page aligned\n");
-        exit(1);
+        return -ENOSPC;
     }
 
     cuckoo = (cuckoo_hash_t *)kzalloc(sizeof(cuckoo_hash_t),GFP_KERNEL);
     if (!cuckoo)
     {
         printk(KERN_INFO "cuckoo alloc fails\n");
-        exit(1);
+        return -ENOSPC;
     }
     // else
     // {
@@ -104,14 +104,14 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
     if (!cuckoo->evict_path1 || !cuckoo->evict_path2)
     {
         printk(KERN_INFO "paths alloc fails\n");
-        exit(1);
+        return -ENOSPC;
     }
 
     cuckoo->table = (bucket_t *)kzalloc(table_len, GFP_KERNEL);
     if (!cuckoo->table)
     {
         printk(KERN_INFO "cuckoo table alloc fails\n");
-        exit(1);
+        return -ENOSPC;
     }
     else
     {
@@ -162,7 +162,7 @@ unsigned long find_path(cuckoo_hash_t *cuckoo, unsigned long bucket, unsigned lo
         else
         {
             printk(KERN_INFO "find path error\n");
-            exit(1);
+            return -ENOSPC;
         }
 
         tmpnode.pre_bucket = cur_bucket;
@@ -352,7 +352,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
     if (!new_table)
     {
         printk(KERN_INFO "resize alloc fails\n");
-        exit(1);
+        return -ENOSPC;
     }
     else
     {
@@ -413,7 +413,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
                         printk(KERN_INFO "resize fail1 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                         print_cuckoo(old_table, old_table_capacity);
                         print_cuckoo(new_table, new_table_capacity);
-                        exit(1);
+                        return -ENOSPC;
                     }
                 }
                 else if (f_off == cur_idx)
@@ -434,7 +434,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
                         printk(KERN_INFO "resize fail2 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                         print_cuckoo(old_table, old_table_capacity);
                         print_cuckoo(new_table, new_table_capacity);
-                        exit(1);
+                        return -ENOSPC;
                     }
                 }
                 else if (s_off == cur_idx)
@@ -455,13 +455,13 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
                         printk(KERN_INFO "resize fail3 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                         print_cuckoo(old_table, old_table_capacity);
                         print_cuckoo(new_table, new_table_capacity);
-                        exit(1);
+                        return -ENOSPC;
                     }
                 }
                 else
                 {
                     printk(KERN_INFO "offset error! cur_idx = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, f_idx, s_idx);
-                    exit(1);
+                    return -ENOSPC;
                 }
 #else
                 for (unsigned long k = 0; k < CUCKOO_HASH_ASSOC_NUM; k++)
@@ -487,7 +487,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
                     printk(KERN_INFO "resize fail cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                     print_cuckoo(old_table, old_table_capacity);
                     print_cuckoo(new_table, new_table_capacity);
-                    exit(1);
+                    return -ENOSPC;
                 }
 #endif
             }
