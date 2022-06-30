@@ -5,8 +5,6 @@ obj-m += flatfs.o #obj-m:告知Kbuild编译成.ko模块
 
 flatfs-objs := super.o inode.o file.o flatfs_d.o hash.o cuckoo_hash.o#对应上面一行，等号右侧是依赖
 
-KBUILD_CFLAGS += $(call cc-option,-ffreestanding)
-
 all:
 	make -C $(KERNELDIR) M=$(PWD) modules
 
