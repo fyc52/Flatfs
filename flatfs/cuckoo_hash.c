@@ -7,7 +7,7 @@
 //#include <time.h>
 //#include <sys/time.h>
 #include <linux/string.h>
-#include <linux/kernel.h>
+#include <linux/random.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/time.h>
@@ -80,13 +80,17 @@ unsigned long S_IDX(unsigned long hashKey, unsigned long capacity)
 
 void generate_seeds(cuckoo_hash_t *cuckoo)
 {
-    unsigned long seed;
+    unsigned long seed1,seed2,seed3,seed4;
     do
     {
-        cuckoo->f_seed = get_random_bytes(&seed, sizeof(unsigned long));
-        cuckoo->s_seed = get_random_bytes(&seed, sizeof(unsigned long));
-        cuckoo->f_seed = cuckoo->f_seed << (get_random_bytes(&seed, sizeof(unsigned long)) % 63);
-        cuckoo->s_seed = cuckoo->s_seed << (get_random_bytes(&seed, sizeof(unsigned long)) % 63);
+        get_random_bytes(&seed1, sizeof(unsigned long));
+        get_random_bytes(&seed2, sizeof(unsigned long));
+        get_random_bytes(&seed3, sizeof(unsigned long));
+        get_random_bytes(&seed4, sizeof(unsigned long));
+        cuckoo->f_seed = seed1;
+        cuckoo->s_seed = seed2;
+        cuckoo->f_seed = cuckoo->f_seed << (seed3 % 63);
+        cuckoo->s_seed = cuckoo->s_seed << (seed4 % 63);
     } while (cuckoo->f_seed == cuckoo->s_seed);
 }
 
