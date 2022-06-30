@@ -96,7 +96,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 {
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
-	cuckoo_hash_t *cuckoo = cuckoo_hash_init(25000000);
+	cuckoo_hash_t *cuckoo = cuckoo_hash_init(25);
 	ffs_sb->cuckoo = cuckoo;
 
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
