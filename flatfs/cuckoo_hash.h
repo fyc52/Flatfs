@@ -2,7 +2,7 @@
 #define CUCKOO_HASH_H_
 
 #include <stdint.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdlib.h>
 
 #define RESIZE_SAME_OFFSET
