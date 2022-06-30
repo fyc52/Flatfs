@@ -26,7 +26,7 @@ unsigned long calculate_part_lba(char s, int depth)
 
 int parse_depth(unsigned long ino){
 	int depth = 1;
-	uint8_t mask1 = 255;//设定一级目录8bit
+	unsigned char mask1 = 255;//设定一级目录8bit
 
 	if(!ino)
 		return 0;//at root dir

@@ -17,7 +17,7 @@ pid_t pid = 1;
 Function: F_HASH()
         Compute the first hash value of a key-value item
 */
-uint64_t F_HASH(cuckoo_hash_t *cuckoo, const uint8_t *key)
+unsigned long F_HASH(cuckoo_hash_t *cuckoo, const unsigned char *key)
 {
     return (hash((void *)key, strlen(key), cuckoo->f_seed));
 }
@@ -26,7 +26,7 @@ uint64_t F_HASH(cuckoo_hash_t *cuckoo, const uint8_t *key)
 Function: S_HASH() 
         Compute the second hash value of a key-value item
 */
-uint64_t S_HASH(cuckoo_hash_t *cuckoo, const uint8_t *key)
+unsigned long S_HASH(cuckoo_hash_t *cuckoo, const unsigned char *key)
 {
     return (hash((void *)key, strlen(key), cuckoo->s_seed));
 }
@@ -35,7 +35,7 @@ uint64_t S_HASH(cuckoo_hash_t *cuckoo, const uint8_t *key)
 Function: F_IDX() 
         Compute the second hash location
 */
-uint64_t F_IDX(uint64_t hashKey, uint64_t capacity)
+unsigned long F_IDX(unsigned long hashKey, unsigned long capacity)
 {
 #ifdef RESIZE_SAME_OFFSET
     return hashKey % capacity;
@@ -48,7 +48,7 @@ uint64_t F_IDX(uint64_t hashKey, uint64_t capacity)
 Function: S_IDX() 
         Compute the second hash location
 */
-uint64_t S_IDX(uint64_t hashKey, uint64_t capacity)
+unsigned long S_IDX(unsigned long hashKey, unsigned long capacity)
 {
 #ifdef RESIZE_SAME_OFFSET
     return hashKey % capacity;
@@ -69,10 +69,10 @@ void generate_seeds(cuckoo_hash_t *cuckoo)
     } while (cuckoo->f_seed == cuckoo->s_seed);
 }
 
-cuckoo_hash_t *cuckoo_hash_init(uint64_t capacity)
+cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
 {
     cuckoo_hash_t *cuckoo = NULL;
-    uint64_t table_len = sizeof(bucket_t) * capacity;
+    unsigned long table_len = sizeof(bucket_t) * capacity;
 
     if (table_len < PAGE_SIZE || table_len % PAGE_SIZE != 0)
     {
@@ -122,24 +122,24 @@ cuckoo_hash_t *cuckoo_hash_init(uint64_t capacity)
     return cuckoo;
 }
 
-uint64_t find_path(cuckoo_hash_t *cuckoo, uint64_t bucket, uint64_t slot, int path)
+unsigned long find_path(cuckoo_hash_t *cuckoo, unsigned long bucket, unsigned long slot, int path)
 {
     path_node_t *paths = (path == 1 ? cuckoo->evict_path1 : cuckoo->evict_path2);
-    uint64_t cur_bucket = bucket;
-    uint64_t cur_slot = slot;
-    uint64_t used_node_number = 0;
+    unsigned long cur_bucket = bucket;
+    unsigned long cur_slot = slot;
+    unsigned long used_node_number = 0;
     int valid = 0;
     path_node_t tmpnode;
-    uint64_t i;
+    unsigned long i;
 
     while (used_node_number < MAX_EVICTION)
     {
-        uint8_t *key = cuckoo->table[cur_bucket].slot[cur_slot].key;
-        uint64_t f_hash = F_HASH(cuckoo, key);
-        uint64_t s_hash = S_HASH(cuckoo, key);
-        uint64_t f_idx = F_IDX(f_hash, cuckoo->capacity);
-        uint64_t s_idx = S_IDX(s_hash, cuckoo->capacity);
-        uint64_t evict_bucket;
+        unsigned char *key = cuckoo->table[cur_bucket].slot[cur_slot].key;
+        unsigned long f_hash = F_HASH(cuckoo, key);
+        unsigned long s_hash = S_HASH(cuckoo, key);
+        unsigned long f_idx = F_IDX(f_hash, cuckoo->capacity);
+        unsigned long s_idx = S_IDX(s_hash, cuckoo->capacity);
+        unsigned long evict_bucket;
 
         cuckoo->find_path++;
 
@@ -181,10 +181,10 @@ uint64_t find_path(cuckoo_hash_t *cuckoo, uint64_t bucket, uint64_t slot, int pa
     return 0;
 }
 
-void execute_path(cuckoo_hash_t *cuckoo, path_node_t *paths, uint64_t path_len)
+void execute_path(cuckoo_hash_t *cuckoo, path_node_t *paths, unsigned long path_len)
 {
-    uint64_t pre_bucket, next_bucket;
-    uint64_t pre_slot, next_slot;
+    unsigned long pre_bucket, next_bucket;
+    unsigned long pre_slot, next_slot;
     int64_t i;
 
     for (i = path_len - 1; i >= 0; --i)
@@ -198,16 +198,16 @@ void execute_path(cuckoo_hash_t *cuckoo, path_node_t *paths, uint64_t path_len)
     }
 }
 
-status_t cuckoo_insert(cuckoo_hash_t *cuckoo, uint8_t *key, uint8_t *value)
+status_t cuckoo_insert(cuckoo_hash_t *cuckoo, unsigned char *key, unsigned char *value)
 {
-    uint64_t f_hash = F_HASH(cuckoo, key);
-    uint64_t s_hash = S_HASH(cuckoo, key);
-    uint64_t f_idx = F_IDX(f_hash, cuckoo->capacity);
-    uint64_t s_idx = S_IDX(s_hash, cuckoo->capacity);
+    unsigned long f_hash = F_HASH(cuckoo, key);
+    unsigned long s_hash = S_HASH(cuckoo, key);
+    unsigned long f_idx = F_IDX(f_hash, cuckoo->capacity);
+    unsigned long s_idx = S_IDX(s_hash, cuckoo->capacity);
     path_node_t *path;
-    uint64_t path_len, path_len1, path_len2;
-    uint64_t tmp_idx;
-    uint64_t i;
+    unsigned long path_len, path_len1, path_len2;
+    unsigned long tmp_idx;
+    unsigned long i;
 
     for (i = 0; i < CUCKOO_HASH_ASSOC_NUM; i++)
     {
@@ -276,13 +276,13 @@ status_t cuckoo_insert(cuckoo_hash_t *cuckoo, uint8_t *key, uint8_t *value)
     return FAIL;
 }
 
-status_t cuckoo_update(cuckoo_hash_t *cuckoo, uint8_t *key, uint8_t *value)
+status_t cuckoo_update(cuckoo_hash_t *cuckoo, unsigned char *key, unsigned char *value)
 {
-    uint64_t f_hash = F_HASH(cuckoo, key);
-    uint64_t s_hash = S_HASH(cuckoo, key);
-    uint64_t f_idx = F_IDX(f_hash, cuckoo->capacity);
-    uint64_t s_idx = S_IDX(s_hash, cuckoo->capacity);
-    uint64_t i;
+    unsigned long f_hash = F_HASH(cuckoo, key);
+    unsigned long s_hash = S_HASH(cuckoo, key);
+    unsigned long f_idx = F_IDX(f_hash, cuckoo->capacity);
+    unsigned long s_idx = S_IDX(s_hash, cuckoo->capacity);
+    unsigned long i;
 
     for (i = 0; i < CUCKOO_HASH_ASSOC_NUM; i++)
     {
@@ -303,13 +303,13 @@ status_t cuckoo_update(cuckoo_hash_t *cuckoo, uint8_t *key, uint8_t *value)
     return FAIL;
 }
 
-status_t cuckoo_query(cuckoo_hash_t *cuckoo, uint8_t *key, uint8_t *value)
+status_t cuckoo_query(cuckoo_hash_t *cuckoo, unsigned char *key, unsigned char *value)
 {
-    uint64_t f_hash = F_HASH(cuckoo, key);
-    uint64_t s_hash = S_HASH(cuckoo, key);
-    uint64_t f_idx = F_IDX(f_hash, cuckoo->capacity);
-    uint64_t s_idx = S_IDX(s_hash, cuckoo->capacity);
-    uint64_t i;
+    unsigned long f_hash = F_HASH(cuckoo, key);
+    unsigned long s_hash = S_HASH(cuckoo, key);
+    unsigned long f_idx = F_IDX(f_hash, cuckoo->capacity);
+    unsigned long s_idx = S_IDX(s_hash, cuckoo->capacity);
+    unsigned long i;
 
     for (i = 0; i < CUCKOO_HASH_ASSOC_NUM; i++)
     {
@@ -331,14 +331,14 @@ status_t cuckoo_query(cuckoo_hash_t *cuckoo, uint8_t *key, uint8_t *value)
 status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
 {
     bucket_t *old_table = cuckoo->table, *new_table = NULL;
-    uint64_t old_table_capacity = cuckoo->capacity;
-    uint64_t new_table_capacity = cuckoo->capacity * RESIZE_FACTOR;
-    uint64_t cur_idx;
-    uint64_t f_hash, s_hash, f_idx, s_idx;
+    unsigned long old_table_capacity = cuckoo->capacity;
+    unsigned long new_table_capacity = cuckoo->capacity * RESIZE_FACTOR;
+    unsigned long cur_idx;
+    unsigned long f_hash, s_hash, f_idx, s_idx;
     int64_t f_off = 0, s_off = 0, rehash = 0;
-    uint64_t new_table_len = new_table_capacity * sizeof(bucket_t);
-    uint8_t *key, *value;
-    uint64_t i, j, k;
+    unsigned long new_table_len = new_table_capacity * sizeof(bucket_t);
+    unsigned char *key, *value;
+    unsigned long i, j, k;
 
     new_table = (bucket_t *)kzalloc(new_table_capacity * sizeof(bucket_t), GFP_KERNEL);
     if (!new_table)
@@ -348,12 +348,12 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
     }
     else
     {
-        // syscall(__NR_kvremap, (uint64_t)new_table, new_table_len, 0, getpid());
+        // syscall(__NR_kvremap, (unsigned long)new_table, new_table_len, 0, getpid());
         memset(new_table, 0, new_table_len);
         cuckoo->init_write += new_table_capacity * CUCKOO_HASH_ASSOC_NUM;
     }
 
-    // printf("old_table = %p, table tail = %#lx, new_table = %p, new_table tail = %#lx\n", old_table, (uint64_t)old_table + old_table_capacity * sizeof(bucket_t), new_table, (uint64_t)new_table + new_table_capacity * sizeof(bucket_t));
+    // printf("old_table = %p, table tail = %#lx, new_table = %p, new_table tail = %#lx\n", old_table, (unsigned long)old_table + old_table_capacity * sizeof(bucket_t), new_table, (unsigned long)new_table + new_table_capacity * sizeof(bucket_t));
 
 #ifdef FORK_TEST
     pid = fork();
@@ -456,7 +456,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
                     exit(EXIT_FAILURE);
                 }
 #else
-                for (uint64_t k = 0; k < CUCKOO_HASH_ASSOC_NUM; k++)
+                for (unsigned long k = 0; k < CUCKOO_HASH_ASSOC_NUM; k++)
                 {
                     if (strcmp((const char *)new_table[f_idx].slot[k].key, INVALID) == 0)
                     {
@@ -499,9 +499,9 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
     return SUCCESS;
 }
 
-void print_cuckoo(bucket_t *table, uint64_t capacity)
+void print_cuckoo(bucket_t *table, unsigned long capacity)
 {
-    uint64_t i = 0, j = 0;
+    unsigned long i = 0, j = 0;
 
     for (i = 0; i < capacity; i++)
     {

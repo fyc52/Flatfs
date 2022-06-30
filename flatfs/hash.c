@@ -14,49 +14,49 @@
 
 typedef struct U64_INT
 {
-    uint64_t v;
+    unsigned long v;
 } U64_INT;
 
 typedef struct U32_INT
 {
-    uint32_t v;
+    unsigned int v;
 } U32_INT;
 
-uint64_t hash_read64_align(const void *ptr, uint32_t align)
+unsigned long hash_read64_align(const void *ptr, unsigned int align)
 {
     if (align == 0)
     {
         return TO64(ptr);
     }
-    return *(uint64_t *)ptr;
+    return *(unsigned long *)ptr;
 }
 
-uint32_t hash_read32_align(const void *ptr, uint32_t align)
+unsigned int hash_read32_align(const void *ptr, unsigned int align)
 {
     if (align == 0)
     {
         return TO32(ptr);
     }
-    return *(uint32_t *)ptr;
+    return *(unsigned int *)ptr;
 }
 
 /*
 Function: string_key_hash_computation() 
         A hash function for string keys
 */
-uint64_t string_key_hash_computation(const void *data, uint64_t length, uint64_t seed, uint32_t align)
+unsigned long string_key_hash_computation(const void *data, unsigned long length, unsigned long seed, unsigned int align)
 {
-    const uint8_t *p = (const uint8_t *)data;
-    const uint8_t *end = p + length;
-    uint64_t hash;
+    const unsigned char *p = (const unsigned char *)data;
+    const unsigned char *end = p + length;
+    unsigned long hash;
 
     if (length >= 32)
     {
-        const uint8_t *const limitation = end - 32;
-        uint64_t v1 = seed + NUMBER64_1 + NUMBER64_2;
-        uint64_t v2 = seed + NUMBER64_2;
-        uint64_t v3 = seed + 0;
-        uint64_t v4 = seed - NUMBER64_1;
+        const unsigned char *const limitation = end - 32;
+        unsigned long v1 = seed + NUMBER64_1 + NUMBER64_2;
+        unsigned long v2 = seed + NUMBER64_2;
+        unsigned long v3 = seed + 0;
+        unsigned long v4 = seed - NUMBER64_1;
 
         do
         {
@@ -109,11 +109,11 @@ uint64_t string_key_hash_computation(const void *data, uint64_t length, uint64_t
         hash = seed + NUMBER64_5;
     }
 
-    hash += (uint64_t)length;
+    hash += (unsigned long)length;
 
     while (p + 8 <= end)
     {
-        uint64_t k1 = hash_get64bits(p);
+        unsigned long k1 = hash_get64bits(p);
         k1 *= NUMBER64_2;
         k1 = shifting_hash(k1, 31);
         k1 *= NUMBER64_1;
@@ -124,7 +124,7 @@ uint64_t string_key_hash_computation(const void *data, uint64_t length, uint64_t
 
     if (p + 4 <= end)
     {
-        hash ^= (uint64_t)(hash_get32bits(p)) * NUMBER64_1;
+        hash ^= (unsigned long)(hash_get32bits(p)) * NUMBER64_1;
         hash = shifting_hash(hash, 23) * NUMBER64_2 + NUMBER64_3;
         p += 4;
     }
@@ -145,9 +145,9 @@ uint64_t string_key_hash_computation(const void *data, uint64_t length, uint64_t
     return hash;
 }
 
-uint64_t hash(const void *data, uint64_t length, uint64_t seed)
+unsigned long hash(const void *data, unsigned long length, unsigned long seed)
 {
-    if ((((uint64_t)data) & 7) == 0)
+    if ((((unsigned long)data) & 7) == 0)
     {
         return string_key_hash_computation(data, length, seed, 1);
     }
