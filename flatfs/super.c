@@ -42,7 +42,8 @@ flatfs_put_super(struct super_block *sb)
 	}
 
 	/* FS-FILLIN your fs specific umount logic here */
-
+	kfree(ffs_sb->cuckoo);
+	ffs_sb->cuckoo=NULL;
 	kfree(ffs_sb);
 	return;
 }
@@ -61,7 +62,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 		inode->i_mode = mode;													//访问权限,https://zhuanlan.zhihu.com/p/78724124
 		inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
-		inode->i_blocks = 0;													//文件的块数
+		inode->i_size = 0;													//文件的大小（byte）
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
 		printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
@@ -95,6 +96,8 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 {
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
+	cuckoo_hash_t *cuckoo = cuckoo_hash_init(25000000);
+	ffs_sb->cuckoo = cuckoo;
 
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
 	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE;			 //以字节为单位的块大小
@@ -110,7 +113,8 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	if (!inode)
 		return -ENOMEM;
 
-	sb->s_fs_info = kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
+	sb->s_fs_info = ffs_sb;
+	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
 	ffs_sb = FFS_SB(sb);
 	if (!ffs_sb)
 	{
@@ -122,6 +126,8 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	if (!sb->s_root)
 	{ //分配结果检测，如果失败
 		iput(inode);
+		kfree(ffs_sb->cuckoo);
+		ffs_sb->cuckoo=NULL;
 		kfree(ffs_sb);
 		return -ENOMEM;
 	}

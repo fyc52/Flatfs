@@ -3,7 +3,7 @@ PWD       := $(shell pwd)   #工作目录
 
 obj-m += flatfs.o #obj-m:告知Kbuild编译成.ko模块
 
-flatfs-objs := super.o inode.o file.o flatfs_d.o#对应上面一行，等号右侧是依赖
+flatfs-objs := super.o inode.o file.o flatfs_d.o hash.o cuckoo_hash.o#对应上面一行，等号右侧是依赖
 
 all:
 	make -C $(KERNELDIR) M=$(PWD) modules

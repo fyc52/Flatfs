@@ -30,12 +30,28 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	int r, err;
 	struct dentry *ret;
 	struct inode *inode;
-	printk(KERN_INFO "flatfs lookup");
 	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
+	loff_t size;
+	//判断inode是否存在？
+	cuckoo_hash_t* ht = dir->i_sb->s_fs_info->cuckoo; 
 	
+
+	if(cuckoo_query(ht, ino, size) == FAIL){
+		printk(KERN_INFO "flatfs lookup, ino: %lu, size: %llu\n", ino, size);//调试
+		inode = NULL;
+		goto out;
+	}
+	printk(KERN_INFO "flatfs lookup, ino: %lu, size: %llu\n", ino, size);//调试
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
-	if(ino>255){
+	
+	if(ino > MAX_DIR_INUM){
+		inode->i_size = size;											
+		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
+		i_uid_write(inode, dir->i_uid);
+		i_gid_write(inode, dir->i_gid);
+		inode->i_rdev=dir->i_sb->s_dev;
+		inode->i_mapping->a_ops = &ffs_aops;
 		inode->i_mode |= S_IFREG ;
 		inode->i_op = &ffs_file_inode_ops;
 		inode->i_fop = &ffs_file_file_ops;
@@ -43,11 +59,9 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	}
 	else{
 		if(inode->i_mode != S_IFDIR)
-			printk(KERN_ALERT "flatfs err in inode type");
+			printk(KERN_ALERT "flatfs err in inode type %u\n ", inode->i_mode & S_IFMT);
 	}
-
-
-
+out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
 }
 
@@ -62,6 +76,8 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
+	cuckoo_hash_t* ht = dir->i_sb->s_fs_info->cuckoo; 
+
 	inode->i_ino = flatfs_inode_by_name(dir,dentry);//为新inode分配ino#
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
 	if (inode) {
@@ -74,6 +90,13 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		
 		ffs_add_entry(dir);//写父目录
 		printk(KERN_INFO "flatfs: mknod dir size is = %llu\n",dir->i_size);
+
+		if(cuckoo_insert(ht, inode->i_ino, 0)==FAIL){
+			cuckoo_resize(ht);
+			cuckoo_insert(ht, inode->i_ino, 0);
+		}
+		cuckoo_update(ht, dir->i_ino, i_size_read(dir));
+		
 		//spin_unlock(dir->i_lock);
 		//同步数据
 		return 0;
