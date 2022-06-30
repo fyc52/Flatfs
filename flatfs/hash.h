@@ -1,4 +1,4 @@
-#include <stdint.h>
+//#include <stdint.h>
 // refer to https://github.com/Pfzuo/Level-Hashing/blob/master/level_hashing/
 /*
 Function: hash() 
