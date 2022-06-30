@@ -84,14 +84,14 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
 
     if (table_len < PAGE_SIZE || table_len % PAGE_SIZE != 0)
     {
-        printf("cuckoo table size error, not page aligned\n");
+        printk(KERN_INFO "cuckoo table size error, not page aligned\n");
         exit(EXIT_FAILURE);
     }
 
     cuckoo = (cuckoo_hash_t *)kzalloc(sizeof(cuckoo_hash_t),GFP_KERNEL);
     if (!cuckoo)
     {
-        printf("cuckoo alloc fails\n");
+        printk(KERN_INFO "cuckoo alloc fails\n");
         exit(EXIT_FAILURE);
     }
     // else
@@ -103,14 +103,14 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
     cuckoo->evict_path2 = (path_node_t *)kzalloc(MAX_EVICTION * sizeof(path_node_t),GFP_KERNEL);
     if (!cuckoo->evict_path1 || !cuckoo->evict_path2)
     {
-        printf("paths alloc fails\n");
+        printk(KERN_INFO "paths alloc fails\n");
         exit(EXIT_FAILURE);
     }
 
     cuckoo->table = (bucket_t *)kzalloc(table_len, GFP_KERNEL);
     if (!cuckoo->table)
     {
-        printf("cuckoo table alloc fails\n");
+        printk(KERN_INFO "cuckoo table alloc fails\n");
         exit(EXIT_FAILURE);
     }
     else
@@ -161,7 +161,7 @@ unsigned long find_path(cuckoo_hash_t *cuckoo, unsigned long bucket, unsigned lo
         }
         else
         {
-            printf("find path error\n");
+            printk(KERN_INFO "find path error\n");
             exit(EXIT_FAILURE);
         }
 
@@ -351,7 +351,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
     new_table = (bucket_t *)kzalloc(new_table_capacity * sizeof(bucket_t), GFP_KERNEL);
     if (!new_table)
     {
-        printf("resize alloc fails\n");
+        printk(KERN_INFO "resize alloc fails\n");
         exit(EXIT_FAILURE);
     }
     else
@@ -365,7 +365,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
 
 #ifdef FORK_TEST
     pid = fork();
-    if(pid < 0) printf("fork error\n");
+    if(pid < 0) printk(KERN_INFO "fork error\n");
 #endif
 
     for (cur_idx = 0; cur_idx < old_table_capacity; cur_idx++)
@@ -410,7 +410,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
 
                     if (!rehash)
                     {
-                        printf("resize fail1 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
+                        printk(KERN_INFO "resize fail1 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                         print_cuckoo(old_table, old_table_capacity);
                         print_cuckoo(new_table, new_table_capacity);
                         exit(EXIT_FAILURE);
@@ -431,7 +431,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
 
                     if (!rehash)
                     {
-                        printf("resize fail2 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
+                        printk(KERN_INFO "resize fail2 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                         print_cuckoo(old_table, old_table_capacity);
                         print_cuckoo(new_table, new_table_capacity);
                         exit(EXIT_FAILURE);
@@ -452,7 +452,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
 
                     if (!rehash)
                     {
-                        printf("resize fail3 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
+                        printk(KERN_INFO "resize fail3 cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                         print_cuckoo(old_table, old_table_capacity);
                         print_cuckoo(new_table, new_table_capacity);
                         exit(EXIT_FAILURE);
@@ -460,7 +460,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
                 }
                 else
                 {
-                    printf("offset error! cur_idx = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, f_idx, s_idx);
+                    printk(KERN_INFO "offset error! cur_idx = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, f_idx, s_idx);
                     exit(EXIT_FAILURE);
                 }
 #else
@@ -484,7 +484,7 @@ status_t cuckoo_resize(cuckoo_hash_t *cuckoo)
 
                 if (!rehash)
                 {
-                    printf("resize fail cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
+                    printk(KERN_INFO "resize fail cur_idx = %lu, slot = %lu, f_idx = %lu, s_idx = %lu\n", cur_idx, j, f_idx, s_idx);
                     print_cuckoo(old_table, old_table_capacity);
                     print_cuckoo(new_table, new_table_capacity);
                     exit(EXIT_FAILURE);
@@ -515,8 +515,8 @@ void print_cuckoo(bucket_t *table, unsigned long capacity)
     {
         for (j = 0; j < CUCKOO_HASH_ASSOC_NUM; j++)
         {
-            printf("(%lu-%lu-%s-%s), ", i, j, table[i].slot[j].key, table[i].slot[j].value);
+            printk(KERN_INFO "(%lu-%lu-%s-%s), ", i, j, table[i].slot[j].key, table[i].slot[j].value);
         }
     }
-    printf("\n");
+    printk(KERN_INFO "\n");
 }
