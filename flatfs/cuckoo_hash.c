@@ -6,11 +6,11 @@
 //#include <string.h>
 //#include <time.h>
 //#include <sys/time.h>
-
+#include <linux/string.h>
 #include "cuckoo_hash.h"
 #include "hash.h"
 
-pid_t pid = 1;
+int pid = 1;
 
 // refer to https://github.com/Pfzuo/Level-Hashing/blob/master/level_hashing/level_hashing.c
 /*
