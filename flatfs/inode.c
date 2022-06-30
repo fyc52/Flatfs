@@ -31,7 +31,19 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);
-	
+	if(ino>255){
+		inode->i_mode |= S_IFREG ;
+		inode->i_op = &ffs_file_inode_ops;
+		inode->i_fop = &ffs_file_file_ops;
+		inode->i_nlink = 1;
+	}
+	else{
+		if(inode->i_mode != S_IFDIR)
+			printk(KERN_ALERT "flatfs err in inode type");
+	}
+
+
+
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
 }
 
@@ -50,7 +62,9 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
 	if (inode) {
 		//spin_lock(dir->i_lock);
-		dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，弃用 */
+		if((mode & S_IFMT)==S_IFDIR)
+			dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，仅针对目录 */
+
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
 		
