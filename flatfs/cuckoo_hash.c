@@ -7,6 +7,14 @@
 //#include <time.h>
 //#include <sys/time.h>
 #include <linux/string.h>
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <linux/time.h>
+#include <linux/pagemap.h>
+#include <linux/version.h>
+#include <linux/nls.h>
+#include <linux/slab.h>
+#include <linux/proc_fs.h>
 #include "cuckoo_hash.h"
 #include "hash.h"
 
