@@ -7,6 +7,7 @@
 //#include <time.h>
 //#include <sys/time.h>
 #include <linux/string.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/time.h>
@@ -65,17 +66,30 @@ unsigned long S_IDX(unsigned long hashKey, unsigned long capacity)
 #endif
 }
 
+// void generate_seeds(cuckoo_hash_t *cuckoo)
+// {
+//     srand(time(NULL));
+//     do
+//     {
+//         cuckoo->f_seed = rand();
+//         cuckoo->s_seed = rand();
+//         cuckoo->f_seed = cuckoo->f_seed << (rand() % 63);
+//         cuckoo->s_seed = cuckoo->s_seed << (rand() % 63);
+//     } while (cuckoo->f_seed == cuckoo->s_seed);
+// }
+
 void generate_seeds(cuckoo_hash_t *cuckoo)
 {
-    srand(time(NULL));
+    unsigned long seed;
     do
     {
-        cuckoo->f_seed = rand();
-        cuckoo->s_seed = rand();
-        cuckoo->f_seed = cuckoo->f_seed << (rand() % 63);
-        cuckoo->s_seed = cuckoo->s_seed << (rand() % 63);
+        cuckoo->f_seed = get_random_bytes(&seed, sizeof(unsigned long));
+        cuckoo->s_seed = get_random_bytes(&seed, sizeof(unsigned long));
+        cuckoo->f_seed = cuckoo->f_seed << (get_random_bytes(&seed, sizeof(unsigned long)) % 63);
+        cuckoo->s_seed = cuckoo->s_seed << (get_random_bytes(&seed, sizeof(unsigned long)) % 63);
     } while (cuckoo->f_seed == cuckoo->s_seed);
 }
+
 
 cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
 {
