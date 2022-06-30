@@ -33,7 +33,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
 	loff_t size;
 	//判断inode是否存在？
-	cuckoo_hash_t* ht = dir->i_sb->s_fs_info.cuckoo; 
+	cuckoo_hash_t* ht = dir->i_sb->s_fs_info->cuckoo; 
 	
 
 	if(cuckoo_query(ht, ino, size) == FAIL){
@@ -76,7 +76,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
-	cuckoo_hash_t* ht = dir->i_sb->s_fs_info.cuckoo; 
+	cuckoo_hash_t* ht = dir->i_sb->s_fs_info->cuckoo; 
 
 	inode->i_ino = flatfs_inode_by_name(dir,dentry);//为新inode分配ino#
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
