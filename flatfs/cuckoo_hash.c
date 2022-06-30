@@ -100,11 +100,11 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
     cuckoo_hash_t *cuckoo = NULL;
     unsigned long table_len = sizeof(bucket_t) * capacity;
 
-    if (table_len < PAGE_SIZE || table_len % PAGE_SIZE != 0)
-    {
-        printk(KERN_INFO "cuckoo table size error, not page aligned\n");
-        return -ENOSPC;
-    }
+    // if (table_len < PAGE_SIZE || table_len % PAGE_SIZE != 0)
+    // {
+    //     printk(KERN_INFO "cuckoo table size error, not page aligned\n");
+    //     return -ENOSPC;
+    // }
 
     cuckoo = (cuckoo_hash_t *)kzalloc(sizeof(cuckoo_hash_t),GFP_KERNEL);
     if (!cuckoo)
