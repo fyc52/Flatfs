@@ -1,7 +1,7 @@
 #ifndef CUCKOO_HASH_H_
 #define CUCKOO_HASH_H_
 
-//#include <stdint.h>
+#include </usr/include/stdint.h>
 //#include <stdio.h>
 //#include <stdlib.h>
 
