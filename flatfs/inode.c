@@ -34,12 +34,12 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
 	
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
-	inode = iget_locked(dir->i_sb, ino);
+	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
 	if(ino>255){
 		inode->i_mode |= S_IFREG ;
 		inode->i_op = &ffs_file_inode_ops;
 		inode->i_fop = &ffs_file_file_ops;
-		inode->i_nlink = 1;
+		set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
 	}
 	else{
 		if(inode->i_mode != S_IFDIR)
