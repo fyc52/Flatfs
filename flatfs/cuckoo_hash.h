@@ -7,8 +7,8 @@
 
 #define RESIZE_SAME_OFFSET
 
-#define KEY_LEN 16
-#define VALUE_LEN 16
+#define KEY_LEN 4
+#define VALUE_LEN 8
 #define INVALID ""
 // #define FORK_TEST
 

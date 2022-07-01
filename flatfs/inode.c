@@ -97,11 +97,17 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		loff_t dir_size = i_size_read(dir);
 		printk(KERN_INFO "flatfs: mknod dir size is = %llu\n",dir->i_size);
 
-		if(cuckoo_insert(ht, dentry->d_name.name, (unsigned char *)&size)==FAIL){
+		if(cuckoo_insert(ht, (unsigned char *)&(inode->i_ino), (unsigned char *)&size)==FAIL){
 			cuckoo_resize(ht);
-			cuckoo_insert(ht, dentry->d_name.name, (unsigned char *)&size);
+			cuckoo_insert(ht, (unsigned char *)&(inode->i_ino), (unsigned char *)&size);
 		}
-		cuckoo_update(ht, dentry->d_name.name, (unsigned char *)&dir_size);
+		cuckoo_update(ht, (unsigned char *)&(dir->i_ino), (unsigned char *)&dir_size);
+
+		unsigned long long value;
+		cuckoo_query(ht, (unsigned char *)&(dir->i_ino), (unsigned char *)&value);
+		printk(KERN_INFO "flatfs: mknod dir size is = %llu %llu\n", value, dir_size);
+		cuckoo_query(ht, (unsigned char *)&(inode->i_ino), (unsigned char *)&value);
+		printk(KERN_INFO "flatfs: mknod file size is = %llu %llu\n", value, size);
 		
 		//spin_unlock(dir->i_lock);
 		//同步数据
