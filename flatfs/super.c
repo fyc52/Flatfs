@@ -97,8 +97,10 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
 	cuckoo_hash_t *cuckoo = cuckoo_hash_init(25);
+	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	ffs_sb->cuckoo = cuckoo;
-
+	printk(KERN_INFO "flatfs: ffs_sb init ok\n");
+	
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
 	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE;			 //以字节为单位的块大小
 	sb->s_blocksize_bits = FLATFS_BSTORE_BLOCKSIZE_BITS; //以位为单位的块大小

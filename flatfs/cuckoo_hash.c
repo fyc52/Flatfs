@@ -116,25 +116,26 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
     // {
     //     memset(cuckoo, 0, sizeof(cuckoo_hash_t));
     // }
-
-    cuckoo->evict_path1 = (path_node_t *)kzalloc(MAX_EVICTION * sizeof(path_node_t),GFP_KERNEL);
-    cuckoo->evict_path2 = (path_node_t *)kzalloc(MAX_EVICTION * sizeof(path_node_t),GFP_KERNEL);
+    //printk(KERN_INFO "cuckoo alloc ok\n");
+    cuckoo->evict_path1 = (path_node_t *)kmalloc(MAX_EVICTION * sizeof(path_node_t),GFP_KERNEL);
+    cuckoo->evict_path2 = (path_node_t *)kmalloc(MAX_EVICTION * sizeof(path_node_t),GFP_KERNEL);
     if (!cuckoo->evict_path1 || !cuckoo->evict_path2)
     {
         printk(KERN_INFO "paths alloc fails\n");
         return -ENOSPC;
     }
-
+    // printk(KERN_INFO "cuckoo path alloc ok\n");
     cuckoo->table = (bucket_t *)kzalloc(table_len, GFP_KERNEL);
     if (!cuckoo->table)
     {
         printk(KERN_INFO "cuckoo table alloc fails\n");
         return -ENOSPC;
     }
-    else
-    {
-        memset(cuckoo->table, 0, sizeof(bucket_t) * capacity);
-    }
+    // printk(KERN_INFO "cuckoo table alloc ok\n");
+    // else
+    // {
+    //     memset(cuckoo->table, 0, sizeof(bucket_t) * capacity);
+    // }
 
     cuckoo->capacity = capacity;
     cuckoo->entry_num = 0;
@@ -142,9 +143,9 @@ cuckoo_hash_t *cuckoo_hash_init(unsigned long capacity)
     cuckoo->evict_len = 0;
     cuckoo->resize_write = 0;
     cuckoo->init_write = capacity * CUCKOO_HASH_ASSOC_NUM;
-
+    // printk(KERN_INFO "cuckoo others ok\n");
     generate_seeds(cuckoo);
-
+    // printk(KERN_INFO "cuckoo seeds ok\n");
     return cuckoo;
 }
 
