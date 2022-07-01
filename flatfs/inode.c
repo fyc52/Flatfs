@@ -32,18 +32,17 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct inode *inode;
 	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
 	loff_t size=0;// long long
-	unsigned char * s_size;
 	//判断inode是否存在？
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
 	cuckoo_hash_t* ht = ffs_sb->cuckoo;
 
-	if(cuckoo_query(ht, dentry->d_name.name , s_size) == FAIL){
+	if(cuckoo_query(ht, (unsigned char *)&(ino), (unsigned char *)&size) == FAIL){
 		//size = simple_strtoull(s_size,NULL,0);
 		printk(KERN_INFO "flatfs lookup not found, ino: %lu\n", ino);//调试
 		inode = NULL;
 		goto out;
 	}
-	size = simple_strtoull(s_size,NULL,0);
+
 	printk(KERN_INFO "flatfs lookup found, ino: %lu, size: %llu\n", ino, size);//调试
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
