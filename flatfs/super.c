@@ -96,10 +96,12 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 {
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
+	ffs_sb = (struct flatfs_sb_info *)kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);
+	//printk(KERN_INFO "flatfs: ffs_sb init ok\n");
 	cuckoo_hash_t *cuckoo = cuckoo_hash_init(25);
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	ffs_sb->cuckoo = cuckoo;
-	printk(KERN_INFO "flatfs: ffs_sb init ok\n");
+	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
 	
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
 	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE;			 //以字节为单位的块大小
@@ -117,6 +119,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 
 	sb->s_fs_info = ffs_sb;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
+	//printk(KERN_INFO "flatfs: sb->s_fs_info init ok\n");
 	ffs_sb = FFS_SB(sb);
 	if (!ffs_sb)
 	{
