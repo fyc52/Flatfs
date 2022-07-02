@@ -63,6 +63,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		if(inode->i_mode != S_IFDIR)
 			printk(KERN_ALERT "flatfs err in inode type %u\n ", inode->i_mode & S_IFMT);
 	}
+	unlock_new_inode(inode);
 out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
 }
