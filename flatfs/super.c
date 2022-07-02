@@ -99,7 +99,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	struct flatfs_sb_info *ffs_sb;
 	ffs_sb = (struct flatfs_sb_info *)kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);
 	//printk(KERN_INFO "flatfs: ffs_sb init ok\n");
-	cuckoo_hash_t *cuckoo = cuckoo_hash_init(25);
+	cuckoo_hash_t *cuckoo = cuckoo_hash_init(BUCKET_NR);
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	ffs_sb->cuckoo = cuckoo;
 	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
