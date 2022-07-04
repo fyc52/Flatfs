@@ -102,7 +102,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 			cuckoo_insert(ht, (unsigned char *)&(inode->i_ino), (unsigned char *)&size);
 		}
 		cuckoo_update(ht, (unsigned char *)&(dir->i_ino), (unsigned char *)&dir_size);
-
+		//调试
 		unsigned long long value;
 		cuckoo_query(ht, (unsigned char *)&(dir->i_ino), (unsigned char *)&value);
 		printk(KERN_INFO "flatfs: mknod dir size is = %llu %llu\n", value, dir_size);
