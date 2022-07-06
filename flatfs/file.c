@@ -29,6 +29,57 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 
+int ext4_da_get_block_prep(struct inode *inode, sector_t iblock,
+			   struct buffer_head *bh, int create)
+{
+	
+
+}
+
+static int ffs_write_begin(struct file *file, struct address_space *mapping,
+                 loff_t pos, unsigned len, unsigned flags,
+                 struct page **pagep, void **fsdata)
+{	int ret, retries = 0;
+	struct page *page;
+	pgoff_t index;
+	struct inode *inode = mapping->host;
+
+	index = pos >> PAGE_SHIFT;
+	*fsdata = (void *)0;
+	//todo : 可以在这里实现inode-inlined data
+
+retry_grab:
+	page = grab_cache_page_write_begin(mapping, index, flags);
+	if (!page) {
+		ret = -ENOMEM;
+	}
+	lock_page(page);
+	if (page->mapping != mapping) {
+		/* The page got truncated from under us */
+		unlock_page(page);
+		put_page(page);
+		goto retry_grab;
+	}
+	/* In case writeback began while the page was unlocked */
+	/**
+ 	* wait_for_stable_page() - wait for writeback to finish, if necessary.
+	 * page:	The page to wait on.
+	 *
+	 * This function determines if the given page is related to a backing device
+	 * that requires page contents to be held stable during writeback.  If so, then
+	 * it will wait for any pending writeback to complete.
+	 */
+	wait_for_stable_page(page);
+
+	ret = __block_write_begin(page, pos, len, fss_get_block_prep);
+	*pagep = page;
+	return 0;
+
+}
+
+
+
+
 struct address_space_operations ffs_aops = {// page cache访问接口,未自定义的接口会调用vfs的generic方法
 	.readpage	= simple_readpage,
 	.write_begin	= simple_write_begin,
