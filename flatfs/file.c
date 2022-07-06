@@ -34,6 +34,8 @@ struct address_space_operations ffs_aops = {// page cache访问接口,未自定�
 	.write_begin	= simple_write_begin,
 	.write_end	= simple_write_end,
 	.set_page_dirty	= __set_page_dirty_nobuffers,
+	//.writepages = ffs_writepage,
+	//.writepage = ffs_writepage,
 };
 
 static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
