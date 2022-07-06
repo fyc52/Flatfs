@@ -29,10 +29,31 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 
-int ext4_da_get_block_prep(struct inode *inode, sector_t iblock,
+int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
+	struct ext4_map_blocks map;
+	int ret = 0;
+
+	BUG_ON(create == 0);
+	BUG_ON(bh->b_size != inode->i_sb->s_blocksize);
+
+	map.m_lblk = iblock;
+	map.m_len = 1;
+
+	map_bh(bh, inode->i_sb, map.m_pblk);//核心
 	
+	if (buffer_unwritten(bh)) {//设置bh为mapped 和 new
+		/* A delayed write to unwritten bh should be marked
+		 * new and mapped.  Mapped ensures that we don't do
+		 * get_block multiple times when we write to the same
+		 * offset and new ensures that we do proper zero out
+		 * for partial write.
+		 */
+		set_buffer_new(bh);
+		set_buffer_mapped(bh);
+	}
+	return 0;
 
 }
 
@@ -71,7 +92,7 @@ retry_grab:
 	 */
 	wait_for_stable_page(page);
 
-	ret = __block_write_begin(page, pos, len, fss_get_block_prep);
+	ret = __block_write_begin(page, pos, len, ffs_get_block_prep);
 	*pagep = page;
 	return 0;
 
