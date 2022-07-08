@@ -30,7 +30,7 @@
 #include <linux/mm.h>
 //常规文件data的lba；inode左移64位;
 sector_t ffs_get_lba(struct inode *inode){
-	//兼容标准盘：
+	//to do：
 	
 	return 100;
 }
