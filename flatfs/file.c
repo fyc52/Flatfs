@@ -28,20 +28,24 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
+//常规文件data的lba；inode左移64位;
+sector_t ffs_get_lba(struct inode *inode){
+	//兼容标准盘：
+	
+	return 100;
+}
 
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
-	struct ext4_map_blocks map;
 	int ret = 0;
 
 	BUG_ON(create == 0);
 	BUG_ON(bh->b_size != inode->i_sb->s_blocksize);
 
-	map.m_lblk = iblock;
-	map.m_len = 1;
+ 	sector_t pblk = ffs_get_lba(inode);
 
-	map_bh(bh, inode->i_sb, map.m_pblk);//核心
+	map_bh(bh, inode->i_sb, pblk);//核心
 	
 	if (buffer_unwritten(bh)) {//设置bh为mapped 和 new
 		/* A delayed write to unwritten bh should be marked
@@ -104,7 +108,7 @@ retry_grab:
 struct address_space_operations ffs_aops = {// page cache访问接口,未自定义的接口会调用vfs的generic方法
 	.readpage	= simple_readpage,
 	.write_begin	= simple_write_begin,
-	.write_end	= simple_write_end,
+	.write_end	= generic_write_end,
 	.set_page_dirty	= __set_page_dirty_nobuffers,
 	//.writepages = ffs_writepage,
 	//.writepage = ffs_writepage,
