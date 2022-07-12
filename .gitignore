@@ -3,6 +3,7 @@
 *.cmd
 .vscode
 *.o
+*.o.d
 *.ko
 *.mod
 *.mod.c
