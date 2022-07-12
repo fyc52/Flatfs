@@ -29,7 +29,8 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 #include <linux/buffer_head.h>
-
+#include <linux/pagemap.h>
+#include <linux/mpage.h>
 //常规文件data的lba；inode左移64位;
 sector_t ffs_get_lba(struct inode *inode){
 	//to do：
