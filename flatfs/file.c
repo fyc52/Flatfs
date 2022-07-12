@@ -102,16 +102,27 @@ retry_grab:
 
 }
 
+// int ffs_writepages(struct address_space *mapping,
+// 		       struct writeback_control *wbc)
+// {
+static int ffs_writepage(struct page *page, struct writeback_control *wbc)
+{
+	return block_write_full_page(page, ffs_get_block_prep, wbc);
+}
 
-
+static int
+ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
+{
+	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
+}
 
 struct address_space_operations ffs_aops = {// page cache访问接口,未自定义的接口会调用vfs的generic方法
 	.readpage	= simple_readpage,
 	.write_begin	= simple_write_begin,
 	.write_end	= generic_write_end,
 	.set_page_dirty	= __set_page_dirty_nobuffers,
-	//.writepages = ffs_writepage,
-	//.writepage = ffs_writepage,
+	.writepages = ffs_writepages,
+	.writepage = ffs_writepage,
 };
 
 static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
