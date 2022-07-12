@@ -28,6 +28,8 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/mm.h>
+#include <linux/buffer_head.h>
+
 //常规文件data的lba；inode左移64位;
 sector_t ffs_get_lba(struct inode *inode){
 	//to do：
@@ -110,8 +112,7 @@ static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 	return block_write_full_page(page, ffs_get_block_prep, wbc);
 }
 
-static int
-ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
+static int ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
 	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
 }
