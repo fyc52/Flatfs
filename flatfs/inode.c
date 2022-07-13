@@ -87,7 +87,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
 	if (inode) {
 		//spin_lock(dir->i_lock);
-		if((mode & S_IFMT)==S_IFDIR)
+		//if((mode & S_IFMT)==S_IFDIR)
 			dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存，仅针对目录 */
 
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
