@@ -31,11 +31,13 @@
 #include <linux/buffer_head.h>
 #include <linux/pagemap.h>
 #include <linux/mpage.h>
+
+
 //常规文件data的lba；inode左移64位;
 sector_t ffs_get_lba(struct inode *inode){
 	//to do：
 	
-	return 100;
+	return 100 * inode->i_ino;
 }
 
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
@@ -47,10 +49,11 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	BUG_ON(bh->b_size != inode->i_sb->s_blocksize);
 
  	sector_t pblk = ffs_get_lba(inode);
+	printk("pblk: %d\n", pblk);
 
 	map_bh(bh, inode->i_sb, pblk);//核心
 	
-	if (buffer_unwritten(bh)) {//设置bh为mapped 和 new
+	if (buffer_unwritten(bh)) {  //设置bh为mapped 和 new
 		/* A delayed write to unwritten bh should be marked
 		 * new and mapped.  Mapped ensures that we don't do
 		 * get_block multiple times when we write to the same
@@ -75,7 +78,7 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 	index = pos >> PAGE_SHIFT;
 	*fsdata = (void *)0;
 	//todo : 可以在这里实现inode-inlined data
-
+	printk("write begin\n")
 retry_grab:
 	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page) {
@@ -88,16 +91,6 @@ retry_grab:
 		put_page(page);
 		goto retry_grab;
 	}
-	/* In case writeback began while the page was unlocked */
-	/**
- 	* wait_for_stable_page() - wait for writeback to finish, if necessary.
-	 * page:	The page to wait on.
-	 *
-	 * This function determines if the given page is related to a backing device
-	 * that requires page contents to be held stable during writeback.  If so, then
-	 * it will wait for any pending writeback to complete.
-	 */
-	wait_for_stable_page(page);
 
 	ret = __block_write_begin(page, pos, len, ffs_get_block_prep);
 	*pagep = page;
@@ -110,17 +103,20 @@ retry_grab:
 // {
 static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 {
+	printk("writepage\n");
 	return block_write_full_page(page, ffs_get_block_prep, wbc);
 }
 
 static int ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
+	printk("writepages\n");
 	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
 }
 
 
 static int ffs_readpage(struct file *file, struct page *page)
 {
+	printk("readpage\n");
 	return mpage_readpage(page, ffs_get_block_prep);
 }
 
@@ -128,6 +124,7 @@ static int
 ffs_readpages(struct file *file, struct address_space *mapping,
 		struct list_head *pages, unsigned nr_pages)
 {
+	printk("readpages\n");
 	return mpage_readpages(mapping, pages, nr_pages, ffs_get_block_prep);
 }
 
@@ -152,7 +149,7 @@ struct file_operations ffs_file_file_ops = {
 	.read_iter		= generic_file_read_iter,
 	.write_iter		= generic_file_write_iter,
 //	.mmap           = generic_file_mmap,
-	.fsync			= noop_fsync,
+	// .fsync			= noop_fsync,
 	.llseek         = generic_file_llseek,
 };
 
