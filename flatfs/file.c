@@ -70,32 +70,13 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 static int ffs_write_begin(struct file *file, struct address_space *mapping,
                  loff_t pos, unsigned len, unsigned flags,
                  struct page **pagep, void **fsdata)
-{	int ret, retries = 0;
-	struct page *page;
-	pgoff_t index;
-	struct inode *inode = mapping->host;
-
-	index = pos >> PAGE_SHIFT;
-	*fsdata = (void *)0;
+{	int ret;
 	//todo : 可以在这里实现inode-inlined data
 	printk("write begin\n")
-retry_grab:
-	page = grab_cache_page_write_begin(mapping, index, flags);
-	if (!page) {
-		ret = -ENOMEM;
-	}
-	lock_page(page);
-	if (page->mapping != mapping) {
-		/* The page got truncated from under us */
-		unlock_page(page);
-		put_page(page);
-		goto retry_grab;
-	}
 
-	ret = __block_write_begin(page, pos, len, ffs_get_block_prep);
-	*pagep = page;
-	return 0;
-
+	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
+	
+	return ret;
 }
 
 // int ffs_writepages(struct address_space *mapping,
