@@ -109,6 +109,15 @@ ffs_readpages(struct file *file, struct address_space *mapping,
 	return mpage_readpages(mapping, pages, nr_pages, ffs_get_block_prep);
 }
 
+static ssize_t
+ffs_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
+{
+	struct file *file = iocb->ki_filp;
+	struct address_space *mapping = file->f_mapping;
+	struct inode *inode = mapping->host;
+
+	return blockdev_direct_IO(iocb, inode, iter, ext2_get_block);
+}
 
 struct address_space_operations ffs_aops = {// page cache访问接口,未自定义的接口会调用vfs的generic方法
 	.readpages	     = ffs_readpages,
@@ -118,6 +127,7 @@ struct address_space_operations ffs_aops = {// page cache访问接口,未自定�
 	.set_page_dirty	 = __set_page_dirty_nobuffers,
 	.writepages      = ffs_writepages,
 	.writepage       = ffs_writepage,
+	.direct_IO       = ffs_direct_IO;
 };
 
 static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
