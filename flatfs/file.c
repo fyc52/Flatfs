@@ -118,7 +118,7 @@ ffs_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	struct address_space *mapping = file->f_mapping;
 	struct inode *inode = mapping->host;
 
-	return blockdev_direct_IO(iocb, inode, iter, ext2_get_block);
+	return blockdev_direct_IO(iocb, inode, iter, ffs_get_block_prep);
 }
 
 struct address_space_operations ffs_aops = {// page cache访问接口,未自定义的接口会调用vfs的generic方法
