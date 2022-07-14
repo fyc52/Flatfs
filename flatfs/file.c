@@ -34,10 +34,12 @@
 
 
 //常规文件data的lba；inode左移64位;
-sector_t ffs_get_lba(struct inode *inode){
+sector_t ffs_get_lba(struct inode *inode, sector_t iblock){
 	//to do：
-	
-	return 100 * inode->i_ino;
+	sector_t base = inode->i_ino*100;
+	sector_t lba = iblock + base;
+
+	return lba;
 }
 
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
@@ -48,7 +50,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	BUG_ON(create == 0);
 	BUG_ON(bh->b_size != inode->i_sb->s_blocksize);
 
- 	sector_t pblk = ffs_get_lba(inode);
+ 	sector_t pblk = ffs_get_lba(inode, iblock);
 	printk("pblk: %d\n", pblk);
 
 	map_bh(bh, inode->i_sb, pblk);//核心
