@@ -36,7 +36,7 @@
 //常规文件data的lba；inode左移64位;
 sector_t ffs_get_lba(struct inode *inode, sector_t iblock){
 	//to do：
-	sector_t base = inode->i_ino*100;
+	sector_t base = inode->i_ino;
 	sector_t lba = iblock + base;
 
 	return lba;
@@ -74,7 +74,7 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
                  struct page **pagep, void **fsdata)
 {	int ret;
 	//todo : 可以在这里实现inode-inlined data
-	printk("write begin\n")
+	printk("write begin\n");
 
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
 	
@@ -86,20 +86,20 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 // {
 static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 {
-	printk("writepage\n");
+	printk(KERN_INFO "writepage\n");
 	return block_write_full_page(page, ffs_get_block_prep, wbc);
 }
 
 static int ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
-	printk("writepages\n");
+	printk(KERN_INFO "writepages\n");
 	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
 }
 
 
 static int ffs_readpage(struct file *file, struct page *page)
 {
-	printk("readpage\n");
+	printk(KERN_INFO "readpage\n");
 	return mpage_readpage(page, ffs_get_block_prep);
 }
 
@@ -107,7 +107,7 @@ static int
 ffs_readpages(struct file *file, struct address_space *mapping,
 		struct list_head *pages, unsigned nr_pages)
 {
-	printk("readpages\n");
+	printk(KERN_INFO "readpages\n");
 	return mpage_readpages(mapping, pages, nr_pages, ffs_get_block_prep);
 }
 
@@ -117,7 +117,7 @@ ffs_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	struct file *file = iocb->ki_filp;
 	struct address_space *mapping = file->f_mapping;
 	struct inode *inode = mapping->host;
-
+	printk(KERN_INFO "ffs_direct_IO\n");
 	return blockdev_direct_IO(iocb, inode, iter, ffs_get_block_prep);
 }
 
@@ -129,7 +129,7 @@ struct address_space_operations ffs_aops = {// page cache访问接口,未自定�
 	.set_page_dirty	 = __set_page_dirty_nobuffers,
 	.writepages      = ffs_writepages,
 	.writepage       = ffs_writepage,
-	.direct_IO       = ffs_direct_IO;
+	.direct_IO       = ffs_direct_IO,
 };
 
 static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
