@@ -47,22 +47,22 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
 	
-	if(ino > MAX_DIR_INUM){
-		inode->i_size = size;											
-		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
-		inode->i_uid = dir->i_uid;
-		inode->i_gid = dir->i_gid;
-		inode->i_rdev=dir->i_sb->s_dev;
-		inode->i_mapping->a_ops = &ffs_aops;
-		inode->i_mode |= S_IFREG ;
-		inode->i_op = &ffs_file_inode_ops;
-		inode->i_fop = &ffs_file_file_ops;
-		set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
-	}
-	else{
-		if(inode->i_mode != S_IFDIR)
-			printk(KERN_ALERT "flatfs err in inode type %u\n ", inode->i_mode & S_IFMT);
-	}
+	// if(ino > MAX_DIR_INUM){
+	// 	inode->i_size = size;											
+	// 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
+	// 	inode->i_uid = dir->i_uid;
+	// 	inode->i_gid = dir->i_gid;
+	// 	inode->i_rdev=dir->i_sb->s_dev;
+	// 	inode->i_mapping->a_ops = &ffs_aops;
+	// 	inode->i_mode |= S_IFREG ;
+	// 	inode->i_op = &ffs_file_inode_ops;
+	// 	inode->i_fop = &ffs_file_file_ops;
+	// 	set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
+	// }
+	// else{
+	// 	if(inode->i_mode != S_IFDIR)
+	// 		printk(KERN_ALERT "flatfs err in inode type %u\n ", inode->i_mode & S_IFMT);
+	// }
 	unlock_new_inode(inode);
 out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
