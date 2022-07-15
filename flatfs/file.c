@@ -121,6 +121,13 @@ ffs_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	return blockdev_direct_IO(iocb, inode, iter, ffs_get_block_prep);
 }
 
+
+int ffs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
+{
+	printk(KERN_INFO "ffs file fsync");
+	return  generic_file_fsync(file, start, end, datasync);
+}
+
 struct address_space_operations ffs_aops = {// page cache访问接口,未自定义的接口会调用vfs的generic方法
 	.readpages	     = ffs_readpages,
 	.readpage	     = ffs_readpage,
@@ -142,7 +149,7 @@ struct file_operations ffs_file_file_ops = {
 	.read_iter		= generic_file_read_iter,
 	.write_iter		= generic_file_write_iter,
 //	.mmap           = generic_file_mmap,
-	// .fsync			= noop_fsync,
+	.fsync			= ffs_fsync,
 	.llseek         = generic_file_llseek,
 };
 
