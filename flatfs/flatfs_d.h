@@ -11,7 +11,7 @@
 
 
 #define BUCKET_NR 2500//一个bucket 4个slot，每个slot记录一个inode
-#define META_LBA_OFFSET //数据区域要从这里开始计算
+//#define META_LBA_OFFSET //数据区域要从这里开始计算
 #define TOTAL_DEPTH 8	//定义目录深度
 #define MAX_DIR_INUM 255 //定义目录ino范围
 /* helpful if this is different than other fs */

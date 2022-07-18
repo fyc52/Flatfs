@@ -91,6 +91,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 			dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存 */
 
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
+		unlock_new_inode(inode);
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
 		
 		ffs_add_entry(dir);//写父目录

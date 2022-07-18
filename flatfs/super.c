@@ -89,7 +89,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			// break;
 		}
 	}
-	unlock_new_inode(inode);
+	
 	return inode;
 }
 
