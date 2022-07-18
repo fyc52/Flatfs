@@ -46,7 +46,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	printk(KERN_INFO "flatfs lookup found, ino: %lu, size: %llu\n", ino, size);//调试
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
-	
+	// 用盘内inode赋值inode操作
 	// if(ino > MAX_DIR_INUM){
 	// 	inode->i_size = size;											
 	// 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
