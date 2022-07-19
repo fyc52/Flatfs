@@ -37,7 +37,7 @@ struct ffs_inode
 /* ffs在内存superblock */
 struct flatfs_sb_info
 { //一般会包含信息和数据结构，kevin的db就是在这里实现的
-	cuckoo_hash_t *cuckoo;
+	cuckoo_hash_t *cuckoo;//仅调试，TODO: inode读写
 };
 
 static inline struct flatfs_sb_info *
