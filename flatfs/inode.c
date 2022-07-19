@@ -16,12 +16,6 @@ extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
 
 
-unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry){
-	//todo:分配ino==slba,无需设置inode_bitmap;以后要改成从字符串计算得到ino，下面先直接用文件名等于ino编号
-	return simple_strtoul(dentry->d_name.name, NULL, 0);
-	//return calculate_slba(dir,dentry);
-}
-
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
 //dir:父目录的inode；
 //dentry：本目录的dentry，需要关联到本目录的inode
@@ -31,13 +25,13 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct dentry *ret;
 	struct inode *inode;
 	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
-	loff_t size=0;// long long
-	//判断inode是否存在？
+	loff_t size = 0;// long long
+	
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
 	cuckoo_hash_t* ht = ffs_sb->cuckoo;
-
-	if(cuckoo_query(ht, (unsigned char *)&(ino), (unsigned char *)&size) == FAIL){
-		//size = simple_strtoull(s_size,NULL,0);
+	
+	/* 判断inode是否存在？ */
+	if(ino == 0) {
 		printk(KERN_INFO "flatfs lookup not found, ino: %lu\n", ino);//调试
 		inode = NULL;
 		goto out;
