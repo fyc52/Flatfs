@@ -2,20 +2,7 @@
 #include <malloc.h>
 #include <string.h>
 #include "flatfs_d.h"
-#include "block.h"
 
-
-/*
- * NOTE! unlike strncmp, ffs_match returns 1 for success, 0 for failure.
- *
-*/
-static inline ffs_match(int len, const char * const name,
-					struct ffs_dir_name * dn)
-{
-    if (len != dn->name_len)
-		return 0;
-	return !memcmp(name, dn->name, len);
-}
 
 /*
  * return 0 while *child* not found

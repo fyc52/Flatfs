@@ -33,14 +33,6 @@
 #include <linux/mpage.h>
 
 
-//常规文件data的lba；inode左移64位;
-sector_t ffs_get_lba(struct inode *inode, sector_t iblock){
-	//to do：
-	sector_t base = inode->i_ino*100;
-	sector_t lba = iblock + base;
-
-	return lba;
-}
 
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)

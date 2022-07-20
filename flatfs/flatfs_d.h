@@ -9,6 +9,7 @@
 #include <linux/ktime.h>
 #include <linux/bitmap.h>
 #include <linux/dcache.h>
+#include <linux/kernel.h>
 #include "cuckoo_hash.h"
 
 
@@ -21,8 +22,11 @@
 #define FLATFS_BSTORE_BLOCKSIZE PAGE_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS PAGE_SHIFT
 
-#define lba_size unsigned long
+#define lba_t unsigned long
 #define INIT_SPACE 10
+
+#define FFS_BLOCK_SIZE_BITS 9
+#define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
 /* LBA分配设置 */
 #define MAX_DIR_BITS 15
@@ -37,6 +41,8 @@
 #define MIN_FILE_BLOCK_BITS 16
 #define DEFAULT_FILE_BLOCK_BITS 32
 
+#define LBA_TT_BITS 63
+
 enum {
     ENOINO = 0
 };
@@ -48,12 +54,19 @@ struct ffs_lba
 	unsigned size;
 	unsigned offset;
 };
+
 //在磁盘存放的位置：lba=0+ino；（lba0用于存sb）
-struct ffs_inode
+struct ffs_inode_info
 {					   //磁盘inode，仅用于恢复时读取
-	loff_t size; //尺寸
-	unsigned long var; // ino/lba,充当数据指针
+	//loff_t size; //尺寸
+    unsigned long lba;
+    struct inode vfs_inode;
 };
+
+static inline struct ffs_inode_info *FLAT_I(struct inode *inode)
+{
+	return container_of(inode, struct ffs_inode_info, vfs_inode);
+}
 
 /* ffs在内存superblock */
 struct flatfs_sb_info
@@ -68,7 +81,7 @@ FFS_SB(struct super_block *sb)
 	return sb->s_fs_info; //文件系统特殊信息
 }
 
-struct ffs_dir_name {
+struct ffs_name {
 	__u8	name_len;		/* Name length */
 	char	name[];			/* Dir name */
 };
@@ -77,7 +90,7 @@ struct dir_entry {
     /* 目录的inode num */
     unsigned long ino;
     /* 目录名 */
-    struct ffs_dir_name *dir_name;
+    struct ffs_name *dir_name;
 
     /* LBA分配上，每一个字段占的位数 */
     unsigned short dir_bits;
@@ -97,15 +110,17 @@ struct dir_entry {
 DECLARE_BITMAP(ino_bitmap, 1 << MAX_DIR_BITS);
 
 static inline void init_ino_bitmap() {
-    bitmap_zero(init_ino_bitmap, 1 << MAX_DIR_BITS);
+    bitmap_zero(ino_bitmap, 1 << MAX_DIR_BITS);
 }
 
 static inline unsigned long get_unused_ino() {
     unsigned long ino;
-    ino = find_first_zero_bit(init_ino_bitmap, 1);
+    ino = find_first_zero_bit(ino_bitmap, 1);
     if(ino == 1 << MAX_DIR_BITS) {
         return ENOINO;
     }
+    /* 设置该ino为已经被使用 */
+    bitmap_set(ino_bitmap, ino, 1);
     /* root的inode num设定为1， 那么其他目录的ino从2开始编号 */
     ino += 2;
     return ino;
@@ -113,3 +128,40 @@ static inline unsigned long get_unused_ino() {
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
 unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry);
+
+
+
+/*                            
+ *    Copied for File Hash index
+ *     
+ *     bucket id  +  slot id
+ *
+*/ 
+struct slot {
+    __u8 slot_id;
+    struct ffs_name filename;
+};
+
+struct bucket {
+    unsigned long bucket_id;
+    DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
+    __u8 valid_slot_count;
+    struct slot slots[1 << FILE_SLOT_BITS];
+};
+
+struct HashTable {
+    struct bucket buckets[1 << MIN_FILE_BUCKET_BITS];
+};
+
+
+/*
+ * NOTE! unlike strncmp, ffs_match returns 1 for success, 0 for failure.
+ *
+*/
+static inline ffs_match(int len, const char * name,
+					struct ffs_name * dn)
+{
+    if (len != dn->name_len)
+		return 0;
+	return !memcmp(name, dn->name, len);
+}
