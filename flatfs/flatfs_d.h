@@ -22,7 +22,7 @@
 #define FLATFS_BSTORE_BLOCKSIZE PAGE_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS PAGE_SHIFT
 
-#define lba_t unsigned long
+#define lba_t sector_t
 #define INIT_SPACE 10
 
 #define FFS_BLOCK_SIZE_BITS 9
@@ -55,12 +55,19 @@ struct ffs_lba
 	unsigned offset;
 };
 
-//在磁盘存放的位置：lba=0+ino；（lba0用于存sb）
-struct ffs_inode_info
-{					   //磁盘inode，仅用于恢复时读取
-	//loff_t size; //尺寸
-    unsigned long lba;
+
+struct ffs_inode //磁盘inode
+{					  
+	loff_t size; //尺寸
+    char* filename;
+};
+
+struct ffs_inode_info //内存文件系统特化inode
+{					   
+    sector_t lba;
     struct inode vfs_inode;
+	spinlock_t i_raw_lock;/* protects updates to the raw inode */
+	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
 };
 
 static inline struct ffs_inode_info *FLAT_I(struct inode *inode)

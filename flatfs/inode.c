@@ -133,7 +133,7 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	loff_t dir_size = i_size_read(dir);
 	i_size_write(dir, dir_size - 1);
 	mark_inode_dirty(dir);
-	//to do:减少全局size table中父目录的size,并更新磁盘上父目录的inode.size
+	
 	return 0;
 }
 

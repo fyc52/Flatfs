@@ -23,6 +23,7 @@ extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;
 extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
+extern struct ffs_inode_info* FFS_I(struct* inode);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {
@@ -48,10 +49,50 @@ flatfs_put_super(struct super_block *sb)
 	return;
 }
 
+int ffs_dirty_inode(struct inode *inode, int flags)
+{
+	struct buffer_head *ibh;
+	struct ffs_inode* raw_inode;
+	//目录的inode在实际实现中不做持久化，直接缓存起来，通过dget()
+	if((inode->i_mode & S_IFMT) == S_IFDIR)
+		return 0;
+
+	struct ffs_inode_info fi = FFS_I(inode);
+	sector_t pblk;
+	if(fi){
+		pblk = fi->lba;
+	}
+	else{
+		printk(KERN_WARN "ffs lookup() didin't initialize fi\n");
+		pblk = ffs_get_lba(inode,0);//计算inode的lba
+	}
+
+	ibh = sb_bread(inode->i_sb, pblk);//需要最后用brelse unbusy bh
+ 	if (!ibh){
+		printk(KERN_ERR "allocate bh for ffs_inode fail");
+		return -1;
+	}	
+
+	get_bh(ibh);
+	spin_lock(&fi->i_raw_lock);
+	//actual write inode in buffer cache
+	raw_inode = (struct ffs_inode *) ibh;//to do:一个文件inode对应512B，但是这里的类型转换格式不对，怎么写？
+	raw_inode->size = inode->i_size;
+	raw_inode->filename = inode->i_dentry->d_name.name;
+
+	spin_unlock(&fi->i_raw_lock);
+	put_bh(ibh);
+
+	mark_buffer_dirty(ibh);
+	brelse(ibh);
+	return 0;
+}
+
 struct super_operations flatfs_super_ops = {
 	.statfs = flatfs_super_statfs,
 	.drop_inode = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super = flatfs_put_super,
+	.dirty_inode = ffs_dirty_inode,
 };
 //不允许创建软连接
 struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)

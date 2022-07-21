@@ -98,11 +98,11 @@ static void delete_file(struct HashTable *file_ht, char * filename)
 	}
 }
 
-static inline struct ffs_inode_info* FFS_I(struct* inode){
+struct ffs_inode_info* FFS_I(struct* inode){
 	return container_of(inode, struct ffs_inode_info, vfs_inode);
 }
 
-//常规文件data的lba；inode左移64位;
+//to do: 需要能兼顾计算目录和文件的inode以及文件的数据
 lba_t ffs_get_lba(struct inode *inode, lba_t iblock) {
 	//to do：
 	struct ffs_inode_info* ffs_i = FFS_I(inode);
