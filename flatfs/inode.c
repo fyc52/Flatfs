@@ -144,7 +144,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	int err = -ENOTEMPTY;
 	
 	if(!i_size_read(inode)){
-		int err = ffs_unlink(dir,dentry);
+		err = ffs_unlink(dir,dentry);
 		if(!err){
 			inode->i_size = 0;
 			inode_dec_link_count(inode);
