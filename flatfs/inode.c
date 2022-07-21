@@ -141,18 +141,18 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct inode * inode = d_inode(dentry);
 	loff_t dir_size;
-	// to do: 考虑是否处理子目录和子文件
+	int err = -ENOTEMPTY;
 	
-	int err = ffs_unlink(dir,dentry);
-	if(!err){
-		inode->i_size = 0;
-		inode_dec_link_count(inode);
-		inode_dec_link_count(dir);
+	if(!i_size_read(inode)){
+		int err = ffs_unlink(dir,dentry);
+		if(!err){
+			inode->i_size = 0;
+			inode_dec_link_count(inode);
+			inode_dec_link_count(dir);
+		}
+		return 0;
 	}
-
-	
-
-	return 0;
+	return err;
 }
 
 
