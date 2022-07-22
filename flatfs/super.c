@@ -72,14 +72,16 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return -ENOMEM;
 	}	
-	
+
+	lock_buffer(ibh);
 	//actual write inode in buffer cache
 	raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	raw_inode->size = inode->i_size;
 	raw_inode->filename = inode->i_dentry->d_name.name;
-	
 	if (!buffer_uptodate(ibh))
    		set_buffer_uptodate(ibh);//表示可以回写
+	unlock_buffer(ibh);
+
 	mark_buffer_dirty(ibh);//触发回写
 	brelse(ibh);//等待io完成之后释放
 	
