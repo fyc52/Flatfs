@@ -79,9 +79,9 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	raw_inode->filename = inode->i_dentry->d_name.name;
 	
 	if (!buffer_uptodate(ibh))
-   		set_buffer_uptodate(ibh);
-	mark_buffer_dirty(ibh);
-	brelse(ibh);
+   		set_buffer_uptodate(ibh);//表示可以回写
+	mark_buffer_dirty(ibh);//触发回写
+	brelse(ibh);//等待io完成之后释放
 	
 	return 0;
 }
