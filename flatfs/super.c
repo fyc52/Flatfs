@@ -83,7 +83,7 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	unlock_buffer(ibh);
 
 	mark_buffer_dirty(ibh);//触发回写
-	brelse(ibh);//等待io完成之后释放
+	brelse(ibh);//put_bh, 对应getblk
 	
 	return 0;
 }
