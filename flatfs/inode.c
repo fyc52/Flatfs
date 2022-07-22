@@ -26,8 +26,10 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct inode *inode;
 	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
 	loff_t size = 0;// long long
-	
+	struct buffer_head *bh;
+	struct ffs_inode *raw_inode;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
+	int is_dir=0;//判断是否是目录
 	cuckoo_hash_t* ht = ffs_sb->cuckoo;
 	
 	/* 判断inode是否存在？ */
@@ -37,11 +39,20 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		goto out;
 	}
 
+	//替代cuckoo查找：读取inode
+		//如果是目录，直接从icache中找
+	inode =	iget_locked(dir->i_sb, ino);
+		//如果是文件，读取inode
+	sector_t pblk = ffs_get_lba(inode,0);
+	bh = sb_bread(dir->i_sb, pblk);
+
+	brelse(bh);
+
+
 	printk(KERN_INFO "flatfs lookup found, ino: %lu, size: %llu\n", ino, size);//调试
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
 	// 用盘内inode赋值inode操作
-	// if(ino > MAX_DIR_INUM){
 	// 	inode->i_size = size;											
 	// 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 	// 	inode->i_uid = dir->i_uid;
@@ -53,10 +64,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	// 	inode->i_fop = &ffs_file_file_ops;
 	// 	set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
 	// }
-	// else{
-	// 	if(inode->i_mode != S_IFDIR)
-	// 		printk(KERN_ALERT "flatfs err in inode type %u\n ", inode->i_mode & S_IFMT);
-	// }
+	
 	unlock_new_inode(inode);
 out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
@@ -213,7 +221,7 @@ struct inode_operations ffs_file_inode_ops = {
 
 struct inode_operations ffs_dir_inode_ops = {
 	.create         = ffs_create,
-	.lookup         = ffs_lookup,//to do : change to ffs_lookup
+	.lookup         = ffs_lookup,
 	.link			= simple_link,
 	.unlink         = ffs_unlink,
 	//.symlink		= flatfs_symlik,

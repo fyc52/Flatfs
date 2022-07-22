@@ -66,7 +66,7 @@ struct ffs_inode_info //内存文件系统特化inode
 {					   
     sector_t lba;
     struct inode vfs_inode;
-	spinlock_t i_raw_lock;/* protects updates to the raw inode */
+	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
 };
 

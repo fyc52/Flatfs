@@ -67,24 +67,22 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 		pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
-	ibh = sb_bread(inode->i_sb, pblk);//需要最后用brelse unbusy bh
- 	if (!ibh){
+	ibh = sb_getblk(inode->i_sb, pblk);//这里不使用bread，避免读盘
+ 	if (unlikely(!bh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
-		return -1;
+		return -ENOMEM;
 	}	
-
-	get_bh(ibh);
-	spin_lock(&fi->i_raw_lock);
+	
 	//actual write inode in buffer cache
-	raw_inode = (struct ffs_inode *) ibh;//to do:一个文件inode对应512B，但是这里的类型转换格式不对，怎么写？
+	raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	raw_inode->size = inode->i_size;
 	raw_inode->filename = inode->i_dentry->d_name.name;
-
-	spin_unlock(&fi->i_raw_lock);
-	put_bh(ibh);
-
+	
+	if (!buffer_uptodate(ibh))
+   		set_buffer_uptodate(ibh);
 	mark_buffer_dirty(ibh);
 	brelse(ibh);
+	
 	return 0;
 }
 

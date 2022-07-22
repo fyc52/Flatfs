@@ -104,7 +104,7 @@ struct ffs_inode_info* FFS_I(struct* inode){
 
 //to do: 需要能兼顾计算目录和文件的inode以及文件的数据
 lba_t ffs_get_lba(struct inode *inode, lba_t iblock) {
-	//to do：
+	
 	struct ffs_inode_info* ffs_i = FFS_I(inode);
 	
 	lba_t base = ffs_i->lba;
