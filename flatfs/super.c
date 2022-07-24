@@ -53,9 +53,9 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 {
 	struct buffer_head *ibh;
 	struct ffs_inode* raw_inode;
-	//目录的inode在实际实现中不做持久化，直接缓存起来，通过dget()
-	if((inode->i_mode & S_IFMT) == S_IFDIR)
-		return 0;
+	// 目录的inode在实现中也要做持久化
+	// if((inode->i_mode & S_IFMT) == S_IFDIR)
+	// 	return 0;
 
 	struct ffs_inode_info fi = FFS_I(inode);
 	sector_t pblk;
