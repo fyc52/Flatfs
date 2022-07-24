@@ -113,7 +113,9 @@ lba_t ffs_get_lba(struct inode *inode, lba_t iblock) {
 	return lba;
 }
 //file inode:  1/512B,8/BUCKET,bucketsize=4kB
-lba_t ffs_get_lba_file(){}
+lba_t ffs_get_lba_file(){
+	struct ffs_inode_info* fi = FFS(dir);
+}
 //dir  inode:  1/4kB
 lba_t ffs_get_lba_dir(){}
 

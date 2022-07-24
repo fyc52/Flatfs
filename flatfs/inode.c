@@ -28,7 +28,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	int r, err;
 	struct inode *inode;
 	unsigned long ino=0;
-	int is_dir = flatfs_inode_by_name(dir, dentry, &ino);	//通过查询dir-idx计算出目标目录或文件的ino
+	int is_dir = flatfs_inode_by_name(dir, dentry, &ino);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino
 	loff_t size = 0;// long long
 	struct buffer_head *bh;
 	struct ffs_inode *raw_inode;
@@ -36,7 +36,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct page* page; 
 	int ret;
 	
-	/* 替代cuckoo查找：读盘获取inode */
+	/* 读盘获取inode */
 	if(!is_dir){//文件
 		int slotid;
 		sector_t pblk = ffs_get_lba_file(dir,dentry);
@@ -82,7 +82,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	// 	inode->i_fop = &ffs_file_file_ops;
 	// 	set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
 	// }
-	brelse(bh);
+	brelse(bh);//对应bread
 	unlock_new_inode(inode);
 out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
