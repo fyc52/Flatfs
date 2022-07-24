@@ -102,7 +102,7 @@ struct ffs_inode_info* FFS_I(struct* inode){
 	return container_of(inode, struct ffs_inode_info, vfs_inode);
 }
 
-//to do: 需要能兼顾计算目录和文件的inode以及文件的数据
+//文件的数据
 lba_t ffs_get_lba(struct inode *inode, lba_t iblock) {
 	
 	struct ffs_inode_info* ffs_i = FFS_I(inode);
@@ -112,6 +112,10 @@ lba_t ffs_get_lba(struct inode *inode, lba_t iblock) {
 
 	return lba;
 }
+//file inode:  1/512B,8/BUCKET,bucketsize=4kB
+lba_t ffs_get_lba_file(){}
+//dir  inode:  1/4kB
+lba_t ffs_get_lba_dir(){}
 
 
 lba_t ffs_set_start_lba(struct HashTable* file_ht, char *filename)

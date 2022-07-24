@@ -88,11 +88,27 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	return 0;
 }
 
+static struct inode *ffs_alloc_inode(struct super_block *sb)
+{
+	struct ffs_inode_info *fi;
+	fi = kmem_cache_alloc(ext2_inode_cachep, GFP_KERNEL);
+	if (!fi)
+		return NULL;
+	fi->i_block_alloc_info = NULL;
+	fi->vfs_inode.i_version = 1;
+#ifdef CONFIG_QUOTA
+	memset(&fi->i_dquot, 0, sizeof(fi->i_dquot));
+#endif
+
+	return &fi->vfs_inode;
+}
+
 struct super_operations flatfs_super_ops = {
 	.statfs = flatfs_super_statfs,
 	.drop_inode = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super = flatfs_put_super,
 	.dirty_inode = ffs_dirty_inode,
+	.alloc_inode = ffs_alloc_inode,
 };
 //不允许创建软连接
 struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)

@@ -16,44 +16,62 @@ extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
 
 
+int ffs_find_entry(){
+
+}
+
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
 //dir:父目录的inode；
 //dentry：本目录的dentry，需要关联到本目录的inode
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
 	int r, err;
-	struct dentry *ret;
 	struct inode *inode;
-	unsigned long ino = flatfs_inode_by_name(dir, dentry);	//不用查询目录文件，计算出ino
+	unsigned long ino=0;
+	int is_dir = flatfs_inode_by_name(dir, dentry, &ino);	//通过查询dir-idx计算出目标目录或文件的ino
 	loff_t size = 0;// long long
 	struct buffer_head *bh;
 	struct ffs_inode *raw_inode;
-	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
-	int is_dir=0;//判断是否是目录
-	cuckoo_hash_t* ht = ffs_sb->cuckoo;
+	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
+	struct page* page; 
+	int ret;
 	
-	/* 判断inode是否存在？ */
-	if(ino == 0) {
-		printk(KERN_INFO "flatfs lookup not found, ino: %lu\n", ino);//调试
-		inode = NULL;
-		goto out;
+	/* 替代cuckoo查找：读盘获取inode */
+	if(!is_dir){//文件
+		int slotid;
+		sector_t pblk = ffs_get_lba_file(dir,dentry);
+		ret = ffs_find_entry(pblk,dentry->d_name.name,&slotid);
+		if(!ret){//没找到
+			inode = NULL;
+			goto out;
+		}
+		else{//根据slotid计算出来文件的ino
+		ino = ;
+		
+		}
+	}/* 结束判断inode存在性 */
+	else{//目录
+		if(ino == 0){//没找到
+			inode = NULL;
+			goto out;
+		}
+		//获取目录inode
+		inode = iget_locked(dir->i_sb, ino);
+		pblk = ffs_get_lba_dir(ino);
+		raw_inode = sb_bread(dir->i_sb, pblk);
 	}
 
-	//替代cuckoo查找：读取inode
-		//如果是目录，直接从icache中找
-	inode =	iget_locked(dir->i_sb, ino);
-		//如果是文件，读取inode
-	sector_t pblk = ffs_get_lba(inode,0);
-	bh = sb_bread(dir->i_sb, pblk);
+	
+	
 
-	brelse(bh);
-
+	
+	
 
 	printk(KERN_INFO "flatfs lookup found, ino: %lu, size: %llu\n", ino, size);//调试
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
-	inode = iget_locked(dir->i_sb, ino);//目录dentry、inode全缓存，这里会命中
+	
 	// 用盘内inode赋值inode操作
-	// 	inode->i_size = size;											
+	// 	inode->i_size = raw_inode->size;											
 	// 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 	// 	inode->i_uid = dir->i_uid;
 	// 	inode->i_gid = dir->i_gid;
@@ -64,7 +82,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	// 	inode->i_fop = &ffs_file_file_ops;
 	// 	set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
 	// }
-	
+	brelse(bh);
 	unlock_new_inode(inode);
 out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
