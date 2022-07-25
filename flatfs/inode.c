@@ -2,7 +2,7 @@
 //#include <stdlib.h>//内核模块不能使用
 #include <linux/fs.h>
 #include "flatfs_d.h"
-
+#include "lba.h"
 
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
@@ -39,8 +39,8 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		int slotid;
-		sector_t pblk = ffs_get_lba_file(dir,dentry);
-		ret = ffs_find_entry(pblk,dentry->d_name.name,&slotid);
+		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,ino);
+		ret = ffs_find_entry(bucket_pblk, dentry->d_name.name, &slotid);
 		if(!ret){//没找到
 			inode = NULL;
 			goto out;
@@ -57,7 +57,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		}
 		//获取目录inode
 		inode = iget_locked(dir->i_sb, ino);
-		pblk = ffs_get_lba_dir(ino);
+		pblk = ffs_get_lba_dir_meta(ino,-1);
 		raw_inode = sb_bread(dir->i_sb, pblk);
 	}
 

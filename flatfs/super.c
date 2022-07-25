@@ -16,7 +16,7 @@
 //#include <cstdlib>
 //#include <iostream>
 #include "flatfs_d.h"
-
+#include "lba.h"
 
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
@@ -60,11 +60,14 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_info fi = FFS_I(inode);
 	sector_t pblk;
 	if(fi){
-		pblk = fi->lba;
+		if(fi->bucket_id >= 0)//file
+			pblk = ffs_get_lba_meta(inode);
+		else				  //dir
+			pblk = ffs_get_lba_dir_meta(-1,fi->dir_id);
 	}
-	else{
+	else{//错误情况
 		printk(KERN_WARN "ffs lookup() didin't initialize fi\n");
-		pblk = ffs_get_lba(inode,0);//计算inode的lba
+		//pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
 	ibh = sb_getblk(inode->i_sb, pblk);//这里不使用bread，避免读盘
