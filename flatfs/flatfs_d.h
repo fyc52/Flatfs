@@ -20,8 +20,13 @@
 #define MAX_DIR_INUM 255 //定义目录ino范围
 /* helpful if this is different than other fs */
 #define FLATFS_MAGIC 0x73616d70 /* "FLAT" */
+#define PAGE_SHIFT 12
 #define FLATFS_BSTORE_BLOCKSIZE PAGE_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS PAGE_SHIFT
+#define BLOCK_SHIFT 9
+#define BLOCK_SIZE 512
+#define BUCKETS_PER_DIR 4096
+#define BLOCK_PER_BUCKET 8
 
 #define lba_t sector_t
 #define INIT_SPACE 10

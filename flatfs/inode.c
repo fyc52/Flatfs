@@ -46,7 +46,9 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 			goto out;
 		}
 		else{//根据slotid计算出来文件的ino
-		ino = ;
+		ino = 
+		inode = iget_locked(dir->i_sb, ino);
+		
 		
 		}
 	}/* 结束判断inode存在性 */

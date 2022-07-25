@@ -85,7 +85,7 @@ static unsigned long get_file_seg(struct HashTable *file_ht, char * filename)
 static void delete_file(struct HashTable *file_ht, char * filename)
 {
 	unsigned int hashcode = BKDRHash(filename);
-	unsigned long bucket_id = (unsigned long)(hashcode & (1LU << (DEFAULT_FILE_BLOCK_BITS + FILE_SLOT_BITS) - 1LU));
+	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
 	for(int slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
 		int namelen = strlen(filename);
 		if(ffs_match(namelen, filename, file_ht->buckets[bucket_id].slots[slt].filename))
@@ -106,13 +106,25 @@ struct ffs_inode_info* FFS_I(struct* inode){
 lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,inode 1,data
 	lba_t lba_base = 0;
 	lba_t lba = 0;
-	if(flag == 0){//file inode区lba计算：
+	if(flag == 0){//file inode区lba计算,按照bucket算
 		lba_base = FILE_META_LBA_BASE;
-
+		if(slot_id != -1){
+			lba |= (BUCKETS_PER_DIR*dir_id + bucket_id) << PAGE_SHIFT;
+			lba |= slot_id << BLOCK_SHIFT;
+			lba += lba_base;
+		}
+		else{//文件inode所在bucket的slba
+			lba |= (BUCKETS_PER_DIR*dir_id + bucket_id)  << PAGE_SHIFT;
+			lba += lba_base;
+		}
+			
 	}
-	else{//file data区的lba计算
+	else{//file data区的lba计算，按offset算
 		lba_base = FILE_DATA_LBA_BASE;
-
+		lba |= dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		lba |= bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		lba |= slot_id << (DEFAULT_FILE_BLOCK_BITS);
+		lba += lba_base;
 	}
 
 	return lba;
@@ -123,7 +135,7 @@ lba_t ffs_get_lba_data(struct inode *inode, lba_t iblock) {
 	
 	struct ffs_inode_info* fi = FFS_I(inode);
 	lba_t base = compose_lba(fi->dir_id,fi->bucket_id,fi->slot_id,1);
-	lba_t lba  = base + iblock;
+	lba_t lba  = base | iblock << BLOCK_SHIFT;
 
 	return lba;
 }
@@ -141,7 +153,7 @@ lba_t ffs_get_lba_meta(struct inode *inode) {
 lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, unsigned long ino){
 	struct ffs_inode_info* p_fi = FFS(parent);
 	char * name = dentry->d_name.name;
-	unsigned long dir_id = ino >> (MIN_FILE_BUCKET_BITS+FILE_SLOT_BITS);
+	unsigned long dir_id = (ino-1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	//正确性检验
 	if(dir_id != p_fi->dir_id)
 		printk(KERN_ERR "dir ino doesn't match dir inode info");
@@ -156,9 +168,9 @@ lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, unsign
 /*读写dir inode:  1/4kB, ino = -1:写 */
 lba_t ffs_get_lba_dir_meta(unsigned long ino, int dir_id){
 	if(ino != -1)
-		dir_id = ino >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
+		dir_id = (ino-1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 
-	lba_t lba = (dir_id-1)*8;
+	lba_t lba = (dir_id) << PAGE_SHIFT;
 	return lba;
 }
 
