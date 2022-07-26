@@ -38,7 +38,7 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 	}
 
 	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
-		temp = (struct ffs_inode *)bhs[i]->data
+		temp = (struct ffs_inode *)(bhs[i]->data);
 		if(temp->filename == name){
 			index = i;
 			slot_id = i;
@@ -58,7 +58,7 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 		brelse(bhs[i]);
 	}
 
-	return (struct ffs_inode *)bhs[index]->data;
+	return (struct ffs_inode *)(bhs[index]->data);
 }
 
 struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, char* name, struct buffer_head **p)
