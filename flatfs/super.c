@@ -70,7 +70,7 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 		//pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
-	ibh = sb_getblk(inode->i_sb, pblk);//这里不使用bread，避免读盘
+	ibh = sb_getblk(inode->i_sb, (pblk >> BLOCK_SHIFT ) );//这里不使用bread，避免读盘
  	if (unlikely(!bh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return -ENOMEM;

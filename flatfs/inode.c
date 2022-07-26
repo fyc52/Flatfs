@@ -16,8 +16,23 @@ extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
 
 
-int ffs_find_entry(){
+struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, struct buffer_head **p)
+{
+	struct buffer_head * bh;
+	bh = sb_bread(sb, (slba >> BLOCK_SHIFT));
+	addr = 
+	 == name
+	
+}
 
+struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, char* name, struct buffer_head **p)
+{
+	struct buffer_head * bh = NULL;
+	bh = sb_bread(sb, (slba >> BLOCK_SHIFT));
+	if(!bh)
+		return NULL;
+	*p = bh;
+	return (struct ffs_inode_info *)bh->data;
 }
 
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
@@ -27,29 +42,32 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 {
 	int r, err;
 	struct inode *inode;
-	unsigned long ino=0;
-	int is_dir = flatfs_inode_by_name(dir, dentry, &ino);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino
+	unsigned long ino = 0;
+	int ino = flatfs_inode_by_name(dir, dentry, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino; 如果是文件，则返回文件所在目录的ino
+	int dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	loff_t size = 0;// long long
 	struct buffer_head *bh;
-	struct ffs_inode *raw_inode;
+	struct ffs_inode *raw_inode = NULL;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
 	struct page* page; 
-	int ret;
+	int bucket_id;
+	struct ffs_inode_info *dir_i = FFS_I(DIR);
 	
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		int slotid;
-		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,ino);
-		ret = ffs_find_entry(bucket_pblk, dentry->d_name.name, &slotid);
-		if(!ret){//没找到
+		unsigned int hashcode = BKDRHash(dentry->d_name.name);
+		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
+		dir_id = ; //获取
+		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
+		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, dentry->d_name.name, &slotid, &bh);
+		if(!raw_inode){//没找到
 			inode = NULL;
 			goto out;
 		}
 		else{//根据slotid计算出来文件的ino
-		ino = 
-		inode = iget_locked(dir->i_sb, ino);
-		
-		
+			ino = (dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id;
+			inode = iget_locked(dir->i_sb, ino);
 		}
 	}/* 结束判断inode存在性 */
 	else{//目录
@@ -60,30 +78,39 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		//获取目录inode
 		inode = iget_locked(dir->i_sb, ino);
 		pblk = ffs_get_lba_dir_meta(ino,-1);
-		raw_inode = sb_bread(dir->i_sb, pblk);
+		raw_inode = ffs_get_inode_dir(dir->i_sb, pblk ,&bh);
 	}
+	
+	struct ffs_inode_info *fi = FFS_I(inode);
+	fi->dir_id = dir_id;
 
-	
-	
-
-	
-	
-
-	printk(KERN_INFO "flatfs lookup found, ino: %lu, size: %llu\n", ino, size);//调试
+	printk(KERN_INFO "flatfs lookup found, ino: %lu, size: %llu\n", ino, raw_inode->size);//调试
 	/*从挂载的文件系统里寻找inode,仅用于处理内存icache*/
 	
 	// 用盘内inode赋值inode操作
-	// 	inode->i_size = raw_inode->size;											
-	// 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
-	// 	inode->i_uid = dir->i_uid;
-	// 	inode->i_gid = dir->i_gid;
-	// 	inode->i_rdev=dir->i_sb->s_dev;
-	// 	inode->i_mapping->a_ops = &ffs_aops;
-	// 	inode->i_mode |= S_IFREG ;
-	// 	inode->i_op = &ffs_file_inode_ops;
-	// 	inode->i_fop = &ffs_file_file_ops;
-	// 	set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
-	// }
+	inode->i_size = raw_inode->size;											
+	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
+	inode->i_uid = dir->i_uid;
+	inode->i_gid = dir->i_gid;
+	inode->i_rdev=dir->i_sb->s_dev;
+	inode->i_mapping->a_ops = &ffs_aops;
+	if(is_dir){
+		fi->bucket_id = -1;
+		fi->slot_id	  = -1;
+		inode->i_mode |= S_IFDIR;	
+		inode->i_op = &ffs_dir_inode_ops;
+		inode->i_fop = &ffs_dir_operations;
+		set_nlink(inode,2);
+	}
+	else{
+		fi->bucket_id = bucket_id;
+		fi->slot_id   = slot_id;
+		inode->i_mode |= S_IFREG ;
+		inode->i_op = &ffs_file_inode_ops;
+		inode->i_fop = &ffs_file_file_ops;
+		set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
+	}
+		
 	brelse(bh);//对应bread
 	unlock_new_inode(inode);
 out:

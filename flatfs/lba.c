@@ -11,7 +11,7 @@ void init_file_ht(struct HashTable *file_ht)
 		file_ht->buckets[bkt].bucket_id = bkt;
 		bitmap_zero(file_ht->buckets[bkt].slot_bitmap, 1 << FILE_SLOT_BITS);
 		/* 第一个slot固定用来存放该bucket下所有文件的inode信息 */
-		bitmap_set(file_ht->buckets[bkt].slot_bitmap, 0, 1);
+		// bitmap_set(file_ht->buckets[bkt].slot_bitmap, 0, 1);
 		file_ht->buckets[bkt].valid_slot_count = 0;
 
 		for(int slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
@@ -150,15 +150,11 @@ lba_t ffs_get_lba_meta(struct inode *inode) {
 }
 
 //读取file inode:  1/512B,8/BUCKET,bucketsize=4kB，计算出文件所对应的bucket的lba，读盘，遍历bucket，判断文件存在性
-lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, unsigned long ino){
+lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, int dir_id){
 	struct ffs_inode_info* p_fi = FFS(parent);
 	char * name = dentry->d_name.name;
-	unsigned long dir_id = (ino-1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-	//正确性检验
-	if(dir_id != p_fi->dir_id)
-		printk(KERN_ERR "dir ino doesn't match dir inode info");
 	//计算bucketid
-	unsigned int hashcode = BKDRHash(filename);
+	unsigned int hashcode = BKDRHash(name);
 	unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 	//获取bucket的起始lba
 	lba_t file_bucket_slba = compose_lba(dir_id,bucket_id,-1,0);

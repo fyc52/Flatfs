@@ -21,12 +21,10 @@
 /* helpful if this is different than other fs */
 #define FLATFS_MAGIC 0x73616d70 /* "FLAT" */
 #define PAGE_SHIFT 12
-#define FLATFS_BSTORE_BLOCKSIZE PAGE_SIZE
-#define FLATFS_BSTORE_BLOCKSIZE_BITS PAGE_SHIFT
 #define BLOCK_SHIFT 9
 #define BLOCK_SIZE 512
-#define BUCKETS_PER_DIR 4096
-#define BLOCK_PER_BUCKET 8
+#define FLATFS_BSTORE_BLOCKSIZE BLOCK_SIZE
+#define FLATFS_BSTORE_BLOCKSIZE_BITS BLOCK_SHIFT
 
 #define lba_t sector_t
 #define INIT_SPACE 10
@@ -48,6 +46,9 @@
 #define DEFAULT_FILE_BLOCK_BITS 32
 
 #define LBA_TT_BITS 63
+
+#define BUCKETS_PER_DIR (1 << MIN_FILE_BUCKET_BITS)
+#define BLOCKS_PER_BUCKET (1 << FILE_SLOT_BITS)
 
 enum {
     ENOINO = 0
