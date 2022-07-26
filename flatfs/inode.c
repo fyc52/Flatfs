@@ -29,7 +29,6 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 		slba++;
 	}
 	
-	
 	ll_rw_block(REQ_OP_READ, REQ_META | REQ_PRIO, BLOCKS_PER_BUCKET, bhs);
 	
 	//等待读完成
@@ -39,7 +38,6 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 	}
 
 	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
-		
 		temp = (struct ffs_inode *)bhs[i]->data
 		if(temp->filename == name){
 			index = i;
