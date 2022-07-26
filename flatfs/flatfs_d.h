@@ -14,8 +14,7 @@
 
 
 #define BUCKET_NR 2500//一个bucket 4个slot，每个slot记录一个inode
-#define FILE_META_LBA_BASE 1 << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
-#define FILE_DATA_LBA_BASE 1 << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
+
 #define TOTAL_DEPTH 8	//定义目录深度
 #define MAX_DIR_INUM 255 //定义目录ino范围
 /* helpful if this is different than other fs */
@@ -49,6 +48,8 @@
 
 #define BUCKETS_PER_DIR (1 << MIN_FILE_BUCKET_BITS)
 #define BLOCKS_PER_BUCKET (1 << FILE_SLOT_BITS)
+#define FILE_META_LBA_BASE 1 << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
+#define FILE_DATA_LBA_BASE 1 << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
 
 enum {
     ENOINO = 0

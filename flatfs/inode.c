@@ -16,13 +16,51 @@ extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
 
 
-struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, struct buffer_head **p)
+struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, int* slot_id, struct buffer_head **p)
 {
-	struct buffer_head * bh;
-	bh = sb_bread(sb, (slba >> BLOCK_SHIFT));
-	addr = 
-	 == name
+	struct buffer_head *bhs[BLOCKS_PER_BUCKET];
+	int index = 0;
+	struct ffs_inode* temp = NULL;
+	int i = 0;
+	slba = slba >> BLOCK_SHIFT;
+	//page cache分配
+	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
+		bhs[i] = sb_getblk(sb, slba);
+		slba++;
+	}
 	
+	
+	ll_rw_block(REQ_OP_READ, REQ_META | REQ_PRIO, BLOCKS_PER_BUCKET, bhs);
+	
+	//等待读完成
+	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
+		if(bhs[i])
+			wait_on_buffer(bhs[i]);
+	}
+
+	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
+		
+		temp = (struct ffs_inode *)bhs[i]->data
+		if(temp->filename == name){
+			index = i;
+			slot_id = i;
+			lock_buffer(bhs[i]);
+			if(!buffer_uptodate(bhs[i]))
+				set_buffer_uptodate(bhs[i]);
+			lock_buffer(bhs[i]);
+			break;
+		}
+	}
+
+	p = bhs[index]; 
+
+	for (i = 0; i < BLOCKS_PER_BUCKET ; i++){
+		if(i == index )
+			continue;
+		brelse(bhs[i]);
+	}
+
+	return (struct ffs_inode *)bhs[index]->data;
 }
 
 struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, char* name, struct buffer_head **p)
@@ -32,7 +70,7 @@ struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, char* na
 	if(!bh)
 		return NULL;
 	*p = bh;
-	return (struct ffs_inode_info *)bh->data;
+	return (struct ffs_inode *)bh->data;
 }
 
 //调用具体文件系统的lookup函数找到当前分量的inode，并将inode与传进来的dentry关联（通过d_splice_alias()->__d_add）
@@ -51,14 +89,12 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
 	struct page* page; 
 	int bucket_id;
-	struct ffs_inode_info *dir_i = FFS_I(DIR);
 	
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		int slotid;
 		unsigned int hashcode = BKDRHash(dentry->d_name.name);
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
-		dir_id = ; //获取
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
 		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, dentry->d_name.name, &slotid, &bh);
 		if(!raw_inode){//没找到
@@ -111,7 +147,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
 	}
 		
-	brelse(bh);//对应bread
+	brelse(bh);
 	unlock_new_inode(inode);
 out:
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
