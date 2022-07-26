@@ -18,6 +18,8 @@
 #include "flatfs_d.h"
 #include "lba.h"
 
+static struct kmem_cache * ffs_inode_cachep;
+
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;
@@ -91,17 +93,24 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	return 0;
 }
 
+static void ffs_i_callback(struct rcu_head *head)
+{
+	struct inode *inode = container_of(head, struct inode, i_rcu);
+	kmem_cache_free(ffs_inode_cachep, FFS_I(inode));
+}
+
+static void ffs_destroy_inode(struct inode *inode)
+{
+	call_rcu(&inode->i_rcu, ffs_i_callback);
+}
+
 static struct inode *ffs_alloc_inode(struct super_block *sb)
 {
 	struct ffs_inode_info *fi;
-	fi = kmem_cache_alloc(ext2_inode_cachep, GFP_KERNEL);
+	fi = kmem_cache_alloc(ffs_inode_cachep, GFP_KERNEL);
 	if (!fi)
 		return NULL;
-	fi->i_block_alloc_info = NULL;
 	fi->vfs_inode.i_version = 1;
-#ifdef CONFIG_QUOTA
-	memset(&fi->i_dquot, 0, sizeof(fi->i_dquot));
-#endif
 
 	return &fi->vfs_inode;
 }
@@ -112,6 +121,7 @@ struct super_operations flatfs_super_ops = {
 	.put_super = flatfs_put_super,
 	.dirty_inode = ffs_dirty_inode,
 	.alloc_inode = ffs_alloc_inode,
+	.destroy_inode	= ffs_destroy_inode,
 };
 //不允许创建软连接
 struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
@@ -234,15 +244,53 @@ static struct file_system_type flatfs_fs_type = {
 							   /*  .fs_flags */
 };
 
+static void init_once(void *foo)
+{
+	struct ffs_inode_info *fi = (struct ffs_inode_info *) foo;
+	inode_init_once(&fi->vfs_inode);
+}
+
+static int __init init_inodecache(void)
+{
+	ffs_inode_cachep = kmem_cache_create("ffs_inode_cache",
+					     sizeof(struct ffs_inode_info),
+					     0, (SLAB_RECLAIM_ACCOUNT|
+						SLAB_MEM_SPREAD|SLAB_ACCOUNT),
+					     init_once);
+	if (ffs_inode_cachep == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+static void destroy_inodecache(void)
+{
+	/*
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
+	rcu_barrier();
+	kmem_cache_destroy(ffs_inode_cachep);
+}
+
 static int __init init_flatfs_fs(void) //宏定义__init表示该函数旨在初始化期间使用，模块装载后就扔掉，释放内存
 {
 	printk(KERN_INFO "init flatfs\n");
-	return register_filesystem(&flatfs_fs_type); //内核文件系统API,将flatfs添加到内核文件系统链表
+	int err = init_inodecache();
+	if (err)
+		return err;
+	err = register_filesystem(&flatfs_fs_type); //内核文件系统API,将flatfs添加到内核文件系统链表
+	if (err)
+		goto out;
+	return 0;
+out:
+	destroy_inodecache();
+	return err;	
 }
 
 static void __exit exit_flatfs_fs(void)
 {
 	unregister_filesystem(&flatfs_fs_type);
+	destroy_inodecache();
 }
 
 module_init(init_flatfs_fs) //宏：模块加载, 调用init_flatfs_fs
