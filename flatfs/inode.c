@@ -79,7 +79,12 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	int r, err;
 	struct inode *inode;
 	unsigned long ino = 0;
-	int ino = flatfs_inode_by_name(dir, dentry, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino; 如果是文件，则返回文件所在目录的ino
+	int is_dir = 0;
+	int ino = flatfs_inode_by_name(dir, dentry, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
+	//调试用：
+	if((!is_dir)&& (ino != dir->i_ino))
+		printk(KERN_WARN "ffs inode number error\n");
+
 	int dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	loff_t size = 0;// long long
 	struct buffer_head *bh;
@@ -95,12 +100,12 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
 		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, dentry->d_name.name, &slotid, &bh);
-		if(!raw_inode){//没找到
+		if(!raw_inode){//没找到,认定为将要创建文件，to do: 分配ino并iget_locked 
 			inode = NULL;
 			goto out;
 		}
 		else{//根据slotid计算出来文件的ino
-			ino = (dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id;
+			ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
 			inode = iget_locked(dir->i_sb, ino);
 		}
 	}/* 结束判断inode存在性 */
@@ -165,13 +170,17 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
 	cuckoo_hash_t* ht = ffs_sb->cuckoo;
 	loff_t size=0;
+	int is_dir = 0;
+	unsigned long ino = 0;
 
-	inode->i_ino = flatfs_inode_by_name(dir,dentry);//为新inode分配ino#
+	//ino = flatfs_inode_by_name(dir,dentry, &is_dir);//如果是文件，则返回目录的，；
+	//为新inode分配ino#
+	inode->i_ino 
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
 	if (inode) {
 		//spin_lock(dir->i_lock);
 		//if((mode & S_IFMT)==S_IFDIR)
-			dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存,仅用于调试 */
+		//	dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存,仅用于调试 */
 
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		unlock_new_inode(inode);

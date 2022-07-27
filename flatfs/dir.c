@@ -5,10 +5,10 @@
 
 
 /*
- * return 0 while *child* not found
- *  
+ * 通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
+ *  is_dir:若dentry是目录则返回1，是文件则返回0
 */
-unsigned long flatfs_inode_by_name(struct dir_entry *dir, struct qstr *child) 
+unsigned long flatfs_inode_by_name(struct dir_entry *dir, struct dentry *dentry, int *is_dir) 
 {
 	struct dir_entry *dir_node;
     const char *name = child->name;

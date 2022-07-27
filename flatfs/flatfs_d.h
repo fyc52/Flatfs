@@ -73,7 +73,7 @@ struct ffs_inode //磁盘inode
 struct ffs_inode_info //内存文件系统特化inode
 {					   
     //sector_t lba;//存放
-    int dir_id;
+    int dir_id;//文件，该字段表示父目录的id；目录，该字段表示当前目录的id
     int bucket_id; //-1表示目录
     int slot_id;
     struct inode vfs_inode;
@@ -145,7 +145,7 @@ static inline unsigned long get_unused_ino() {
 }
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
-unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry);
+unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry, int* is_dir);
 
 
 
