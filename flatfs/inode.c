@@ -19,7 +19,7 @@ extern struct file_operations ffs_dir_operations;
 struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, int* slot_id, struct buffer_head **p)
 {
 	struct buffer_head *bhs[BLOCKS_PER_BUCKET];
-	int index = 0;
+	int index = -1;
 	struct ffs_inode* temp = NULL;
 	int i = 0;
 	slba = slba >> BLOCK_SHIFT;
@@ -48,6 +48,11 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 			lock_buffer(bhs[i]);
 			break;
 		}
+	}
+
+	if(i == BLOCKS_PER_BUCKET){
+		p = NULL;
+		return NULL;
 	}
 
 	p = bhs[index]; 
@@ -100,7 +105,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
 		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, dentry->d_name.name, &slotid, &bh);
-		if(!raw_inode){//没找到,认定为将要创建文件，to do: 分配ino并iget_locked 
+		if(!raw_inode){//没找到
 			inode = NULL;
 			goto out;
 		}
