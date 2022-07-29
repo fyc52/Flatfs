@@ -274,6 +274,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 	cuckoo_hash_t* ht = ffs_sb->cuckoo;
 	loff_t size=0;
 	struct ffs_inode_info * dfi = FFS_I(dir);
+	struct ffs_inode_info * fi = FFS_I(inode);
 	unsigned long ino = 0;
 	int useless;
 
@@ -282,11 +283,19 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 		//to do :分配dir_id:
 		int dir_id = 
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+		fi->dir_id = dir_id;
+		fi->bucket_id = -1;
+		fi->slot_id = -1;
+		fi->valid = 1;
 	else{
 		itn dir_id = dfi->dir_id;
 		unsigned int hashcode = BKDRHash(name);
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
+		fi->dir_id = dir_id;
+		fi->bucket_id = bucket_id;
+		fi->slot_id = slot_id;
+		fi->valid = 1;
 	}
 	inode->i_ino = ino;
 	printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
@@ -340,7 +349,11 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
-	// to do: 删除磁盘 inode(lba通过inode->ino转换而来)
+	//删除磁盘 inode
+	struct ffs_inode_info* fi = FFS_I(inode);
+	fi->valid =0;
+	mark_inode_dirty(inode);
+
 	inode_dec_link_count(inode);//drop_nlink & mark_inode_dirty
 	loff_t dir_size = i_size_read(dir);
 	i_size_write(dir, dir_size - 1);

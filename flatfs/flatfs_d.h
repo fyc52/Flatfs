@@ -66,9 +66,9 @@ struct ffs_lba
 
 struct ffs_inode //磁盘inode
 {					  
-	loff_t size; //尺寸
+	int valid;
+    loff_t size; //尺寸
     char* filename;
-    int valid;
 };
 
 struct ffs_inode_info //内存文件系统特化inode
