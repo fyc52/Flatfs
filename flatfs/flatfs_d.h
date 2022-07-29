@@ -68,6 +68,7 @@ struct ffs_inode //磁盘inode
 {					  
 	loff_t size; //尺寸
     char* filename;
+    int valid;
 };
 
 struct ffs_inode_info //内存文件系统特化inode
@@ -77,6 +78,7 @@ struct ffs_inode_info //内存文件系统特化inode
     int bucket_id; //-1表示目录
     int slot_id;
     struct inode vfs_inode;
+    int valid;
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
 };

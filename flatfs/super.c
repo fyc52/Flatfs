@@ -82,6 +82,7 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	//actual write inode in buffer cache
 	raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	raw_inode->size = inode->i_size;
+	raw_inode->valid = fi->valid;
 	raw_inode->filename = inode->i_dentry->d_name.name;
 	if (!buffer_uptodate(ibh))
    		set_buffer_uptodate(ibh);//表示可以回写
