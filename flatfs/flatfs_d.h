@@ -79,6 +79,8 @@ struct ffs_inode_info //内存文件系统特化inode
     int slot_id;
     struct inode vfs_inode;
     int valid;
+    unsigned long i_flags;
+    __u8 i_type;  
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
 };
@@ -92,7 +94,7 @@ static inline struct ffs_inode_info *FLAT_I(struct inode *inode)
 struct flatfs_sb_info
 { //一般会包含信息和数据结构，kevin的db就是在这里实现的
 	cuckoo_hash_t *cuckoo;
-	struct dir_entry * root;
+	struct dir_entry root;
     char * name = "flatfs";
 };
 
@@ -107,34 +109,53 @@ struct ffs_name {
 	char	name[];			/* Dir name */
 };
 
+/** dir tree **/
 struct dir_entry {
-    /* 目录的inode num */
+    /* 目录的ino */
     unsigned long ino;
     /* 目录名 */
-    struct ffs_name *dir_name;
+    char dir_name[FFS_MAX_FILENAME_LEN + 2];
+     int namelen;
 
     /* LBA分配上，每一个字段占的位数 */
-    unsigned short dir_bits;
-    unsigned short bucket_bits;
-    unsigned short slot_bits;
-    unsigned short block_bits;
+    // unsigned short dir_bits;
+    // unsigned short bucket_bits;
+    // unsigned short slot_bits;
+    // unsigned short block_bits;
 
     /* 指向子目录的指针 */
-    struct dir_entry **subdirs;
-    /* 当前子目录数组申请的空间大小 */
-    unsigned long space;
+    struct dir_list *subdirs;
     /* 子目录的个数 */
     unsigned long dir_size;
     
 };
 
-DECLARE_BITMAP(ino_bitmap, 1 << MAX_DIR_BITS);
 
-static inline void init_ino_bitmap() {
+struct dir_list_entry {
+    struct dir_entry *de;
+    struct dir_list_entry *last;
+    struct dir_list_entry *next;
+}
+
+
+struct dir_list {
+    struct dir_list_entry *head;
+    struct dir_list_entry *tail;
+};
+
+
+struct dir_tree {
+    struct dir_entry de[1 << MAX_DIR_BITS];
+    unsigned long dir_entry_num;
+    DECLARE_BITMAP(ino_bitmap, 1 << MAX_DIR_BITS);
+};
+
+
+static inline void init_ino_bitmap(unsigned long *ino_bitmap) {
     bitmap_zero(ino_bitmap, 1 << MAX_DIR_BITS);
 }
 
-static inline unsigned long get_unused_ino() {
+static inline unsigned long get_unused_ino(unsigned long *ino_bitmap) {
     unsigned long ino;
     ino = find_first_zero_bit(ino_bitmap, 1);
     if(ino == 1 << MAX_DIR_BITS) {
@@ -143,12 +164,11 @@ static inline unsigned long get_unused_ino() {
     /* 设置该ino为已经被使用 */
     bitmap_set(ino_bitmap, ino, 1);
     /* root的inode num设定为1， 那么其他目录的ino从2开始编号 */
-    ino += 2;
     return ino;
 }
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
-unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry, int* is_dir);
+unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry);
 
 
 
@@ -179,7 +199,7 @@ struct HashTable {
  * NOTE! unlike strncmp, ffs_match returns 1 for success, 0 for failure.
  *
 */
-static inline ffs_match(int len, const char * name,
+static inline int ffs_match(int len, const char * name,
 					struct ffs_name * dn)
 {
     if (len != dn->name_len)
