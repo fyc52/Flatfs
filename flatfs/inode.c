@@ -95,7 +95,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct inode *inode;
 	unsigned long ino = 0;
 	int is_dir = 0;
-	int ino = flatfs_inode_by_name(dir, dentry, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
+	int ino = flatfs_inode_by_name(dir->i_sb->s_fs_info,dir->i_ino, dentry->d_name, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
 	//调试用：
 	if((!is_dir)&& (ino != dir->i_ino))
 		printk(KERN_WARN "ffs inode number error\n");
@@ -182,7 +182,7 @@ static struct dentry *ffs_lookup2(struct inode *dir, struct dentry *dentry, unsi
 	unsigned long ino = 0;
 	int useless;
 	//int is_dir = 0;
-	int ino = flatfs_inode_by_name(dir, dentry, &useless);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
+	int ino = flatfs_inode_by_name(dir->i_sb->s_fs_info,dir->i_ino, dentry->d_name, &useless);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
 	//调试用：
 	if((!is_dir)&& (ino != dir->i_ino))
 		printk(KERN_WARN "ffs inode number error\n");

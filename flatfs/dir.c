@@ -158,10 +158,13 @@ unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
 	int namelen = child->len;
     int start = 0;
     unsigned long ino = 0;
+    ino = parent_ino;
+    *is_dir = 0;
 
     for(dir_node = dir->subdirs->head; start < dir->dir_size && dir_node != NULL; ) {
         if(namelen == dle->de->namelen && !memcmp(name, dle->de->dir_name, len)) {
             ino = dir_node->de->i_ino;
+            *is_dir = 1;
             break;
         }
         else {

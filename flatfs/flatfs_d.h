@@ -168,7 +168,7 @@ static inline unsigned long get_unused_ino(unsigned long *ino_bitmap) {
 }
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
-unsigned long flatfs_inode_by_name(struct inode *dir, struct dentry *dentry);
+unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir);
 
 
 
