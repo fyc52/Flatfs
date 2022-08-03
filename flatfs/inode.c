@@ -303,7 +303,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 		//spin_lock(dir->i_lock);
 		//if((mode & S_IFMT)==S_IFDIR)
 		//	dget(dentry);   /* 这里额外增加dentry引用计数从而将dentry常驻内存,仅用于调试 */
-
+		insert_inode_locked(inode);//将inode添加到inode hash表中，并标记为I_NEW
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		unlock_new_inode(inode);
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
