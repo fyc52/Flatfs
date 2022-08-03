@@ -271,7 +271,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
-	cuckoo_hash_t* ht = ffs_sb->cuckoo;
+	//cuckoo_hash_t* ht = ffs_sb->cuckoo;
 	loff_t size=0;
 	struct ffs_inode_info * dfi = FFS_I(dir);
 	struct ffs_inode_info * fi = FFS_I(inode);
@@ -310,7 +310,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 		
 		ffs_add_entry(dir);//写父目录
 		//调试
-		loff_t dir_size = i_size_read(dir);
+		//loff_t dir_size = i_size_read(dir);
 		printk(KERN_INFO "flatfs: mknod dir size is = %llu\n",dir->i_size);
 
 		// if(cuckoo_insert(ht, (unsigned char *)&(inode->i_ino), (unsigned char *)&size)==FAIL){

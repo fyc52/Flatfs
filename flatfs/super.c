@@ -45,8 +45,8 @@ flatfs_put_super(struct super_block *sb)
 	}
 
 	/* FS-FILLIN your fs specific umount logic here */
-	kfree(ffs_sb->cuckoo);
-	ffs_sb->cuckoo=NULL;
+	//kfree(ffs_sb->cuckoo);
+	//ffs_sb->cuckoo=NULL;
 	kfree(ffs_sb);
 	return;
 }
@@ -176,9 +176,9 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	struct flatfs_sb_info *ffs_sb;
 	ffs_sb = (struct flatfs_sb_info *)kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);
 	//printk(KERN_INFO "flatfs: ffs_sb init ok\n");
-	cuckoo_hash_t *cuckoo = cuckoo_hash_init(BUCKET_NR);
+	//cuckoo_hash_t *cuckoo = cuckoo_hash_init(BUCKET_NR);
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
-	ffs_sb->cuckoo = cuckoo;
+	//ffs_sb->cuckoo = cuckoo;
 	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
 	
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
@@ -197,7 +197,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	inode->i_ino = 0x00000001UL;//为根inode分配ino#，不能为0
 
 	loff_t dir_size = i_size_read(inode);
-	cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
+	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
 
 	sb->s_fs_info = ffs_sb;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
@@ -213,12 +213,13 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	if (!sb->s_root)
 	{ //分配结果检测，如果失败
 		iput(inode);
-		kfree(ffs_sb->cuckoo);
-		ffs_sb->cuckoo=NULL;
+		//kfree(ffs_sb->cuckoo);
+		//ffs_sb->cuckoo=NULL;
 		kfree(ffs_sb);
 		return -ENOMEM;
 	}
-
+	mark_inode_dirty(inode);
+	unlock_new_inode(inode);
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
 
 	return 0;
