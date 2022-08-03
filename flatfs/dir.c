@@ -27,7 +27,7 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct qstr *dir_n
 
 
 /* 创建文件系统时调用，初始化目录树结构 */
-void init_dir_entry(struct flatfs_sb_info *sb_i, struct inode *root_inode)
+void init_dir_tree(struct flatfs_sb_info *sb_i)
 {
     struct dir_tree *dtree = &(sb_i -> root);
     dtree->dir_entry_num = 0;

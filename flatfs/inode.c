@@ -281,8 +281,8 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 	//为新inode分配ino#
 	if(is_dir)
 		//分配dir_id:
-		ino = fill_one_dir_entry(dir->i_sb->s_fs_info, dir->i_dentry->d_name);
-		int dir_id = ((ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS));
+		int dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dir->i_dentry->d_name);
+		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
 		fi->dir_id = dir_id;
 		fi->bucket_id = -1;
 		fi->slot_id = -1;

@@ -180,7 +180,8 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	//ffs_sb->cuckoo = cuckoo;
 	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
-	
+	init_dir_tree(ffs_sb);
+
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
 	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE;			 //以字节为单位的块大小
 	sb->s_blocksize_bits = FLATFS_BSTORE_BLOCKSIZE_BITS; //以位为单位的块大小
