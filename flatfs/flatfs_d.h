@@ -206,3 +206,6 @@ static inline int ffs_match(int len, const char * name,
 		return 0;
 	return !memcmp(name, dn->name, len);
 }
+
+unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct qstr *dir_name);
+void init_dir_tree(struct flatfs_sb_info *sb_i);
