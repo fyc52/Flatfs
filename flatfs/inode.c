@@ -280,15 +280,15 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 
 	//为新inode分配ino#
 	if(is_dir)
-		//to do :分配dir_id:
-		int dir_id = 
-		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+		//分配dir_id:
+		ino = fill_one_dir_entry(dir->i_sb->s_fs_info, dir->i_dentry->d_name);
+		int dir_id = ((ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS));
 		fi->dir_id = dir_id;
 		fi->bucket_id = -1;
 		fi->slot_id = -1;
 		fi->valid = 1;
 	else{
-		itn dir_id = dfi->dir_id;
+		int dir_id = dfi->dir_id;
 		unsigned int hashcode = BKDRHash(name);
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;

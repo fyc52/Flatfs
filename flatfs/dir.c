@@ -147,7 +147,7 @@ void dir_exit(struct dir_entry *root)
 
 
 /*
- * TO DO:通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
+ * 通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
  * is_dir:若dentry是目录则返回1，是文件则返回0
 */
 unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir) 
