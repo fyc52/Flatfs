@@ -15,9 +15,12 @@
 #include <linux/uaccess.h>
 //#include <cstdlib>
 //#include <iostream>
+
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "flatfs_d.h"
 #include "lba.h"
-
+#endif
 static struct kmem_cache * ffs_inode_cachep;
 
 extern struct inode_operations ffs_dir_inode_ops;
@@ -25,7 +28,15 @@ extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;
 extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
-extern struct ffs_inode_info* FFS_I(struct* inode);
+extern struct ffs_inode_info* FFS_I(struct inode *inode);
+// extern struct ffs_inode_info* FFS_I(struct *inode);
+extern void mark_buffer_dirty(struct buffer_head *bh);
+extern void unlock_buffer(struct buffer_head *bh);
+extern void lock_buffer(struct buffer_head *bh);
+extern void brelse(struct buffer_head *bh);
+extern void set_buffer_uptodate(struct buffer_head *bh);
+extern void buffer_uptodate(struct buffer_head *bh);
+extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {
@@ -68,12 +79,12 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 			pblk = ffs_get_lba_dir_meta(-1,fi->dir_id);
 	}
 	else{//错误情况
-		printk(KERN_WARN "ffs lookup() didin't initialize fi\n");
+		printk(KERN_WARNING "ffs lookup() didin't initialize fi\n");
 		//pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
 	ibh = sb_getblk(inode->i_sb, (pblk >> BLOCK_SHIFT ) );//这里不使用bread，避免读盘
- 	if (unlikely(!bh)){
+ 	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return -ENOMEM;
 	}	
@@ -81,7 +92,7 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	lock_buffer(ibh);
 	//actual write inode in buffer cache
 	//zero bh
-	memset(bh->data,0,bh->b_size);
+	memset(ibh->data,0,ibh->b_size);
 	//fill bh
 	if(fi->valid){
 		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方

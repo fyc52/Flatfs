@@ -1,7 +1,10 @@
 #include <linux/module.h>
 #include <linux/fs.h>
-#include "flatfs_d.h"
 
+#ifndef _TEST_H_
+#define _TEST_H_
+#include "flatfs_d.h"
+#endif
 
 char calculate_filename(char *name)
 {

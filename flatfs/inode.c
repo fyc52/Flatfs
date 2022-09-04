@@ -1,8 +1,11 @@
 #include <linux/module.h>
 //#include <stdlib.h>//内核模块不能使用
 #include <linux/fs.h>
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "flatfs_d.h"
 #include "lba.h"
+#endif
 
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;

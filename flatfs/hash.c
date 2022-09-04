@@ -1,4 +1,7 @@
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "hash.h"
+#endif
 
 #define NUMBER64_1 11400714785074694791ULL
 #define NUMBER64_2 14029467366897019727ULL

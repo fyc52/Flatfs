@@ -1,4 +1,7 @@
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "flatfs_d.h"
+#endif
 
 lba_t ffs_get_lba_data(struct inode *inode, lba_t iblock);
 lba_t ffs_get_lba_meta(struct inode *inode);

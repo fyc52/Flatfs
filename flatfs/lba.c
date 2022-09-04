@@ -1,7 +1,10 @@
 #include <malloc.h>
 #include <string.h>
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "flatfs_d.h"
 #include "lba.h"
+#endif
 
 void init_file_ht(struct HashTable *file_ht)
 {

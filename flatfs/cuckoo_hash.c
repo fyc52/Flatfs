@@ -16,9 +16,11 @@
 #include <linux/nls.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "cuckoo_hash.h"
 #include "hash.h"
-
+#endif
 int pid = 1;
 
 // refer to https://github.com/Pfzuo/Level-Hashing/blob/master/level_hashing/level_hashing.c

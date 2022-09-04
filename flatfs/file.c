@@ -31,6 +31,11 @@
 #include <linux/buffer_head.h>
 #include <linux/pagemap.h>
 #include <linux/mpage.h>
+#include <linux/mpage.h>
+#ifndef _TEST_H_
+#define _TEST_H_
+#include "flatfs_d.h"
+#endif
 
 
 
@@ -144,12 +149,17 @@ struct file_operations ffs_file_file_ops = {
 
 static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	printk(KERN_INFO "flatfs read dir");
+	loff_t pos = ctx->pos;/*文件的偏移*/
+	struct inode *ino = file_inode(file);
+	struct super_block *sb = ino->i_sb;
+	read_dir(struct flatfs_sb_info *sb_i, ino, ctx);
 	return 0;
 }
 
 struct file_operations ffs_dir_operations = {
 	.read			= generic_read_dir,
 	.iterate		= ffs_readdir,//ls
+	.iterate_shared = ffs_readdir,
 	//.fsync		= lightfs_fsync,
 	//.release		= lightfs_dir_release,
 };

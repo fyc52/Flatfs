@@ -10,7 +10,12 @@
 #include <linux/bitmap.h>
 #include <linux/dcache.h>
 #include <linux/kernel.h>
+
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "cuckoo_hash.h"
+#endif
+
 
 
 #define BUCKET_NR 2500//一个bucket 4个slot，每个slot记录一个inode
@@ -30,6 +35,8 @@
 
 #define FFS_BLOCK_SIZE_BITS 9
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
+
+#define FFS_MAX_FILENAME_LEN 255
 
 /* LBA分配设置 */
 #define MAX_DIR_BITS 15
@@ -54,7 +61,6 @@
 enum {
     ENOINO = 0
 };
-
 
 struct ffs_lba
 {
@@ -115,7 +121,7 @@ struct dir_entry {
     unsigned long ino;
     /* 目录名 */
     char dir_name[FFS_MAX_FILENAME_LEN + 2];
-     int namelen;
+    int namelen;
 
     /* LBA分配上，每一个字段占的位数 */
     // unsigned short dir_bits;
@@ -135,7 +141,7 @@ struct dir_list_entry {
     struct dir_entry *de;
     struct dir_list_entry *last;
     struct dir_list_entry *next;
-}
+};
 
 
 struct dir_list {
@@ -209,3 +215,4 @@ static inline int ffs_match(int len, const char * name,
 
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct qstr *dir_name);
 void init_dir_tree(struct flatfs_sb_info *sb_i);
+int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

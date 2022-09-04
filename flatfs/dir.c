@@ -2,20 +2,23 @@
 #include <malloc.h>
 #include <string.h>
 #include <assert.h>
+#ifndef _TEST_H_
+#define _TEST_H_
 #include "flatfs_d.h"
+#endif
 
-
+static int test_count = 10;
 /*  根据相关参数，创建一个新的目录项   */
-unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct qstr *dir_name)
+unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct  *dir_name)
 {
-    struct dir_tree *dtree = &(sb_i -> root);
+    struct dir_tree *dtree = &(sb_i->root);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
     struct dir_entry *de = &(dtree->de[ino]);
 
     assert(de->ino == ino);
     de->dir_size = 0;
-    de->subdirs = (struct dir_list *) malloc(sizeof(struct dir_list));
-    de->subdirs->head = root->subdirs->tail = NULL;
+    de->subdirs = (struct dir_list *)malloc(sizeof(struct dir_list));
+    de->subdirs->head = de->subdirs->tail = NULL;
 
     de->namelen = dir_name->len;
     if(dir_name->len > 0) {
@@ -29,7 +32,7 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct qstr *dir_n
 /* 创建文件系统时调用，初始化目录树结构 */
 void init_dir_tree(struct flatfs_sb_info *sb_i)
 {
-    struct dir_tree *dtree = &(sb_i -> root);
+    struct dir_tree *dtree = &(sb_i->root);
     dtree->dir_entry_num = 0;
     init_ino_bitmap(dtree->ino_bitmap);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
@@ -41,7 +44,7 @@ void init_dir_tree(struct flatfs_sb_info *sb_i)
         de->ino = ino;
         de->dir_size = 0;
         de->subdirs = (struct dir_list *) malloc(sizeof(struct dir_list));
-        de->subdirs->head = root->subdirs->tail = NULL;
+        de->subdirs->head = de->subdirs->tail = NULL;
     }
     
 }
@@ -120,13 +123,24 @@ void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *chi
     }
 }
 
+static inline unsigned ffs_rec_len_from_dtree(__le16 dlen)
+{
+	return le16_to_cpu(dlen);
+}
+
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx)
 {
+    if(test_count >= 0){
+        printk("fyc_test, ls");
+    }
     struct dir_entry *de = &(sb_i->root.de[ino]);
     struct dir_list_entry *dle = de->subdirs->head;
 
     for(int start = 0; start < de->dir_size; start++) {
+        unsigned char d_type = DT_UNKNOWN;
         dir_emit(ctx, de->dir_name, de->namelen, le32_to_cpu(de->ino), d_type);
+        __le16 dlen;
+        ctx->pos += ffs_rec_len_from_dtree(dlen);
     }
 
     return 0;
