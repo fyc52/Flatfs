@@ -199,6 +199,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	sb->s_magic = FLATFS_MAGIC;							 //可能是用来内存分配的地址
 	sb->s_op = &flatfs_super_ops;						 // sb操作
 	sb->s_time_gran = 1;								 /* 时间戳的粒度（单位为纳秒) */
+	strcpy(sb->name, "flatfs");
 
 	printk(KERN_INFO "flatfs: fill super\n");
 
