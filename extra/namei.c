@@ -3200,9 +3200,10 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 
 no_open:
 	if (d_in_lookup(dentry)) {
-		if ((open_flag & O_CREAT) && (!strcmp(dir_inode->i_sb->s_fs_info->name, "flatfs"))) {
-			int slot_id;
-			struct dentry* res = dir_inode->i_op->lookup2(dir_inode, dentry,
+		struct dentry* res;
+		int slot_id;
+		if ((open_flag & O_CREAT) && (!strcmp(dir_inode->i_sb->name, "flatfs"))) {
+			res = dir_inode->i_op->lookup2(dir_inode, dentry,
 				nd->flags, 0, &slot_id);
 		}
 		else {
@@ -3229,7 +3230,8 @@ no_open:
 			error = -EACCES;
 			goto out_dput;
 		}
-		if (!strcmp(dir_inode->i_sb->s_fs_info->name, "flatfs")) {
+		int slot_id;
+		if (!strcmp(dir_inode->i_sb->name, "flatfs")) {
 			error = dir_inode->i_op->create2(dir_inode, dentry, mode,
 				open_flag & O_EXCL, slot_id);
 		}
