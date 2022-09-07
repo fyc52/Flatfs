@@ -1,3 +1,5 @@
+
+#include <linux/types.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/pagemap.h>
@@ -13,6 +15,16 @@
 #include <linux/parser.h>
 #include <linux/magic.h>
 #include <linux/uaccess.h>
+#include <linux/namei.h>
+#include <linux/buffer_head.h>
+// #include <linux/list_sort.h>
+// #include <linux/writeback.h>
+// #include <linux/path.h>
+// #include <linux/kallsyms.h>
+// #include <linux/list.h>
+// #include <linux/scatterlist.h>
+
+// #include <linux/iversion.h>
 //#include <cstdlib>
 //#include <iostream>
 
@@ -35,7 +47,6 @@ extern void unlock_buffer(struct buffer_head *bh);
 extern void lock_buffer(struct buffer_head *bh);
 extern void brelse(struct buffer_head *bh);
 extern void set_buffer_uptodate(struct buffer_head *bh);
-extern void buffer_uptodate(struct buffer_head *bh);
 extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
@@ -46,6 +57,7 @@ static void
 flatfs_put_super(struct super_block *sb)
 {
 	struct flatfs_sb_info *ffs_sb;
+	strcpy(ffs_sb->name, "flatfs");
 	printk(KERN_INFO "put super of flatfs\n");
 
 	ffs_sb = FFS_SB(sb);
@@ -62,7 +74,7 @@ flatfs_put_super(struct super_block *sb)
 	return;
 }
 
-int ffs_dirty_inode(struct inode *inode, int flags)
+static void ffs_dirty_inode(struct inode *inode, int flags)
 {
 	struct buffer_head *ibh;
 	struct ffs_inode* raw_inode;
@@ -70,7 +82,7 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	// if((inode->i_mode & S_IFMT) == S_IFDIR)
 	// 	return 0;
 
-	struct ffs_inode_info fi = FFS_I(inode);
+	struct ffs_inode_info *fi = FFS_I(inode);
 	sector_t pblk;
 	if(fi){
 		if(fi->bucket_id >= 0)//file
@@ -86,19 +98,36 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	ibh = sb_getblk(inode->i_sb, (pblk >> BLOCK_SHIFT ) );//这里不使用bread，避免读盘
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
-		return -ENOMEM;
+		// return -ENOMEM;
 	}	
 
 	lock_buffer(ibh);
 	//actual write inode in buffer cache
 	//zero bh
-	memset(ibh->data,0,ibh->b_size);
+	memset(ibh->b_data,0,ibh->b_size);
 	//fill bh
 	if(fi->valid){
 		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
-		raw_inode->filename = inode->i_dentry->d_name.name;
+
+		// struct list_head* plist = NULL;
+		// struct dentry* tmp = NULL;
+		// struct dentry* dent = NULL;
+		// struct dentry* parent = NULL;
+		// struct inode* pinode = inode;
+ 
+		// list_for_each(plist, &pinode->i_dentry)
+		// {
+		// 	tmp = list_entry(plist, struct dentry, d_name);
+		// 	if(tmp->d_inode == pinode)
+		// 	{
+		// 		dent = tmp;
+		// 		break;
+		// 	}
+		// }
+		// raw_inode->filename = (char*)(dent->d_name.name);
+		//TUDO
 	}
 
 	if (!buffer_uptodate(ibh))
@@ -108,7 +137,7 @@ int ffs_dirty_inode(struct inode *inode, int flags)
 	mark_buffer_dirty(ibh);//触发回写
 	brelse(ibh);//put_bh, 对应getblk
 	
-	return 0;
+	// return 0;
 }
 
 static void ffs_i_callback(struct rcu_head *head)
@@ -128,7 +157,8 @@ static struct inode *ffs_alloc_inode(struct super_block *sb)
 	fi = kmem_cache_alloc(ffs_inode_cachep, GFP_KERNEL);
 	if (!fi)
 		return NULL;
-	fi->vfs_inode.i_version = 1;
+	atomic64_set(&fi->vfs_inode.i_version, 1);
+	// fi->vfs_inode.i_version = 1;
 
 	return &fi->vfs_inode;
 }
@@ -185,6 +215,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 {
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
+	strcpy(ffs_sb->name, "flatfs");
 	ffs_sb = (struct flatfs_sb_info *)kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);
 	//printk(KERN_INFO "flatfs: ffs_sb init ok\n");
 	//cuckoo_hash_t *cuckoo = cuckoo_hash_init(BUCKET_NR);
@@ -199,8 +230,6 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	sb->s_magic = FLATFS_MAGIC;							 //可能是用来内存分配的地址
 	sb->s_op = &flatfs_super_ops;						 // sb操作
 	sb->s_time_gran = 1;								 /* 时间戳的粒度（单位为纳秒) */
-	strcpy(sb->name, "flatfs");
-
 	printk(KERN_INFO "flatfs: fill super\n");
 
 	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974

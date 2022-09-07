@@ -26,7 +26,7 @@
 #define FLATFS_MAGIC 0x73616d70 /* "FLAT" */
 #define PAGE_SHIFT 12
 #define BLOCK_SHIFT 9
-#define BLOCK_SIZE 512
+// #define BLOCK_SIZE 512
 #define FLATFS_BSTORE_BLOCKSIZE BLOCK_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS BLOCK_SHIFT
 
@@ -96,14 +96,6 @@ static inline struct ffs_inode_info *FLAT_I(struct inode *inode)
 	return container_of(inode, struct ffs_inode_info, vfs_inode);
 }
 
-/* ffs在内存superblock */
-struct flatfs_sb_info
-{ //一般会包含信息和数据结构，kevin的db就是在这里实现的
-	//cuckoo_hash_t *cuckoo;
-	struct dir_entry root;
-    char * name = "flatfs";
-};
-
 static inline struct flatfs_sb_info *
 FFS_SB(struct super_block *sb)
 {
@@ -172,6 +164,14 @@ static inline unsigned long get_unused_ino(unsigned long *ino_bitmap) {
     /* root的inode num设定为1， 那么其他目录的ino从2开始编号 */
     return ino;
 }
+
+/* ffs在内存superblock */
+struct flatfs_sb_info
+{ //一般会包含信息和数据结构，kevin的db就是在这里实现的
+	//cuckoo_hash_t *cuckoo;
+	struct dir_entry root;
+    char * name;
+};
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
 unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir);

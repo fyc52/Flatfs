@@ -108,6 +108,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct buffer_head *bh;
 	struct ffs_inode *raw_inode = NULL;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
+	strcpy(ffs_sb->name, "flatfs");
 	struct page* page; 
 	int bucket_id;
 	
@@ -195,6 +196,7 @@ static struct dentry *ffs_lookup2(struct inode *dir, struct dentry *dentry, unsi
 	struct buffer_head *bh;
 	struct ffs_inode *raw_inode = NULL;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
+	strcpy(ffs_sb->name, "flatfs");
 	struct page* page; 
 	int bucket_id;
 	
@@ -274,6 +276,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
+	strcpy(ffs_sb->name, "flatfs");
 	//cuckoo_hash_t* ht = ffs_sb->cuckoo;
 	loff_t size=0;
 	struct ffs_inode_info * dfi = FFS_I(dir);
