@@ -2,6 +2,7 @@
 //#include <stdlib.h>//内核模块不能使用
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
+#include <linux/blk_types.h>
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -26,7 +27,6 @@ extern void set_buffer_uptodate(struct buffer_head *bh);
 extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 extern void ll_rw_block(int, int, int, struct buffer_head * bh[]);
 extern void wait_on_buffer(struct buffer_head *bh);
-extern int buffer_uptodate(struct buffer_head *bh);
 extern struct buffer_head * sb_bread_unmovable(struct super_block *sb, sector_t block);
 extern unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir);
 extern unsigned int BKDRHash(char *str);
@@ -148,7 +148,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		//获取目录inode
 		inode = iget_locked(dir->i_sb, ino);
 		lba_t pblk = ffs_get_lba_dir_meta(ino,-1);
-		raw_inode = ffs_get_inode_dir(dir->i_sb, pblk ,&bh);
+		raw_inode = ffs_get_inode_dir(dir->i_sb, pblk , &bh);
 	}
 	
 	struct ffs_inode_info *fi = FFS_I(inode);
@@ -198,7 +198,7 @@ static struct dentry *ffs_lookup2(struct inode *dir, struct dentry *dentry, unsi
 	unsigned long ino = 0;
 	int useless;
 	//int is_dir = 0;
-	unsigned long ino = flatfs_inode_by_name(dir->i_sb->s_fs_info,dir->i_ino, dentry->d_name, &useless);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
+	ino = flatfs_inode_by_name(dir->i_sb->s_fs_info,dir->i_ino, dentry->d_name, &useless);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
 	//调试用：
 	if((!is_dir)&& (ino != dir->i_ino))
 		printk(KERN_WARNING "ffs inode number error\n");
@@ -456,15 +456,15 @@ struct inode_operations ffs_file_inode_ops = {
 // }
 
 struct inode_operations ffs_dir_inode_ops = {
-	.create2        = ffs_create,
+	//.create2        = ffs_create,
 	.lookup         = ffs_lookup,
-	.lookup2        = ffs_lookup2,
+	//.lookup2        = ffs_lookup2,
 	.link			= simple_link,
 	.unlink         = ffs_unlink,
 	//.symlink		= flatfs_symlik,
 	.mkdir          = ffs_mkdir,
 	.rmdir          = ffs_rmdir,
-	.mknod2         = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
+	//.mknod2         = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
 	.rename         = simple_rename,
 };
 
