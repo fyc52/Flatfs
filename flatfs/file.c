@@ -44,8 +44,10 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 {
 	int ret = 0;
 
- 	sector_t pblk = ffs_get_lba(inode, iblock);
-	printk("pblk: %d\n", pblk);
+ 	sector_t pblk;
+	//TUDO
+	//pblk = ffs_get_lba(inode, iblock);
+	printk("pblk: %lld\n", pblk);
 
 	map_bh(bh, inode->i_sb, pblk);//核心
 	
@@ -152,7 +154,7 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	loff_t pos = ctx->pos;/*文件的偏移*/
 	struct inode *ino = file_inode(file);
 	struct super_block *sb = ino->i_sb;
-	read_dir(struct flatfs_sb_info *sb_i, ino, ctx);
+	read_dir(FFS_SB(sb), ino, ctx);
 	return 0;
 }
 

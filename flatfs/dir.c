@@ -1,7 +1,7 @@
 
-#include <malloc.h>
-#include <string.h>
-#include <assert.h>
+// #include <malloc.h>
+#include <linux/string.h>
+// #include <assert.h>
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -9,20 +9,19 @@
 
 static int test_count = 10;
 /*  根据相关参数，创建一个新的目录项   */
-unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct  *dir_name)
+unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
 {
     struct dir_tree *dtree = &(sb_i->root);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
     struct dir_entry *de = &(dtree->de[ino]);
 
-    assert(de->ino == ino);
     de->dir_size = 0;
-    de->subdirs = (struct dir_list *)malloc(sizeof(struct dir_list));
+    de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
     de->subdirs->head = de->subdirs->tail = NULL;
 
-    de->namelen = dir_name->len;
-    if(dir_name->len > 0) {
-        memcpy(de->dir_name->name, dir_name->name, dir_name->len);
+    de->namelen = strlen(dir_name);
+    if(de->namelen > 0) {
+        memcpy(de->dir_name, dir_name, de->namelen);
     }
 
     return ino;
@@ -36,7 +35,6 @@ void init_dir_tree(struct flatfs_sb_info *sb_i)
     dtree->dir_entry_num = 0;
     init_ino_bitmap(dtree->ino_bitmap);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
-    assert(ino == 0);
 
     struct dir_entry *de;
     for(ino = 0; ino < (1 << MAX_DIR_BITS); ino++) {

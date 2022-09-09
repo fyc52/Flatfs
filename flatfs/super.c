@@ -119,7 +119,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		{
     		s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
 		}
-		raw_inode->filename = (char*)(s_dentry->d_iname);
+		raw_inode->filename = s_dentry->d_name.name;
 	}
 
 	if (!buffer_uptodate(ibh))

@@ -102,6 +102,14 @@ FFS_SB(struct super_block *sb)
 	return sb->s_fs_info; //文件系统特殊信息
 }
 
+static inline struct ffs_inode_info *
+FFS_I(struct inode *inode)
+{
+    struct ffs_inode_info * ffs_inode;
+    //TUDO
+	return ffs_inode; //文件系统特殊信息
+}
+
 struct ffs_name {
 	__u8	name_len;		/* Name length */
 	char	name[];			/* Dir name */
@@ -213,6 +221,6 @@ static inline int ffs_match(int len, const char * name,
 	return !memcmp(name, dn->name, len);
 }
 
-unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, struct qstr *dir_name);
+unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name);
 void init_dir_tree(struct flatfs_sb_info *sb_i);
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);
