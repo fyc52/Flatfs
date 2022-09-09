@@ -111,23 +111,15 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
 
-		// struct list_head* plist = NULL;
-		// struct dentry* tmp = NULL;
-		// struct dentry* dent = NULL;
-		// struct dentry* parent = NULL;
-		// struct inode* pinode = inode;
- 
-		// list_for_each(plist, &pinode->i_dentry)
-		// {
-		// 	tmp = list_entry(plist, struct dentry, d_name);
-		// 	if(tmp->d_inode == pinode)
-		// 	{
-		// 		dent = tmp;
-		// 		break;
-		// 	}
-		// }
-		// raw_inode->filename = (char*)(dent->d_name.name);
-		//TUDO
+		//通过inode号查询文件名
+		struct hlist_node *tmp_list = NULL;
+		struct inode* pinode = inode;
+ 		struct dentry *s_dentry = NULL;
+		hlist_for_each(tmp_list, &(pinode->i_dentry))
+		{
+    		s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
+		}
+		raw_inode->filename = (char*)(s_dentry->d_iname);
 	}
 
 	if (!buffer_uptodate(ibh))
