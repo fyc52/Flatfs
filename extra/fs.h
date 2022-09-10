@@ -1423,6 +1423,7 @@ struct sb_writers {
 };
 
 struct super_block {
+	char *name;
 	struct list_head	s_list;		/* Keep this first */
 	dev_t			s_dev;		/* search index; _not_ kdev_t */
 	unsigned char		s_blocksize_bits;
@@ -1549,7 +1550,6 @@ struct super_block {
 
 	spinlock_t		s_inode_wblist_lock;
 	struct list_head	s_inodes_wb;	/* writeback inodes */
-	char *name;
 } __randomize_layout;
 
 /* Helper functions so that in most cases filesystems will

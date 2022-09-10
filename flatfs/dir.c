@@ -11,7 +11,7 @@ static int test_count = 10;
 /*  根据相关参数，创建一个新的目录项   */
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
 {
-    struct dir_tree *dtree = &(sb_i->root);
+    struct dir_tree *dtree = &(sb_i->dtree_root);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
     struct dir_entry *de = &(dtree->de[ino]);
 
@@ -31,7 +31,8 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
 /* 创建文件系统时调用，初始化目录树结构 */
 void init_dir_tree(struct flatfs_sb_info *sb_i)
 {
-    struct dir_tree *dtree = &(sb_i->root);
+    struct dir_tree *dtree = &(sb_i->dtree_root);
+    dtree = kmalloc(sizeof(struct dir_tree), GFP_NOIO);
     dtree->dir_entry_num = 0;
     init_ino_bitmap(dtree->ino_bitmap);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
@@ -41,7 +42,7 @@ void init_dir_tree(struct flatfs_sb_info *sb_i)
         de = &(dtree->de[ino]);
         de->ino = ino;
         de->dir_size = 0;
-        de->subdirs = (struct dir_list *) malloc(sizeof(struct dir_list));
+        de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
         de->subdirs->head = de->subdirs->tail = NULL;
     }
     
@@ -50,8 +51,8 @@ void init_dir_tree(struct flatfs_sb_info *sb_i)
 
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry *inserted_dir) 
 {
-    struct dir_entry *dir = &(sb_i->root.de[ino]);
-    struct dir_list_entry *dle = (struct dir_list_entry *)malloc(struct dir_list_entry);
+    struct dir_entry *dir = sb_i->root->subdirs->head->de[ino];
+    struct dir_list_entry *dle = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
     dle->de = inserted_dir;
     dle->last = dle->next = NULL;
 
@@ -65,7 +66,7 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry
     }
 
     dir->dir_size++;
-    sb_i->root.dir_entry_num++;
+    sb_i->root->dir_entry_num++;
 }
 
 
@@ -73,13 +74,12 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry
 static inline void clear_dir_entry(struct dir_entry *dir)
 {
     struct dir_list_entry *p;
-    for(struct dir_list_entry *dle = dir->subdirs->head; dle != NULL; ) {
+    for(struct dir_list_entry *dle = dir->subdirs->head; dle != NULL; dle = dle->next;) {
         clear_dir_entry(dle->de);
         p = dle;
-        dle = dle->next;
-        free(p);
+        kfree(p);
     }
-    dir->subdirs->head = dir->subdirs->tial = NULL;
+    dir->subdirs->head = dir->subdirs->tail = NULL;
     dir->namelen = 0;
     dir->dir_size = 0;
 }
@@ -87,14 +87,14 @@ static inline void clear_dir_entry(struct dir_entry *dir)
 
 void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)
 {
-    struct dir_entry *dir = &(sb_i->root.de[ino]);
+    struct dir_entry *dir = sb_i->root->subdirs->head->de[ino];
     struct dir_list_entry *dle;
     const char *name = child->name;
 	int namelen = child->len;
     int start = 0;
 
-    for(dle = dir->subdirs->head; start < dir->dir_size && dle != NULL; ) {
-        if(namelen == dle->de->namelen && !memcmp(name, dle->de->dir_name, len)) {
+    for(dle = dir->subdirs->head; start < dir->dir_size && dle != NULL; 1) {
+        if(namelen == dle->de->namelen && !memcmp(name, dle->de->dir_name, namelen)) {
             start++;
             dle = dle->next;
             continue;
@@ -115,7 +115,7 @@ void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *chi
             }
 
             clear_dir_entry(dle->de);
-            free(dle);
+            kfree(dle);
             break;
         }
     }
@@ -131,10 +131,10 @@ int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context 
     if(test_count >= 0){
         printk("fyc_test, ls");
     }
-    struct dir_entry *de = &(sb_i->root.de[ino]);
+    struct dir_entry *de = sb_i->root->subdirs->head->de[ino];
     struct dir_list_entry *dle = de->subdirs->head;
-
-    for(int start = 0; start < de->dir_size; start++) {
+    int start;
+    for(start = 0; start < de->dir_size; start++) {
         unsigned char d_type = DT_UNKNOWN;
         dir_emit(ctx, de->dir_name, de->namelen, le32_to_cpu(de->ino), d_type);
         __le16 dlen;
@@ -153,7 +153,7 @@ void resize_dir(unsigned long dir_ino)
 /* 卸载文件系统时调用，释放整个目录树结构 */
 void dir_exit(struct dir_entry *root)
 {
-    free_dir_entry(root);
+    clear_dir_entry(root);
 }
 
 
@@ -164,7 +164,7 @@ void dir_exit(struct dir_entry *root)
 */
 unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir) 
 {
-	struct dir_entry *dir = &(sb_i->root.de[ino]);
+	struct dir_entry *dir = sb_i->root->subdirs->head->de[parent_ino];
     struct dir_list_entry *dir_node;
     const char *name = child->name;
 	int namelen = child->len;
@@ -174,8 +174,8 @@ unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
     *is_dir = 0;
 
     for(dir_node = dir->subdirs->head; start < dir->dir_size && dir_node != NULL; ) {
-        if(namelen == dle->de->namelen && !memcmp(name, dle->de->dir_name, len)) {
-            ino = dir_node->de->i_ino;
+        if(namelen == dir_node->de->namelen && !memcmp(name, dir_node->de->dir_name, namelen)) {
+            ino = dir_node->de->ino;
             *is_dir = 1;
             break;
         }
