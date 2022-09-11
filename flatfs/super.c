@@ -40,14 +40,13 @@ extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;
 extern struct address_space_operations ffs_aops;
 extern struct file_operations ffs_dir_operations;
-extern struct ffs_inode_info* FFS_I(struct inode *inode);
-// extern struct ffs_inode_info* FFS_I(struct *inode);
 extern void mark_buffer_dirty(struct buffer_head *bh);
 extern void unlock_buffer(struct buffer_head *bh);
 extern void lock_buffer(struct buffer_head *bh);
 extern void brelse(struct buffer_head *bh);
 extern void set_buffer_uptodate(struct buffer_head *bh);
 extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
+extern struct ffs_inode_info* FFS_I(struct inode * inode);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {

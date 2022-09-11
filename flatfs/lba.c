@@ -1,4 +1,4 @@
-#include <linux/slab.h>>
+#include <linux/slab.h>
 #include <linux/string.h>
 #ifndef _TEST_H_
 #define _TEST_H_
@@ -8,16 +8,16 @@
 
 void init_file_ht(struct HashTable *file_ht)
 {
-	file_ht = (HashTable *)malloc(sizeof(HashTable));
-	
-	for(int bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
+	file_ht = kmalloc(sizeof(struct HashTable), GFP_NOIO);
+	int bkt;
+	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
 		file_ht->buckets[bkt].bucket_id = bkt;
 		bitmap_zero(file_ht->buckets[bkt].slot_bitmap, 1 << FILE_SLOT_BITS);
 		/* 第一个slot固定用来存放该bucket下所有文件的inode信息 */
 		// bitmap_set(file_ht->buckets[bkt].slot_bitmap, 0, 1);
 		file_ht->buckets[bkt].valid_slot_count = 0;
-
-		for(int slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
+		int slt;
+		for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 			file_ht->buckets[bkt].slots[slt].slot_id  = (unsigned char)slt;
 			file_ht->buckets[bkt].slots[slt].filename.name_len = 0;
 		}
@@ -27,7 +27,7 @@ void init_file_ht(struct HashTable *file_ht)
 
 
 // BKDR Hash Function
-static unsigned int BKDRHash(char *str)
+unsigned int BKDRHash(char *str)
 {
     unsigned int seed = 131;
     unsigned int hash = 0;
@@ -48,12 +48,13 @@ static unsigned long insert_file(struct HashTable *file_ht, char * filename)
 {	
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & (1LU << (DEFAULT_FILE_BLOCK_BITS + FILE_SLOT_BITS) - 1LU);
-	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap);
+	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1);
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
-	file_ht->buckets[bkt].valid_slot_count ++;
+	file_ht->buckets[bucket_id].valid_slot_count ++;
 
 	int namelen = strlen(filename);
-	file_ht->buckets[bucket_id].slots[slt].filename.name = (char *)malloc(namelen + 1);
+	//file_ht->buckets[bucket_id].slots[slt].filename = kmalloc(sizeof(struct ffs_name), GFP_NOIO);
+
 	memcpy(file_ht->buckets[bucket_id].slots[slt].filename.name, filename, namelen);
 	file_ht->buckets[bucket_id].slots[slt].filename.name_len = namelen;
 
@@ -68,9 +69,10 @@ static unsigned long get_file_seg(struct HashTable *file_ht, char * filename)
 {	
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
-	for(int slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
+	int slt;
+	for(slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
 		int namelen = strlen(filename);
-		if(ffs_match(namelen, filename, file_ht->buckets[bucket_id].slots[slt].filename))
+		if(ffs_match(namelen, filename, &file_ht->buckets[bucket_id].slots[slt].filename))
 			break;
 	}
 
@@ -89,19 +91,20 @@ static void delete_file(struct HashTable *file_ht, char * filename)
 {
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
-	for(int slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
+	int slt;
+	for(slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
 		int namelen = strlen(filename);
-		if(ffs_match(namelen, filename, file_ht->buckets[bucket_id].slots[slt].filename))
+		if(ffs_match(namelen, filename, &file_ht->buckets[bucket_id].slots[slt].filename))
 		{
-			free(file_ht->buckets[bucket_id].slots[slt].filename.name);
+			kfree(file_ht->buckets[bucket_id].slots[slt].filename.name);
 			file_ht->buckets[bucket_id].slots[slt].filename.name_len = 0;
-			file_ht->buckets[bkt].valid_slot_count --;
+			file_ht->buckets[bucket_id].valid_slot_count --;
 			break;
 		}
 	}
 }
 
-struct ffs_inode_info* FFS_I(struct* inode){
+struct ffs_inode_info* FFS_I(struct inode * inode){
 	return container_of(inode, struct ffs_inode_info, vfs_inode);
 }
 
@@ -154,7 +157,7 @@ lba_t ffs_get_lba_meta(struct inode *inode) {
 
 //读取file inode:  1/512B,8/BUCKET,bucketsize=4kB，计算出文件所对应的bucket的lba，读盘，遍历bucket，判断文件存在性
 lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, int dir_id){
-	struct ffs_inode_info* p_fi = FFS(parent);
+	struct ffs_inode_info* p_fi = FFS_I(parent);
 	char * name = dentry->d_name.name;
 	//计算bucketid
 	unsigned int hashcode = BKDRHash(name);
@@ -176,6 +179,8 @@ lba_t ffs_get_lba_dir_meta(unsigned long ino, int dir_id){
 
 lba_t ffs_set_start_lba(struct HashTable* file_ht, char *filename)
 {
+	//TUDO
+	int parent_ino = 0;
 	lba_t lba_dir_seg  = parent_ino << (LBA_TT_BITS - MAX_DIR_BITS);
 	lba_t lba_file_seg = insert_file(file_ht, filename);
 	return (lba_dir_seg | lba_file_seg);

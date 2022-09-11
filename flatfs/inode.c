@@ -30,6 +30,7 @@ extern void wait_on_buffer(struct buffer_head *bh);
 extern struct buffer_head * sb_bread_unmovable(struct super_block *sb, sector_t block);
 extern unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir);
 extern unsigned int BKDRHash(char *str);
+extern struct ffs_inode_info* FFS_I(struct inode * inode);
 
 //当文件未找到时需返回空闲slotid
 struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, int* slot_id, struct buffer_head **p)

@@ -102,17 +102,9 @@ FFS_SB(struct super_block *sb)
 	return sb->s_fs_info; //文件系统特殊信息
 }
 
-static inline struct ffs_inode_info *
-FFS_I(struct inode *inode)
-{
-    struct ffs_inode_info * ffs_inode;
-    //TUDO
-	return ffs_inode; //文件系统特殊信息
-}
-
 struct ffs_name {
 	__u8	name_len;		/* Name length */
-	char	name[];			/* Dir name */
+	char	name[FFS_MAX_FILENAME_LEN + 2];			/* Dir name */
 };
 
 /** dir tree **/
@@ -128,6 +120,8 @@ struct dir_entry {
     // unsigned short bucket_bits;
     // unsigned short slot_bits;
     // unsigned short block_bits;
+
+    //struct dir_entry *parent_entry;
 
     /* 指向子目录的指针 */
     struct dir_list *subdirs;
