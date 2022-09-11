@@ -44,14 +44,13 @@ void init_dir_tree(struct flatfs_sb_info *sb_i)
         de->dir_size = 0;
         de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
         de->subdirs->head = de->subdirs->tail = NULL;
-    }
-    
+    }  
 }
 
 
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry *inserted_dir) 
 {
-    struct dir_entry *dir = sb_i->root->subdirs->head->de[ino];
+    struct dir_entry *dir = &(sb_i->dtree_root.de[ino]);
     struct dir_list_entry *dle = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
     dle->de = inserted_dir;
     dle->last = dle->next = NULL;
@@ -66,7 +65,7 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry
     }
 
     dir->dir_size++;
-    sb_i->root->dir_entry_num++;
+    sb_i->dtree_root.dir_entry_num++;
 }
 
 
@@ -74,7 +73,8 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry
 static inline void clear_dir_entry(struct dir_entry *dir)
 {
     struct dir_list_entry *p;
-    for(struct dir_list_entry *dle = dir->subdirs->head; dle != NULL; dle = dle->next;) {
+    struct dir_list_entry *dle;
+    for(dle = dir->subdirs->head; dle != NULL; dle = dle->next) {
         clear_dir_entry(dle->de);
         p = dle;
         kfree(p);
@@ -87,7 +87,7 @@ static inline void clear_dir_entry(struct dir_entry *dir)
 
 void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)
 {
-    struct dir_entry *dir = sb_i->root->subdirs->head->de[ino];
+    struct dir_entry *dir = &(sb_i->dtree_root.de[ino]);
     struct dir_list_entry *dle;
     const char *name = child->name;
 	int namelen = child->len;
@@ -131,7 +131,7 @@ int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context 
     if(test_count >= 0){
         printk("fyc_test, ls");
     }
-    struct dir_entry *de = sb_i->root->subdirs->head->de[ino];
+    struct dir_entry *de = &(sb_i->dtree_root.de[ino]);
     struct dir_list_entry *dle = de->subdirs->head;
     int start;
     for(start = 0; start < de->dir_size; start++) {
@@ -164,7 +164,7 @@ void dir_exit(struct dir_entry *root)
 */
 unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir) 
 {
-	struct dir_entry *dir = sb_i->root->subdirs->head->de[parent_ino];
+	struct dir_entry *dir = &(sb_i->dtree_root.de[parent_ino]);
     struct dir_list_entry *dir_node;
     const char *name = child->name;
 	int namelen = child->len;

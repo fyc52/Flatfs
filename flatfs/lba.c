@@ -1,5 +1,5 @@
-#include <malloc.h>
-#include <string.h>
+#include <linux/slab.h>>
+#include <linux/string.h>
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"

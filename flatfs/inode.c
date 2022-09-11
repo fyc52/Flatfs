@@ -321,7 +321,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev, int
 		int dir_id = dfi->dir_id;
 		//TUDO
 		unsigned int hashcode;
-		//hashcode = BKDRHash(dentry->d_name.name);
+		hashcode = BKDRHash(dentry->d_name.name);
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
 		fi->dir_id = dir_id;
