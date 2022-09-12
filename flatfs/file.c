@@ -35,6 +35,7 @@
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
+#include "lba.h"
 #endif
 
 
@@ -46,7 +47,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 
  	sector_t pblk;
 	//TUDO
-	//pblk = ffs_get_lba(inode, iblock);
+	pblk = ffs_get_lba_data(inode, iblock);
 	printk("pblk: %lld\n", pblk);
 
 	map_bh(bh, inode->i_sb, pblk);//核心
