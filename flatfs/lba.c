@@ -96,7 +96,11 @@ static void delete_file(struct HashTable *file_ht, char * filename)
 		int namelen = strlen(filename);
 		if(ffs_match(namelen, filename, &file_ht->buckets[bucket_id].slots[slt].filename))
 		{
-			kfree(file_ht->buckets[bucket_id].slots[slt].filename.name);
+			int name_pos;
+			for(name_pos = 0; name_pos <= file_ht->buckets[bucket_id].slots[slt].filename.name_len; name_pos ++)
+			{
+				file_ht->buckets[bucket_id].slots[slt].filename.name[name_pos] = 0;
+			}
 			file_ht->buckets[bucket_id].slots[slt].filename.name_len = 0;
 			file_ht->buckets[bucket_id].valid_slot_count --;
 			break;
@@ -115,12 +119,12 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 	if(flag == 0){//file inode区lba计算,按照bucket算
 		lba_base = FILE_META_LBA_BASE;
 		if(slot_id != -1){
-			lba |= (BUCKETS_PER_DIR*dir_id + bucket_id) << PAGE_SHIFT;
+			lba |= (BUCKETS_PER_DIR * dir_id + bucket_id) << PAGE_SHIFT;
 			lba |= slot_id << BLOCK_SHIFT;
 			lba += lba_base;
 		}
 		else{//文件inode所在bucket的slba
-			lba |= (BUCKETS_PER_DIR*dir_id + bucket_id)  << PAGE_SHIFT;
+			lba |= (BUCKETS_PER_DIR * dir_id + bucket_id)  << PAGE_SHIFT;
 			lba += lba_base;
 		}
 			
@@ -140,7 +144,7 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 lba_t ffs_get_lba_data(struct inode *inode, lba_t iblock) {
 	
 	struct ffs_inode_info* fi = FFS_I(inode);
-	lba_t base = compose_lba(fi->dir_id,fi->bucket_id,fi->slot_id,1);
+	lba_t base = compose_lba(fi->dir_id, fi->bucket_id,fi->slot_id, 1);
 	lba_t lba  = base | iblock << BLOCK_SHIFT;
 
 	return lba;
@@ -150,7 +154,7 @@ lba_t ffs_get_lba_data(struct inode *inode, lba_t iblock) {
 lba_t ffs_get_lba_meta(struct inode *inode) {
 	
 	struct ffs_inode_info* fi = FFS_I(inode);
-	lba_t lba = compose_lba(fi->dir_id,fi->bucket_id,fi->slot_id,0);
+	lba_t lba = compose_lba(fi->dir_id, fi->bucket_id,fi->slot_id, 0);
 
 	return lba;
 }
@@ -163,7 +167,7 @@ lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, int di
 	unsigned int hashcode = BKDRHash(name);
 	unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 	//获取bucket的起始lba
-	lba_t file_bucket_slba = compose_lba(dir_id,bucket_id,-1,0);
+	lba_t file_bucket_slba = compose_lba(dir_id, bucket_id, -1, 0);
 	return file_bucket_slba;
 }
 
