@@ -470,15 +470,15 @@ struct inode_operations ffs_file_inode_ops = {
 // }
 
 struct inode_operations ffs_dir_inode_ops = {
-	//.create2        = ffs_create,
+	//.create         = ffs_create,
 	.lookup         = ffs_lookup,
-	//.lookup2        = ffs_lookup2,
+	//.lookup         = ffs_lookup2,
 	.link			= simple_link,
 	.unlink         = ffs_unlink,
 	//.symlink		= flatfs_symlik,
 	.mkdir          = ffs_mkdir,
 	.rmdir          = ffs_rmdir,
-	//.mknod2         = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
+	//.mknod          = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
 	.rename         = simple_rename,
 };
 

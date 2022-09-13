@@ -151,9 +151,9 @@ void resize_dir(unsigned long dir_ino)
 
 
 /* 卸载文件系统时调用，释放整个目录树结构 */
-void dir_exit(struct dir_entry *root)
+void dir_exit(struct flatfs_sb_info *sb_i)
 {
-    clear_dir_entry(root);
+    clear_dir_entry(&(sb_i->root));
 }
 
 
