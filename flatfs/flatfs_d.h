@@ -220,4 +220,5 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name);
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long insert_ino);
 void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct flatfs_sb_info *sb_i);
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long ino);
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

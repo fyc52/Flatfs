@@ -38,10 +38,12 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
     struct dir_entry *de = &(dtree->de[ino]);
 
-    // de->dir_size = 0;
-    // de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
-    // de->subdirs->head = de->subdirs->tail = NULL;
-
+    if(de->subdirs == NULL )
+    {
+        de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
+        de->subdirs->head = de->subdirs->tail = NULL;
+    }
+    de->dir_size = 0;
     de->namelen = strlen(dir_name);
     if(de->namelen > 0) {
         memcpy(de->dir_name, dir_name, de->namelen);
@@ -86,6 +88,11 @@ static inline void clear_dir_entry(struct dir_entry *dir)
     dir->dir_size = 0;
 }
 
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long ino)
+{
+    struct dir_entry *dir = &(sb_i->dtree_root.de[ino]);
+    clear_dir_entry(dir);
+}
 
 void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)
 {

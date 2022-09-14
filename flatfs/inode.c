@@ -410,6 +410,8 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	struct inode * inode = d_inode(dentry);
 	loff_t dir_size;
 	int err = -ENOTEMPTY;
+	struct flatfs_sb_info *flatfs_sb_i = FFS_SB(dir->i_sb);
+	unsigned long dir_ino = dir->i_ino;
 	
 	if(!i_size_read(inode)){
 		err = ffs_unlink(dir, dentry);
@@ -417,10 +419,11 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 			inode->i_size = 0;
 			inode_dec_link_count(inode);
 			inode_dec_link_count(dir);
+			//TUDO free dentry in memory
+			remove_dir(flatfs_sb_i, dir_ino);
 		}
 		return 0;
 	}
-	//TUDO free dentry in memory
 	return err;
 }
 
