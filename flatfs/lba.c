@@ -1,4 +1,5 @@
 #include <linux/slab.h>
+#include <linux/module.h>
 #include <linux/string.h>
 #ifndef _TEST_H_
 #define _TEST_H_

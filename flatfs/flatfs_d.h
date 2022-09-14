@@ -1,5 +1,4 @@
 
-
 #include <linux/list.h>
 #include <linux/fs.h>
 #include <linux/rwsem.h>
@@ -10,6 +9,7 @@
 #include <linux/bitmap.h>
 #include <linux/dcache.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 
 #ifndef _TEST_H_
 #define _TEST_H_
@@ -217,6 +217,7 @@ static inline int ffs_match(int len, const char * name,
 }
 
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name);
+void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long insert_ino);
 void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct flatfs_sb_info *sb_i);
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

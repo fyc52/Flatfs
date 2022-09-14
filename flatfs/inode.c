@@ -318,6 +318,9 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		char *dir_name;
 		memcpy(dir_name, s_dentry->d_name.name, strlen(s_dentry->d_name.name));
 		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dir_name);
+		unsigned long parent_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+		// unsigned long parent_ino = dir->i_ino;
+		insert_dir(dir->i_sb->s_fs_info, parent_ino, dir_id);
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
 		fi->dir_id = dir_id;
 		fi->bucket_id = -1;
@@ -409,7 +412,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	int err = -ENOTEMPTY;
 	
 	if(!i_size_read(inode)){
-		err = ffs_unlink(dir,dentry);
+		err = ffs_unlink(dir, dentry);
 		if(!err){
 			inode->i_size = 0;
 			inode_dec_link_count(inode);
@@ -417,6 +420,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 		}
 		return 0;
 	}
+	//TUDO free dentry in memory
 	return err;
 }
 

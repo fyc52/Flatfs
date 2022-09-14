@@ -1,6 +1,7 @@
 
 // #include <malloc.h>
 #include <linux/string.h>
+#include <linux/module.h>
 // #include <assert.h>
 #ifndef _TEST_H_
 #define _TEST_H_
@@ -9,15 +10,37 @@
 
 static int test_count = 10;
 /*  根据相关参数，创建一个新的目录项   */
+
+void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long insert_ino) 
+{
+    struct dir_entry *dir = &(sb_i->dtree_root.de[parent_ino]);//父目录entry
+    struct dir_entry *inserted_dir = &(sb_i->dtree_root.de[insert_ino]); //插入目录的entry
+    struct dir_list_entry *dle = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
+    dle->de = inserted_dir;
+    dle->last = dle->next = NULL;
+
+    if(dir->dir_size == 0) {
+        dir->subdirs->head = dir->subdirs->tail = dle;
+    }
+    else {
+        dir->subdirs->tail->next = dle;
+        dle->last = dir->subdirs->tail;
+        dir->subdirs->tail = dle;
+    }
+
+    dir->dir_size++;
+    sb_i->dtree_root.dir_entry_num++;
+}
+
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
 {
     struct dir_tree *dtree = &(sb_i->dtree_root);
     unsigned long ino = get_unused_ino(dtree->ino_bitmap);
     struct dir_entry *de = &(dtree->de[ino]);
 
-    de->dir_size = 0;
-    de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
-    de->subdirs->head = de->subdirs->tail = NULL;
+    // de->dir_size = 0;
+    // de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
+    // de->subdirs->head = de->subdirs->tail = NULL;
 
     de->namelen = strlen(dir_name);
     if(de->namelen > 0) {
@@ -45,27 +68,6 @@ void init_dir_tree(struct flatfs_sb_info *sb_i)
         de->subdirs = kmalloc(sizeof(struct dir_list), GFP_NOIO);
         de->subdirs->head = de->subdirs->tail = NULL;
     }  
-}
-
-
-void insert_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_entry *inserted_dir) 
-{
-    struct dir_entry *dir = &(sb_i->dtree_root.de[ino]);
-    struct dir_list_entry *dle = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
-    dle->de = inserted_dir;
-    dle->last = dle->next = NULL;
-
-    if(dir->dir_size == 0) {
-        dir->subdirs->head = dir->subdirs->tail = dle;
-    }
-    else {
-        dir->subdirs->tail->next = dle;
-        dle->last = dir->subdirs->tail;
-        dir->subdirs->tail = dle;
-    }
-
-    dir->dir_size++;
-    sb_i->dtree_root.dir_entry_num++;
 }
 
 
@@ -133,10 +135,10 @@ int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context 
     }
     struct dir_entry *de = &(sb_i->dtree_root.de[ino]);
     struct dir_list_entry *dle = de->subdirs->head;
-    int start;
-    for(start = 0; start < de->dir_size; start++) {
+    int start = 0;
+    for(dle = de->subdirs->head; start < de->dir_size && dle != NULL; start ++, dle = dle->next) {
         unsigned char d_type = DT_UNKNOWN;
-        dir_emit(ctx, de->dir_name, de->namelen, le32_to_cpu(de->ino), d_type);
+        dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(de->ino), d_type);
         __le16 dlen;
         ctx->pos += ffs_rec_len_from_dtree(dlen);
     }

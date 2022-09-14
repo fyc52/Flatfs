@@ -1,4 +1,3 @@
-#include <linux/module.h>
 #include <linux/fs.h>
 
 #ifndef _TEST_H_

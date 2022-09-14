@@ -62,7 +62,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 		set_buffer_new(bh);
 		set_buffer_mapped(bh);
 	}
-	return 0;
+	return ret;
 
 }
 
@@ -155,7 +155,9 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	loff_t pos = ctx->pos;/*文件的偏移*/
 	struct inode *ino = file_inode(file);
 	struct super_block *sb = ino->i_sb;
-	read_dir(FFS_SB(sb), ino, ctx);
+	struct ffs_inode_info * dfi = FFS_I(ino);
+	unsigned long dir_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+	read_dir(FFS_SB(sb), dir_ino, ctx);
 	return 0;
 }
 
