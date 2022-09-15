@@ -131,10 +131,10 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	int slot_id;
 	/* 读盘获取inode */
 	if(!is_dir){//文件
-		unsigned int hashcode = BKDRHash(dentry->d_name.name);
+		unsigned int hashcode = BKDRHash((char *)(dentry->d_name.name));
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
-		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, dentry->d_name.name, &slot_id, &bh);
+		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, (char *)(dentry->d_name.name), &slot_id, &bh);
 		if(shared_is_flatfs)
 			shared_slot_id = slot_id;
 		if(!raw_inode){//没找到
@@ -223,10 +223,10 @@ static struct dentry *ffs_lookup2(struct inode *dir, struct dentry *dentry, unsi
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		//int slot_id;
-		unsigned int hashcode = BKDRHash(dentry->d_name.name);
+		unsigned int hashcode = BKDRHash((char *)(dentry->d_name.name));
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
-		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, dentry->d_name.name, slot_id, &bh);
+		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, (char *)(dentry->d_name.name), slot_id, &bh);
 		if(!raw_inode){//没找到
 			inode = NULL;
 			goto out;
@@ -331,7 +331,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		int dir_id = dfi->dir_id;
 		//TUDO
 		unsigned int hashcode;
-		hashcode = BKDRHash(dentry->d_name.name);
+		hashcode = BKDRHash((char *)(dentry->d_name.name));
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | shared_slot_id) + 1;
 		fi->dir_id = dir_id;
