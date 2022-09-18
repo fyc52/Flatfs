@@ -56,7 +56,6 @@ static void
 flatfs_put_super(struct super_block *sb)
 {
 	struct flatfs_sb_info *ffs_sb;
-	strcpy(ffs_sb->name, "flatfs");
 	printk(KERN_INFO "put super of flatfs\n");
 
 	ffs_sb = FFS_SB(sb);
@@ -77,12 +76,12 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 {
 	struct buffer_head *ibh;
 	struct ffs_inode* raw_inode;
+	sector_t pblk;
 	// 目录的inode在实现中也要做持久化
 	// if((inode->i_mode & S_IFMT) == S_IFDIR)
 	// 	return 0;
 
 	struct ffs_inode_info *fi = FFS_I(inode);
-	sector_t pblk;
 	if(fi){
 		if(fi->bucket_id >= 0)//file
 			pblk = ffs_get_lba_meta(inode);
@@ -106,19 +105,22 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	memset(ibh->b_data,0,ibh->b_size);
 	//fill bh
 	if(fi->valid){
+		struct hlist_node *tmp_list;
+		struct inode* pinode;
+		pinode = inode;
+ 		struct dentry *s_dentry;
+
 		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
 
 		//通过inode号查询文件名
-		struct hlist_node *tmp_list = NULL;
-		struct inode* pinode = inode;
- 		struct dentry *s_dentry = NULL;
 		hlist_for_each(tmp_list, &(pinode->i_dentry))
 		{
     		s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
 		}
-		raw_inode->filename = s_dentry->d_name.name;
+		memcpy(raw_inode->filename, (char *)(s_dentry->d_name.name), my_strlen((char *)(s_dentry->d_name.name)));
+		// raw_inode->filename = s_dentry->d_name.name;
 	}
 
 	if (!buffer_uptodate(ibh))
@@ -206,15 +208,21 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 {
 	struct inode *inode;
 	struct flatfs_sb_info *ffs_sb;
-	ffs_sb = (struct flatfs_sb_info *)kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL);
+	loff_t dir_size;
+	printk(KERN_INFO "flatfs_fill_super 1\n");
+	ffs_sb = kzalloc(sizeof(struct flatfs_sb_info), GFP_NOIO);
 	//printk(KERN_INFO "flatfs: ffs_sb init ok\n");
 	//cuckoo_hash_t *cuckoo = cuckoo_hash_init(BUCKET_NR);
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	//ffs_sb->cuckoo = cuckoo;
 	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
-	init_dir_tree(ffs_sb);
-	
-	strcpy(ffs_sb->name, "flatfs");
+	memcpy(ffs_sb->name, sb->s_type->name, 10);
+
+	printk(KERN_INFO "ffs_sb->name: %s\n", ffs_sb->name);
+	init_dir_tree(&ffs_sb->dtree_root);
+	printk(KERN_INFO "init_dir_tree OK\n");
+	init_root_entry(ffs_sb);
+	printk(KERN_INFO "init_dir_tree OK\n");
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
 	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE;			 //以字节为单位的块大小
 	sb->s_blocksize_bits = FLATFS_BSTORE_BLOCKSIZE_BITS; //以位为单位的块大小
@@ -226,15 +234,16 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
 	if (!inode)
 		return -ENOMEM;
-
+	
+	printk(KERN_INFO "flatfs: flatfs_get_inode OK\n");
 	inode->i_ino = 0x00000001UL;//为根inode分配ino#，不能为0
 
-	loff_t dir_size = i_size_read(inode);
+	dir_size = i_size_read(inode);
 	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
 
 	sb->s_fs_info = ffs_sb;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
-	//printk(KERN_INFO "flatfs: sb->s_fs_info init ok\n");
+	printk(KERN_INFO "flatfs: sb->s_fs_info init ok\n");
 	ffs_sb = FFS_SB(sb);
 	if (!ffs_sb)
 	{
@@ -316,8 +325,9 @@ static void destroy_inodecache(void)
 
 static int __init init_flatfs_fs(void) //宏定义__init表示该函数旨在初始化期间使用，模块装载后就扔掉，释放内存
 {
+	int err;
 	printk(KERN_INFO "init flatfs\n");
-	int err = init_inodecache();
+	err = init_inodecache();
 	if (err)
 		return err;
 	err = register_filesystem(&flatfs_fs_type); //内核文件系统API,将flatfs添加到内核文件系统链表
@@ -337,4 +347,4 @@ static void __exit exit_flatfs_fs(void)
 
 module_init(init_flatfs_fs); //宏：模块加载, 调用init_flatfs_fs
 module_exit(exit_flatfs_fs);
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

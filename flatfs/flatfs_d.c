@@ -22,7 +22,7 @@ unsigned long calculate_part_lba(char s, int depth)
 {
 	unsigned long plba = 0x00000000UL;
 
-	plba = plba + s << (TOTAL_DEPTH * 8 - depth * 8);
+	plba += s << (TOTAL_DEPTH * 8 - depth * 8);
 	return plba;
 }
 
@@ -42,7 +42,7 @@ int parse_depth(unsigned long ino){
 
 unsigned long calculate_slba(struct inode* dir, struct dentry* dentry)
 {
-	char *name = dentry->d_name.name;
+	char *name = (char *)(dentry->d_name.name);
 	unsigned long var = dir->i_ino;
 	// struct dentry* tem_den = dir->i_dentry;
 	// //是否为mount root？dentry对象的d_parent指针设置为指向自身是判断一个dentry对象是否是一个fs的根目录的唯一准则

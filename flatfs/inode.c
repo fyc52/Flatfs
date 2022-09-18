@@ -121,7 +121,8 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	if((!is_dir)&& (ino != dir->i_ino))
 		printk(KERN_WARNING "ffs inode number error\n");
 
-	int dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
+	int dir_id;
+	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	loff_t size = 0;// long long
 	struct buffer_head *bh;
 	struct ffs_inode *raw_inode = NULL;
@@ -153,7 +154,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		}
 		//获取目录inode
 		inode = iget_locked(dir->i_sb, ino);
-		lba_t pblk = ffs_get_lba_dir_meta(ino,-1);
+		lba_t pblk = ffs_get_lba_dir_meta(ino, -1);
 		raw_inode = ffs_get_inode_dir(dir->i_sb, pblk , &bh);
 	}
 	
@@ -271,7 +272,7 @@ static struct dentry *ffs_lookup2(struct inode *dir, struct dentry *dentry, unsi
 	}
 	else{
 		fi->bucket_id = bucket_id;
-		fi->slot_id   = slot_id;
+		fi->slot_id = *slot_id;
 		inode->i_mode |= S_IFREG ;
 		inode->i_op = &ffs_file_inode_ops;
 		inode->i_fop = &ffs_file_file_ops;
@@ -316,7 +317,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		}
 		//分配dir_id:
 		char *dir_name;
-		memcpy(dir_name, s_dentry->d_name.name, strlen(s_dentry->d_name.name));
+		memcpy(dir_name, s_dentry->d_name.name, my_strlen((char *)(s_dentry->d_name.name)));
 		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dir_name);
 		unsigned long parent_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
 		// unsigned long parent_ino = dir->i_ino;

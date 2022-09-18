@@ -10,13 +10,15 @@
 #include <linux/dcache.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/bitmap.h>
+#include <linux/types.h>
 
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "cuckoo_hash.h"
 #endif
 
-
+#define MAX_FILE_TYPE_NAME 256
 
 #define BUCKET_NR 2500//一个bucket 4个slot，每个slot记录一个inode
 
@@ -36,14 +38,15 @@
 #define FFS_BLOCK_SIZE_BITS 9
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
-#define FFS_MAX_FILENAME_LEN 255
+#define FFS_MAX_FILENAME_LEN 64
 
 /* LBA分配设置 */
-#define MAX_DIR_BITS 15
+#define MAX_DIR_BITS 8
 #define MIN_DIR_BITS 7
 
 #define MAX_FILE_BUCKET_BITS 20
 #define MIN_FILE_BUCKET_BITS 12
+
 
 #define FILE_SLOT_BITS 3
 
@@ -147,15 +150,22 @@ struct dir_list {
 struct dir_tree {
     struct dir_entry de[1 << MAX_DIR_BITS];
     unsigned long dir_entry_num;
+    // unsigned long ino_bitmap[1 << MAX_DIR_BITS]
     DECLARE_BITMAP(ino_bitmap, 1 << MAX_DIR_BITS);
 };
 
 
-static inline void init_ino_bitmap(unsigned long *ino_bitmap) {
+static void init_ino_bitmap(unsigned long *ino_bitmap) {
     bitmap_zero(ino_bitmap, 1 << MAX_DIR_BITS);
+    bitmap_set(ino_bitmap, 0, 1); //不使用
+    bitmap_set(ino_bitmap, 1, 1); //根结点inode为1
 }
-
-static inline unsigned long get_unused_ino(unsigned long *ino_bitmap) {
+static void my_bitmap_set(unsigned long *ino_bitmap, unsigned long ino, int bit) {
+    if(ino >= 1 << MAX_DIR_BITS)
+        return ;
+    ino_bitmap[ino] = bit;
+}
+static unsigned long get_unused_ino(unsigned long *ino_bitmap) {
     unsigned long ino;
     ino = find_first_zero_bit(ino_bitmap, 1);
     if(ino == 1 << MAX_DIR_BITS) {
@@ -171,9 +181,9 @@ static inline unsigned long get_unused_ino(unsigned long *ino_bitmap) {
 struct flatfs_sb_info
 { //一般会包含信息和数据结构，kevin的db就是在这里实现的
 	//cuckoo_hash_t *cuckoo;
-	struct dir_entry root;
-    struct dir_tree dtree_root;
-    char * name;
+	struct dir_entry *root;
+    struct dir_tree  *dtree_root;
+    char   name[MAX_FILE_TYPE_NAME];
 };
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
@@ -216,9 +226,17 @@ static inline int ffs_match(int len, const char * name,
 	return !memcmp(name, dn->name, len);
 }
 
+static inline int my_strlen(char *name)
+{
+    int len = 0;
+    while(name[len] != '\0') len ++;
+    return len;
+}
+
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name);
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long insert_ino);
 void dir_exit(struct flatfs_sb_info *sb_i);
-void init_dir_tree(struct flatfs_sb_info *sb_i);
+void init_dir_tree(struct dir_tree **dtree);
+void init_root_entry(struct flatfs_sb_info *sb_i);
 void remove_dir(struct flatfs_sb_info *sb_i, unsigned long ino);
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

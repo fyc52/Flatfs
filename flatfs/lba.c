@@ -9,7 +9,7 @@
 
 void init_file_ht(struct HashTable *file_ht)
 {
-	file_ht = kmalloc(sizeof(struct HashTable), GFP_NOIO);
+	file_ht = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);
 	int bkt;
 	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
 		file_ht->buckets[bkt].bucket_id = bkt;
@@ -48,12 +48,12 @@ unsigned int BKDRHash(char *str)
 static unsigned long insert_file(struct HashTable *file_ht, char * filename)
 {	
 	unsigned int hashcode = BKDRHash(filename);
-	unsigned long bucket_id = (unsigned long)hashcode & (1LU << (DEFAULT_FILE_BLOCK_BITS + FILE_SLOT_BITS) - 1LU);
+	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (DEFAULT_FILE_BLOCK_BITS + FILE_SLOT_BITS)) - 1LU);
 	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1);
-	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
+	my_bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count ++;
 
-	int namelen = strlen(filename);
+	size_t namelen = my_strlen(filename);
 	//file_ht->buckets[bucket_id].slots[slt].filename = kmalloc(sizeof(struct ffs_name), GFP_NOIO);
 
 	memcpy(file_ht->buckets[bucket_id].slots[slt].filename.name, filename, namelen);
@@ -72,7 +72,7 @@ static unsigned long get_file_seg(struct HashTable *file_ht, char * filename)
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
 	int slt;
 	for(slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
-		int namelen = strlen(filename);
+		int namelen = my_strlen(filename);
 		if(ffs_match(namelen, filename, &file_ht->buckets[bucket_id].slots[slt].filename))
 			break;
 	}
@@ -94,7 +94,7 @@ static void delete_file(struct HashTable *file_ht, char * filename)
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
 	int slt;
 	for(slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
-		int namelen = strlen(filename);
+		int namelen = my_strlen(filename);
 		if(ffs_match(namelen, filename, &file_ht->buckets[bucket_id].slots[slt].filename))
 		{
 			int name_pos;
