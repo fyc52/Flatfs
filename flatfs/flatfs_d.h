@@ -18,6 +18,8 @@
 #include "cuckoo_hash.h"
 #endif
 
+#define FLATFS_ROOT_INO 0x00000002UL
+
 #define MAX_FILE_TYPE_NAME 256
 
 #define BUCKET_NR 2500//一个bucket 4个slot，每个slot记录一个inode
@@ -159,6 +161,7 @@ static void init_ino_bitmap(unsigned long *ino_bitmap) {
     bitmap_zero(ino_bitmap, 1 << MAX_DIR_BITS);
     bitmap_set(ino_bitmap, 0, 1); //不使用
     bitmap_set(ino_bitmap, 1, 1); //根结点inode为1
+    bitmap_set(ino_bitmap, 2, 1); //根结点inode为1
 }
 static void my_bitmap_set(unsigned long *ino_bitmap, unsigned long ino, int bit) {
     if(ino >= 1 << MAX_DIR_BITS)
@@ -233,10 +236,23 @@ static inline int my_strlen(char *name)
     return len;
 }
 
+static inline char * inode_to_name(struct inode * ino)
+{
+    struct hlist_node *tmp_list = NULL;
+	struct inode* pinode = ino;
+ 	struct dentry *s_dentry = NULL;
+	hlist_for_each(tmp_list, &(pinode->i_dentry))
+	{
+    	s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
+	}
+    if(s_dentry == NULL) printk("Dentry is NULL");
+    return (char* )(s_dentry->d_name.name);
+}
+
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name);
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long insert_ino);
 void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct dir_tree **dtree);
-void init_root_entry(struct flatfs_sb_info *sb_i);
+void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);
 void remove_dir(struct flatfs_sb_info *sb_i, unsigned long ino);
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

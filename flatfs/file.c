@@ -84,12 +84,14 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	printk(KERN_INFO "writepage\n");
+	dump_stack();
 	return block_write_full_page(page, ffs_get_block_prep, wbc);
 }
 
 static int ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
 	printk(KERN_INFO "writepages\n");
+	dump_stack();
 	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
 }
 

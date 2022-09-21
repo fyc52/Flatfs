@@ -12,7 +12,7 @@
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
 extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, 
-					dev_t dev);
+					dev_t dev, int is_root);
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
@@ -35,7 +35,7 @@ extern int shared_slot_id;
 extern int shared_is_flatfs;
 
 static int mknod_is_dir;
-//当文件未找到时需返回空闲slotid
+//当文件未找到时需返回空闲slot id
 struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, int* slot_id, struct buffer_head **p)
 {
 	struct buffer_head *bhs[BLOCKS_PER_BUCKET];
@@ -112,43 +112,57 @@ struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, struct b
 //dentry：本目录的dentry，需要关联到本目录的inode
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
+	printk(KERN_INFO "flatfs: lookup\n");
 	int r, err;
 	struct inode *inode;
 	unsigned long ino = 0;
 	int is_dir = 0;
-	ino = flatfs_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
-	//调试用：
-	if((!is_dir)&& (ino != dir->i_ino))
-		printk(KERN_WARNING "ffs inode number error\n");
-
-	int dir_id;
-	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	loff_t size = 0;// long long
 	struct buffer_head *bh;
 	struct ffs_inode *raw_inode = NULL;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
 	struct page* page; 
+	int dir_id;
 	int bucket_id;
 	int slot_id;
+
+	if (dentry->d_name.len > FFS_MAX_FILENAME_LEN)
+		return NULL;
+
+	printk(KERN_INFO "flatfs: flatfs_inode_by_name\n");
+	ino = flatfs_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
+	//调试用：
+
+	if((!is_dir)&& (ino != dir->i_ino))
+	{
+		printk(KERN_WARNING "ffs inode number error\n");
+		return dentry;
+	}
+	printk(KERN_INFO "flatfs: flatfs_inode_by_name OK ino = %ld\n", ino);
+
+	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
+
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		unsigned int hashcode = BKDRHash((char *)(dentry->d_name.name));
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
-		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir,dentry,dir_id);
+		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir, dentry, dir_id);
+		printk("ffs_get_lba_file_bucket OK, bucket_pblk = %lld", bucket_pblk);
 		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, (char *)(dentry->d_name.name), &slot_id, &bh);
+		
 		if(shared_is_flatfs)
 			shared_slot_id = slot_id;
 		if(!raw_inode){//没找到
 			inode = NULL;
 			goto out;
 		}
-		else{//根据slotid计算出来文件的ino
+		else{//根据slot id计算出来文件的ino
 			ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
 			inode = iget_locked(dir->i_sb, ino);
 		}
 	}/* 结束判断inode存在性 */
 	else{//目录
-		if(ino == 0){//没找到
+		if(ino == FLATFS_ROOT_INO){//没找到
 			inode = NULL;
 			goto out;
 		}
@@ -158,6 +172,8 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		raw_inode = ffs_get_inode_dir(dir->i_sb, pblk , &bh);
 	}
 	
+	printk("Lookup get inode OK");
+
 	struct ffs_inode_info *fi = FFS_I(inode);
 	fi->dir_id = dir_id;
 	fi->valid = 1;
@@ -189,7 +205,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		inode->i_mode |= S_IFREG ;
 		inode->i_op = &ffs_file_inode_ops;
 		inode->i_fop = &ffs_file_file_ops;
-		set_nlink(inode,1);//不允许硬链接，常规文件的nlink固定为1
+		set_nlink(inode, 1);//不允许硬链接，常规文件的nlink固定为1
 	}
 		
 	brelse(bh);
@@ -294,12 +310,12 @@ void ffs_add_entry(struct inode *dir){
 static int
 ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
-	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
+	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev, 0);//分配VFS inode
 	int error = -ENOSPC;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
 	// strcpy(ffs_sb->name, "flatfs");
 	//cuckoo_hash_t* ht = ffs_sb->cuckoo;
-	loff_t size=0;
+	loff_t size = 0;
 	struct ffs_inode_info * dfi = FFS_I(dir);
 	struct ffs_inode_info * fi = FFS_I(inode);
 	unsigned long ino = 0;
@@ -329,7 +345,9 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->valid = 1;
 	}
 	else{
+		printk(KERN_INFO "flatfs: create\n");
 		int dir_id = dfi->dir_id;
+		printk(KERN_INFO "flatfs: dir_id = %d and dir_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 		//TUDO
 		unsigned int hashcode;
 		hashcode = BKDRHash((char *)(dentry->d_name.name));
@@ -436,6 +454,7 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bo
 	// printk(KERN_ALERT "--------------[create] dump_stack start----------------");
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");
+	mknod_is_dir = 0;
 	return ffs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
 

@@ -47,6 +47,7 @@ extern void brelse(struct buffer_head *bh);
 extern void set_buffer_uptodate(struct buffer_head *bh);
 extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 extern struct ffs_inode_info* FFS_I(struct inode * inode);
+extern struct dentry *d_make_root(struct inode *root_inode);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {
@@ -165,11 +166,14 @@ struct super_operations flatfs_super_ops = {
 	.destroy_inode	= ffs_destroy_inode,
 };
 //不允许创建软连接
-struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
+struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int is_root)
 {
-	struct inode *inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
+	struct inode *inode;
+	if(!is_root) inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
+	else inode = iget_locked(sb, 0x00000001UL);
 	if (inode)
 	{
+		inode->i_sb = sb;
 		inode->i_mode = mode;													//访问权限,https://zhuanlan.zhihu.com/p/78724124
 		inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
@@ -219,10 +223,6 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	memcpy(ffs_sb->name, sb->s_type->name, 10);
 
 	printk(KERN_INFO "ffs_sb->name: %s\n", ffs_sb->name);
-	init_dir_tree(&ffs_sb->dtree_root);
-	printk(KERN_INFO "init_dir_tree OK\n");
-	init_root_entry(ffs_sb);
-	printk(KERN_INFO "init_dir_tree OK\n");
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
 	sb->s_blocksize = FLATFS_BSTORE_BLOCKSIZE;			 //以字节为单位的块大小
 	sb->s_blocksize_bits = FLATFS_BSTORE_BLOCKSIZE_BITS; //以位为单位的块大小
@@ -231,13 +231,17 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	sb->s_time_gran = 1;								 /* 时间戳的粒度（单位为纳秒) */
 	printk(KERN_INFO "flatfs: fill super\n");
 
-	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
+	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0, 1); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
 	if (!inode)
 		return -ENOMEM;
 	
 	printk(KERN_INFO "flatfs: flatfs_get_inode OK\n");
-	inode->i_ino = 0x00000001UL;//为根inode分配ino#，不能为0
+	inode->i_ino = FLATFS_ROOT_INO;//为根inode分配ino#，不能为0
 
+	init_dir_tree(&ffs_sb->dtree_root);
+	printk(KERN_INFO "init_dir_tree OK\n");
+	init_root_entry(ffs_sb, inode);
+	printk(KERN_INFO "init_dir_tree OK\n");
 	dir_size = i_size_read(inode);
 	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
 
@@ -252,18 +256,20 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	}
 
 	sb->s_root = d_make_root(inode); //用来为fs的根目录（并不一定是系统全局文件系统的根“／”）分配dentry对象。它以根目录的inode对象指针为参数。函数中会将d_parent指向自身，注意，这是判断一个fs的根目录的唯一准则
+	printk(KERN_INFO "root name : %s\n", inode_to_name(sb->s_root->d_inode));
 	if (!sb->s_root)
 	{ //分配结果检测，如果失败
+		printk(KERN_INFO "root node create failed\n");
 		iput(inode);
 		//kfree(ffs_sb->cuckoo);
 		//ffs_sb->cuckoo=NULL;
 		kfree(ffs_sb);
 		return -ENOMEM;
 	}
+
 	mark_inode_dirty(inode);
 	unlock_new_inode(inode);
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
-
 	return 0;
 }
 /*

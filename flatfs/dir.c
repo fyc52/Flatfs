@@ -25,27 +25,31 @@ void init_dir_tree(struct dir_tree **dtree)
         de->dir_size = 0;
         de->namelen = 0;
         de->dir_name[0] = '\0';
-        // de->subdirs = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
-        // de->subdirs->head = de->subdirs->tail = NULL;
+        de->subdirs = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
+        // de->subdirs->head = NULL;
+        // de->subdirs->tail = NULL;
     } 
     printk(KERN_INFO "init_dir_tree 2\n");
     init_ino_bitmap((*dtree)->ino_bitmap);
     printk(KERN_INFO "init_dir_tree 3\n"); 
 }
 
-void init_root_entry(struct flatfs_sb_info *sb_i)
+void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
 {
-    struct dir_entry *root = sb_i->root;
-    root = kmalloc(sizeof(struct dir_entry), GFP_NOIO);
+    sb_i->root = kmalloc(sizeof(struct dir_entry), GFP_NOIO);
     printk(KERN_INFO "init_root_entry 1\n");
-    root->ino = 1;
-    memcpy(root->dir_name, "/", strlen("/"));
+    sb_i->root->ino = FLATFS_ROOT_INO;
+    // strcpy(root->dir_name, inode_to_name(ino));
+    memcpy(sb_i->root->dir_name, "/", strlen("/"));
+    sb_i->root->namelen = 1;
+    printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
     printk(KERN_INFO "init_root_entry 2\n");
-    root = &(sb_i->dtree_root->de[root->ino]);
-    root->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
+    sb_i->root = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
+    sb_i->root->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
     printk(KERN_INFO "init_root_entry 3\n");
-    root->subdirs->head = root->subdirs->tail = NULL;
-    root->dir_size = 0;
+    sb_i->root->subdirs->head = NULL;
+    sb_i->root->subdirs->tail = NULL;
+    sb_i->root->dir_size = i_size_read(ino);
 }
 
 /*  根据相关参数，创建一个新的目录项   */
@@ -193,25 +197,18 @@ unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
 	struct dir_entry *dir = &(sb_i->dtree_root->de[parent_ino]);
     struct dir_list_entry *dir_node;
     const char *name = child->name;
-	int namelen = child->len;
-    int start = 0;
-    unsigned long ino = 0;
-    ino = parent_ino;
+    unsigned long ino = parent_ino;
+    int namelen = child->len;
+    int start;
     *is_dir = 0;
-
-    for(dir_node = dir->subdirs->head; start < dir->dir_size && dir_node != NULL; ) {
+    printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_ino, name, namelen);
+    for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
         if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
             ino = dir_node->de->ino;
             *is_dir = 1;
             break;
         }
-        else {
-            start++;
-            dir_node = dir_node->next;
-            continue;
-        }
     }
-
     return ino;
 }
 
