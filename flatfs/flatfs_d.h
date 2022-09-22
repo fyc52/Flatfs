@@ -115,7 +115,7 @@ struct ffs_name {
 /** dir tree **/
 struct dir_entry {
     /* 目录的ino */
-    unsigned long ino;
+    unsigned long dir_id;
     /* 目录名 */
     char dir_name[FFS_MAX_FILENAME_LEN + 2];
     int namelen;
@@ -153,31 +153,31 @@ struct dir_tree {
     struct dir_entry de[1 << MAX_DIR_BITS];
     unsigned long dir_entry_num;
     // unsigned long ino_bitmap[1 << MAX_DIR_BITS]
-    DECLARE_BITMAP(ino_bitmap, 1 << MAX_DIR_BITS);
+    DECLARE_BITMAP(dir_id_bitmap, 1 << MAX_DIR_BITS);
 };
 
 
-static void init_ino_bitmap(unsigned long *ino_bitmap) {
-    bitmap_zero(ino_bitmap, 1 << MAX_DIR_BITS);
-    bitmap_set(ino_bitmap, 0, 1); //不使用
-    bitmap_set(ino_bitmap, 1, 1); //根结点inode为1
-    bitmap_set(ino_bitmap, 2, 1); //根结点inode为1
+static void init_dir_id_bitmap(unsigned long *dir_id_bitmap) {
+    bitmap_zero(dir_id_bitmap, 1 << MAX_DIR_BITS);
+    bitmap_set(dir_id_bitmap, 0, 1); //不使用
+    bitmap_set(dir_id_bitmap, 1, 1); //根结点inode为1
+    bitmap_set(dir_id_bitmap, 2, 1); //根结点inode为1
 }
 static void my_bitmap_set(unsigned long *ino_bitmap, unsigned long ino, int bit) {
     if(ino >= 1 << MAX_DIR_BITS)
         return ;
     ino_bitmap[ino] = bit;
 }
-static unsigned long get_unused_ino(unsigned long *ino_bitmap) {
-    unsigned long ino;
-    ino = find_first_zero_bit(ino_bitmap, 1);
-    if(ino == 1 << MAX_DIR_BITS) {
+static unsigned long get_unused_dir_id(unsigned long *dir_id_bitmap) {
+    unsigned long dir_id;
+    dir_id = find_first_zero_bit(dir_id_bitmap, 1);
+    if(dir_id == 1 << MAX_DIR_BITS) {
         return ENOINO;
     }
     /* 设置该ino为已经被使用 */
-    bitmap_set(ino_bitmap, ino, 1);
+    bitmap_set(dir_id_bitmap, dir_id, 1);
     /* root的inode num设定为1， 那么其他目录的ino从2开始编号 */
-    return ino;
+    return dir_id;
 }
 
 /* ffs在内存superblock */

@@ -48,6 +48,7 @@ extern void set_buffer_uptodate(struct buffer_head *bh);
 extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 extern struct ffs_inode_info* FFS_I(struct inode * inode);
 extern struct dentry *d_make_root(struct inode *root_inode);
+extern unsigned long dir_id_to_inode(unsigned long dir_id);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {
@@ -236,7 +237,8 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 		return -ENOMEM;
 	
 	printk(KERN_INFO "flatfs: flatfs_get_inode OK\n");
-	inode->i_ino = FLATFS_ROOT_INO;//为根inode分配ino#，不能为0
+	inode->i_ino = dir_id_to_inode(FLATFS_ROOT_INO);//为根inode分配ino#，不能为0
+	printk(KERN_INFO "flatfs: root inode = %x\n", inode->i_ino);
 
 	init_dir_tree(&ffs_sb->dtree_root);
 	printk(KERN_INFO "init_dir_tree OK\n");

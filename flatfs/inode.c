@@ -35,30 +35,33 @@ extern int shared_slot_id;
 extern int shared_is_flatfs;
 
 static int mknod_is_dir;
+
 //当文件未找到时需返回空闲slot id
 struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, int* slot_id, struct buffer_head **p)
 {
+	printk("ffs_find_get_inode_file ");
 	struct buffer_head *bhs[BLOCKS_PER_BUCKET];
 	int index = -1;
 	struct ffs_inode* temp = NULL;
-	int i = 0;
+	int i;
 	int free_slot_id;
 	bool first_time = true;
 	slba = slba >> BLOCK_SHIFT;
 	//page cache分配
-	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
+	for(i = 0; i < BLOCKS_PER_BUCKET ; i ++){
 		bhs[i] = sb_getblk(sb, slba);
-		slba++;
+		slba ++;
 	}
+	printk("sb_getblk ok");
 	
 	ll_rw_block(REQ_OP_READ, REQ_META | REQ_PRIO, BLOCKS_PER_BUCKET, bhs);
-	
+	printk("ll_rw_block ok");
 	//等待读完成
 	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
 		if(bhs[i])
 			wait_on_buffer(bhs[i]);
 	}
-
+	printk("wait_on_buffer ok");
 	for(i = 0; i < BLOCKS_PER_BUCKET ; i++){
 		temp = (struct ffs_inode *)(bhs[i]->b_data);
 		if(temp->valid == 0){
@@ -78,7 +81,7 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 			break;
 		}
 	}
-
+	printk("buffer_uptodate ok");
 	if(i == BLOCKS_PER_BUCKET){
 		*p = NULL;
 		*slot_id = free_slot_id;
@@ -141,15 +144,17 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	printk(KERN_INFO "flatfs: flatfs_inode_by_name OK ino = %ld\n", ino);
 
 	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-
+	printk("dir_id = %x\n", dir_id);
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		unsigned int hashcode = BKDRHash((char *)(dentry->d_name.name));
+		printk("hashcode = %ld\n", hashcode);
 		unsigned long bucket_id = (unsigned long)(hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU));
+		printk("bucket_id = %ld\n", bucket_id);
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir, dentry, dir_id);
 		printk("ffs_get_lba_file_bucket OK, bucket_pblk = %lld", bucket_pblk);
 		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, (char *)(dentry->d_name.name), &slot_id, &bh);
-		
+		printk(KERN_INFO "flatfs: ffs_find_get_inode_file\n");
 		if(shared_is_flatfs)
 			shared_slot_id = slot_id;
 		if(!raw_inode){//没找到
@@ -157,6 +162,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 			goto out;
 		}
 		else{//根据slot id计算出来文件的ino
+			printk(KERN_INFO "flatfs: get raw_inode OK\n");
 			ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
 			inode = iget_locked(dir->i_sb, ino);
 		}
