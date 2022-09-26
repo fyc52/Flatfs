@@ -86,9 +86,17 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_info *fi = FFS_I(inode);
 	if(fi){
 		if(fi->bucket_id >= 0)//file
+		{
+			printk("ffs_get_lba_meta:inode = %d", inode->i_ino);
 			pblk = ffs_get_lba_meta(inode);
+			printk("ffs_get_lba_meta:inode = %d, pblk = %lld", inode->i_ino, pblk);
+		}
 		else				  //dir
-			pblk = ffs_get_lba_dir_meta(-1,fi->dir_id);
+		{
+			printk("ffs_get_lba_dir_meta:inode = %d", inode->i_ino);
+			pblk = ffs_get_lba_dir_meta(-1, fi->dir_id);
+			printk("ffs_get_lba_dir_meta:inode = %d, pblk = %lld", inode->i_ino, pblk);
+		}
 	}
 	else{//错误情况
 		printk(KERN_WARNING "ffs lookup() didin't initialize fi\n");
@@ -104,7 +112,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	lock_buffer(ibh);
 	//actual write inode in buffer cache
 	//zero bh
-	memset(ibh->b_data,0,ibh->b_size);
+	memset(ibh->b_data, 0, ibh->b_size);
 	//fill bh
 	if(fi->valid){
 		struct hlist_node *tmp_list;
@@ -171,7 +179,12 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int 
 {
 	struct inode *inode;
 	if(!is_root) inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
-	else inode = iget_locked(sb, 0x00000001UL);
+	else 
+	{
+		unsigned long root_ino = dir_id_to_inode(FLATFS_ROOT_INO);
+		inode = iget_locked(sb, root_ino);
+	}
+
 	if (inode)
 	{
 		inode->i_sb = sb;
@@ -221,7 +234,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	//ffs_sb->cuckoo = cuckoo;
 	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
-	memcpy(ffs_sb->name, sb->s_type->name, 10);
+	strcpy(ffs_sb->name, sb->s_type->name);
 
 	printk(KERN_INFO "ffs_sb->name: %s\n", ffs_sb->name);
 	sb->s_maxbytes = MAX_LFS_FILESIZE;					 /*文件大小上限*/
@@ -235,9 +248,17 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0, 1); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
 	if (!inode)
 		return -ENOMEM;
-	
+
 	printk(KERN_INFO "flatfs: flatfs_get_inode OK\n");
 	inode->i_ino = dir_id_to_inode(FLATFS_ROOT_INO);//为根inode分配ino#，不能为0
+	struct ffs_inode_info *fi = FFS_I(inode);
+	if(fi)
+	{
+		fi->valid = 1;
+		fi->bucket_id = -1;
+		fi->dir_id = FLATFS_ROOT_INO;
+		fi->slot_id = 0;
+	}
 	printk(KERN_INFO "flatfs: root inode = %x\n", inode->i_ino);
 
 	init_dir_tree(&ffs_sb->dtree_root);

@@ -34,7 +34,7 @@
 #define FLATFS_BSTORE_BLOCKSIZE BLOCK_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS BLOCK_SHIFT
 
-#define lba_t sector_t
+typedef u64 lba_t;
 #define INIT_SPACE 10
 
 #define FFS_BLOCK_SIZE_BITS 9
