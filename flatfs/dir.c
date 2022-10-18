@@ -36,7 +36,7 @@ void init_dir_tree(struct dir_tree **dtree)
 
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
 {
-    sb_i->root = kmalloc(sizeof(struct dir_entry), GFP_NOIO);
+    sb_i->root = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
     printk(KERN_INFO "init_root_entry 1\n");
     sb_i->root->dir_id = FLATFS_ROOT_INO;
     // strcpy(root->dir_name, inode_to_name(ino));
@@ -44,7 +44,6 @@ void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
     sb_i->root->namelen = 1;
     printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
     printk(KERN_INFO "init_root_entry 2\n");
-    sb_i->root = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
     sb_i->root->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
     printk(KERN_INFO "init_root_entry 3\n");
     sb_i->root->subdirs->head = NULL;
@@ -163,7 +162,7 @@ static inline unsigned ffs_rec_len_from_dtree(__le16 dlen)
 int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx)
 {
     unsigned long dir_ino = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-    printk("fyc_test, ls");
+    printk("fyc_test, ls, dir_ino: %lu\n", dir_ino);
 
     struct dir_entry *de = &(sb_i->dtree_root->de[dir_ino]);
     struct dir_list_entry *dle;
@@ -172,8 +171,11 @@ int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context 
     for(dle = de->subdirs->head, start = 0; start < de->dir_size && dle != NULL; start ++, dle = dle->next) {
         unsigned char d_type = DT_UNKNOWN;
         printk("dle->de->dir_name: %s", dle->de->dir_name);
+        if (dle->de->namelen == 0) {
+			return -EIO;
+		}
         dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(dir_id_to_inode(dle->de->dir_id)), d_type);
-        __le16 dlen = 10;
+        __le16 dlen = dle->de->namelen;
         ctx->pos += ffs_rec_len_from_dtree(dlen);
     }
 
