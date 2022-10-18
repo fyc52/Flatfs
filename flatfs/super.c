@@ -45,7 +45,7 @@ extern void unlock_buffer(struct buffer_head *bh);
 extern void lock_buffer(struct buffer_head *bh);
 extern void brelse(struct buffer_head *bh);
 extern void set_buffer_uptodate(struct buffer_head *bh);
-extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
+// extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 extern struct ffs_inode_info* FFS_I(struct inode * inode);
 extern struct dentry *d_make_root(struct inode *root_inode);
 extern unsigned long dir_id_to_inode(unsigned long dir_id);
@@ -77,6 +77,7 @@ flatfs_put_super(struct super_block *sb)
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
 	struct buffer_head *ibh;
+	struct super_block	*sb = inode->i_sb;
 	struct ffs_inode* raw_inode;
 	sector_t pblk;
 	// 目录的inode在实现中也要做持久化
@@ -84,6 +85,13 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	// 	return 0;
 
 	struct ffs_inode_info *fi = FFS_I(inode);
+	struct block_device *bdev = sb->s_bdev;
+	struct inode *bdev_inode = bdev->bd_inode;
+	if(bdev_inode == NULL) 
+	{
+		printk("bdev_inode error\n");
+		return 0;
+	}
 	if(fi){
 		if(fi->bucket_id >= 0)//file
 		{
@@ -94,8 +102,9 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		else				  //dir
 		{
 			printk("ffs_get_lba_dir_meta:inode = %d", inode->i_ino);
-			pblk = ffs_get_lba_dir_meta(-1, fi->dir_id);
-			printk("ffs_get_lba_dir_meta:inode = %d, pblk = %lld", inode->i_ino, pblk);
+			pblk = ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id);
+			printk(KERN_INFO "ffs_get_lba_dir_meta:inode = %d, pblk = %lld", inode->i_ino, pblk);
+			// dump_stack();
 		}
 	}
 	else{//错误情况
@@ -103,7 +112,12 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		//pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
-	ibh = sb_getblk(inode->i_sb, (pblk >> BLOCK_SHIFT ) );//这里不使用bread，避免读盘
+	printk(KERN_INFO "allocate bh for ffs_inode, s_blocksize = %ld\n", inode->i_sb->s_blocksize);
+	pblk = pblk >> BLOCK_SHIFT;
+	printk(KERN_INFO "sb->s_bdev = %ld, fs type = %s\n", inode->i_sb->s_dev, sb->s_type->name);
+	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
+	// ibh = sb_getblk(inode->i_sb, 0);//这里不使用bread，避免读盘
+	printk(KERN_INFO "allocate bh for ffs_inode OK");
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		// return -ENOMEM;
@@ -170,21 +184,75 @@ struct super_operations flatfs_super_ops = {
 	.statfs = flatfs_super_statfs,
 	.drop_inode = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super = flatfs_put_super,
-	.dirty_inode = ffs_dirty_inode,
+	//.dirty_inode = ffs_dirty_inode,
 	.alloc_inode = ffs_alloc_inode,
 	.destroy_inode	= ffs_destroy_inode,
 };
-//不允许创建软连接
+
+struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_root)
+{
+	struct ffs_inode_info *ei;
+	struct buffer_head * bh = NULL;
+	struct ffs_inode *raw_inode;
+	struct inode *inode;
+	sector_t pblk;
+	
+	unsigned long root_ino = dir_id_to_inode(FLATFS_ROOT_INO);
+	inode = iget_locked(sb, root_ino);
+	
+	if (inode)
+	{
+		ei = FLAT_I(inode);
+		ei->valid = 1;
+		ei->bucket_id = -1;
+		ei->dir_id = FLATFS_ROOT_INO;
+		ei->slot_id = 0;
+		pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
+		bh = sb_bread(sb, pblk);
+		printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
+		raw_inode = (struct ffs_inode *) (bh->b_data);
+		inode->i_sb = sb;
+		inode->i_mode = mode;													//访问权限,https://zhuanlan.zhihu.com/p/78724124
+		inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
+		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
+		inode->i_size = 0;													//文件的大小（byte）
+		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
+		printk(KERN_INFO "about to set inode ops\n");
+		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
+		// inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
+		switch (mode & S_IFMT)
+		{ /* type of file ，S_IFMT是文件类型掩码,用来取mode的0--3位,https://blog.csdn.net/wang93IT/article/details/72832775*/
+		default:
+			init_special_inode(inode, mode, dev); //为字符设备或者块设备文件创建一个Inode（在文件系统层）.
+			break;
+		case S_IFREG: /* regular 普通文件*/
+			printk(KERN_INFO "file inode\n");
+			inode->i_op = &ffs_file_inode_ops;
+			inode->i_fop = &ffs_file_file_ops;
+			inode->i_mapping->a_ops = &ffs_aops;
+			break;
+		case S_IFDIR: /* directory 目录文件*/
+
+			inode->i_op = &ffs_dir_inode_ops;
+			inode->i_fop = &ffs_dir_operations;
+			inode->i_mapping->a_ops = &ffs_aops;
+			inc_nlink(inode); // i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2；这里只加1，外层再加1
+			break;
+			//     case S_IFLNK://symlink
+			// inode->i_op = &page_symlink_inode_operations;
+			// inode_nohighmem(inode);
+			// break;
+		}
+	}
+	brelse (bh);
+	return inode;
+}
+
 struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int is_root)
 {
 	struct inode *inode;
-	if(!is_root) inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
-	else 
-	{
-		unsigned long root_ino = dir_id_to_inode(FLATFS_ROOT_INO);
-		inode = iget_locked(sb, root_ino);
-	}
-
+	inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
+	
 	if (inode)
 	{
 		inode->i_sb = sb;
@@ -205,11 +273,13 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int 
 			printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
+			inode->i_mapping->a_ops = &ffs_aops;
 			break;
 		case S_IFDIR: /* directory 目录文件*/
 
 			inode->i_op = &ffs_dir_inode_ops;
 			inode->i_fop = &ffs_dir_operations;
+			inode->i_mapping->a_ops = &ffs_aops;
 			inc_nlink(inode); // i_nlink是文件硬链接数,目录是由至少2个dentry指向的：./和../，所以是2；这里只加1，外层再加1
 			break;
 			//     case S_IFLNK://symlink
@@ -222,18 +292,44 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int 
 	return inode;
 }
 
+int sb_set_blocksize(struct super_block *sb, int size)
+{
+	if (set_blocksize(sb->s_bdev, size))
+		return 0;
+	/* If we get here, we know size is power of two
+	 * and it's value is between 512 and PAGE_SIZE */
+	sb->s_blocksize = size;
+	sb->s_blocksize_bits = blksize_bits(size);
+	return sb->s_blocksize;
+}
+
 static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // mount时被调用，会创建一个sb
 {
 	struct inode *inode;
+	//unsigned long sb_block = get_sb_block(&data);
+	int blocksize = BLOCK_SIZE;
 	struct flatfs_sb_info *ffs_sb;
+	unsigned long logic_sb_block = 1;
 	loff_t dir_size;
+
+	struct buffer_head *bh;
+	blocksize = sb_min_blocksize(sb, BLOCK_SIZE);
+	if (!(bh = sb_bread(sb, logic_sb_block))) {
+		printk( KERN_ERR, "error: unable to read superblock");
+	}
+	else{
+		printk("fill super, bh = %lld, sb dev = %d", bh->b_blocknr, sb->s_dev);		/* start block number */
+	}
+	
 	printk(KERN_INFO "flatfs_fill_super 1\n");
 	ffs_sb = kzalloc(sizeof(struct flatfs_sb_info), GFP_NOIO);
+
 	//printk(KERN_INFO "flatfs: ffs_sb init ok\n");
 	//cuckoo_hash_t *cuckoo = cuckoo_hash_init(BUCKET_NR);
 	//printk(KERN_INFO "flatfs: cuckoo init ok\n");
 	//ffs_sb->cuckoo = cuckoo;
 	//printk(KERN_INFO "flatfs: ffs_sb->cuckoo init ok\n");
+
 	strcpy(ffs_sb->name, sb->s_type->name);
 
 	printk(KERN_INFO "ffs_sb->name: %s\n", ffs_sb->name);
@@ -245,20 +341,12 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	sb->s_time_gran = 1;								 /* 时间戳的粒度（单位为纳秒) */
 	printk(KERN_INFO "flatfs: fill super\n");
 
-	inode = flatfs_get_inode(sb, S_IFDIR | 0755, 0, 1); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
+	inode = flatfs_iget(sb, S_IFDIR | 0755, 0, 1); //分配根目录的inode,增加引用计数，对应iput;S_IFDIR表示是一个目录,后面0755是权限位:https://zhuanlan.zhihu.com/p/48529974
 	if (!inode)
 		return -ENOMEM;
 
 	printk(KERN_INFO "flatfs: flatfs_get_inode OK\n");
 	inode->i_ino = dir_id_to_inode(FLATFS_ROOT_INO);//为根inode分配ino#，不能为0
-	struct ffs_inode_info *fi = FFS_I(inode);
-	if(fi)
-	{
-		fi->valid = 1;
-		fi->bucket_id = -1;
-		fi->dir_id = FLATFS_ROOT_INO;
-		fi->slot_id = 0;
-	}
 	printk(KERN_INFO "flatfs: root inode = %x\n", inode->i_ino);
 
 	init_dir_tree(&ffs_sb->dtree_root);
@@ -269,6 +357,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
 
 	sb->s_fs_info = ffs_sb;
+	// ffs_sb->s_sb_block = sb_block;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
 	printk(KERN_INFO "flatfs: sb->s_fs_info init ok\n");
 	ffs_sb = FFS_SB(sb);

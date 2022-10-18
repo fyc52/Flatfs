@@ -29,7 +29,7 @@
 /* helpful if this is different than other fs */
 #define FLATFS_MAGIC 0x73616d70 /* "FLAT" */
 #define PAGE_SHIFT 12
-#define BLOCK_SHIFT 9
+#define BLOCK_SHIFT 10
 // #define BLOCK_SIZE 512
 #define FLATFS_BSTORE_BLOCKSIZE BLOCK_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS BLOCK_SHIFT
@@ -162,6 +162,7 @@ static void init_dir_id_bitmap(unsigned long *dir_id_bitmap) {
     bitmap_set(dir_id_bitmap, 0, 1); //不使用
     bitmap_set(dir_id_bitmap, 1, 1); //根结点inode为1
     bitmap_set(dir_id_bitmap, 2, 1); //根结点inode为1
+    // printk("bitmap: %lx\n", *dir_id_bitmap);
 }
 static void my_bitmap_set(unsigned long *ino_bitmap, unsigned long ino, int bit) {
     if(ino >= 1 << MAX_DIR_BITS)
@@ -170,7 +171,8 @@ static void my_bitmap_set(unsigned long *ino_bitmap, unsigned long ino, int bit)
 }
 static unsigned long get_unused_dir_id(unsigned long *dir_id_bitmap) {
     unsigned long dir_id;
-    dir_id = find_first_zero_bit(dir_id_bitmap, 1);
+    dir_id = find_first_zero_bit(dir_id_bitmap, 1 << MAX_DIR_BITS);
+    // printk("get unused id: %lu\n", dir_id);
     if(dir_id == 1 << MAX_DIR_BITS) {
         return ENOINO;
     }
@@ -250,7 +252,7 @@ static inline char * inode_to_name(struct inode * ino)
 }
 
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name);
-void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long insert_ino);
+void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsigned long insert_dir_id);
 void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct dir_tree **dtree);
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);

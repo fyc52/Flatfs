@@ -120,7 +120,7 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 	if(flag == 0){//file inode区lba计算,按照bucket算
 		// dump_stack();
 		lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		printk("compose_lba: lba_base = %d", lba_base);
+		printk("compose_lba: lba_base = %lld", lba_base);
 		if(slot_id != -1){
 			lba |= (BUCKETS_PER_DIR * dir_id + bucket_id) << PAGE_SHIFT;
 			lba |= slot_id << BLOCK_SHIFT;
@@ -179,11 +179,10 @@ lba_t ffs_get_lba_file_bucket(struct inode *parent,struct dentry *dentry, int di
 lba_t ffs_get_lba_dir_meta(unsigned long ino, int dir_id){
 	if(ino != -1)
 		dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-
 	// lba_t lba = (dir_id) << PAGE_SHIFT;
 	sector_t lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 	printk("lba_base: %lld\n", lba_base);
-    lba_t lba = (lba_t)((((lba_t)(dir_id) * BUCKETS_PER_DIR) -1) * lba_base);
+    lba_t lba = (lba_t)((((lba_t)(dir_id) * BUCKETS_PER_DIR) - 1) * lba_base);
 	printk("lba: %lld\n", lba);
 	return lba;
 }

@@ -3,6 +3,7 @@
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
 #include <linux/blk_types.h>
+#include <linux/namei.h>
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -11,8 +12,8 @@
 
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
-extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, 
-					dev_t dev, int is_root);
+extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev);
+struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_root);
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
@@ -24,7 +25,6 @@ extern void unlock_buffer(struct buffer_head *bh);
 extern void lock_buffer(struct buffer_head *bh);
 extern void brelse(struct buffer_head *bh);
 extern void set_buffer_uptodate(struct buffer_head *bh);
-extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 extern void ll_rw_block(int, int, int, struct buffer_head * bh[]);
 extern void wait_on_buffer(struct buffer_head *bh);
 extern struct buffer_head * sb_bread_unmovable(struct super_block *sb, sector_t block);
@@ -47,9 +47,10 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 	int free_slot_id;
 	bool first_time = true;
 	slba = slba >> BLOCK_SHIFT;
+	printk("ffs_find_get_inode_file sb dev = %d", sb->s_dev);	
 	//page cache分配
 	for(i = 0; i < BLOCKS_PER_BUCKET ; i ++){
-		bhs[i] = sb_getblk(sb, slba);
+		bhs[i] = sb_bread(sb, slba);
 		slba ++;
 	}
 	printk("sb_getblk ok");
@@ -90,7 +91,7 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 
 	*p = bhs[index]; 
 
-	for (i = 0; i < BLOCKS_PER_BUCKET ; i++){
+	for (i = 0; i < BLOCKS_PER_BUCKET; i++){
 		if(i == index )
 			continue;
 		brelse(bhs[i]);
@@ -119,23 +120,50 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	int r, err;
 	struct inode *inode;
 	unsigned long ino = 0;
-	int is_dir = 0;
+	int is_dir = 1;
 	loff_t size = 0;// long long
-	struct buffer_head *bh;
+	struct buffer_head *bh = NULL;
 	struct ffs_inode *raw_inode = NULL;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info;
 	struct page* page; 
 	int dir_id;
 	int bucket_id;
-	int slot_id;
+	int slot_id = 1;
 
 	if (dentry->d_name.len > FFS_MAX_FILENAME_LEN)
 		return NULL;
 
+		
+	//test inode buffer block
+	// struct address_space *mapping = dir->i_mapping;
+	// if(mapping)
+	// {
+	// 	printk("test inode buffer block mapping OK");
+	// 	struct page *mapping_page = read_mapping_page(mapping, 0, NULL);
+	// 	if(!page)
+	// 	{
+	// 		printk("test inode buffer block get page failed");
+	// 	}
+	// 	else
+	// 	{
+	// 		struct buffer_head *head = page_buffers(page);
+	// 		if(head)
+	// 		{
+	// 			bh = head;
+	// 			do {
+	// 				if(!bh) break;
+	// 				printk("bh->b_blocknr = %lld\n", bh->b_blocknr);
+	// 				bh = bh->b_this_page;
+	// 			} while (bh != head);
+	// 		}
+			
+	// 	}
+	// }
 	printk(KERN_INFO "flatfs: flatfs_inode_by_name\n");
+	// printk(KERN_INFO "dentry->d_name: %s\n", dentry->d_name);
 	ino = flatfs_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name, &is_dir);	//通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接获取到ino(dentry); 如果是文件，则返回文件所在目录的ino(dir)
 	//调试用：
-
+	printk(KERN_INFO "is_dir: %d\n", is_dir);
 	if((!is_dir)&& (ino != dir->i_ino))
 	{
 		printk(KERN_WARNING "ffs inode number error\n");
@@ -145,6 +173,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 
 	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	printk("dir_id = %x\n", dir_id);
+	printk("dir_id = %x\n", flags);
 	/* 读盘获取inode */
 	if(!is_dir){//文件
 		unsigned int hashcode = BKDRHash((char *)(dentry->d_name.name));
@@ -153,6 +182,15 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		printk("bucket_id = %ld\n", bucket_id);
 		sector_t bucket_pblk = ffs_get_lba_file_bucket(dir, dentry, dir_id);
 		printk("ffs_get_lba_file_bucket OK, bucket_pblk = %lld", bucket_pblk);
+
+		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
+		inode = iget_locked(dir->i_sb, ino);
+		if (!inode)
+			return ERR_PTR(-ENOMEM);
+		if (!(inode->i_state & I_NEW)) {
+			printk(KERN_INFO "flatfs: new inode OK\n");
+			return d_splice_alias(inode, dentry);
+		}
 		raw_inode = ffs_find_get_inode_file(dir->i_sb, bucket_pblk, (char *)(dentry->d_name.name), &slot_id, &bh);
 		printk(KERN_INFO "flatfs: ffs_find_get_inode_file\n");
 		if(shared_is_flatfs)
@@ -161,19 +199,20 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 			inode = NULL;
 			goto out;
 		}
-		else{//根据slot id计算出来文件的ino
-			printk(KERN_INFO "flatfs: get raw_inode OK\n");
-			ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) | (bucket_id << FILE_SLOT_BITS) | slot_id) + 1;
-			inode = iget_locked(dir->i_sb, ino);
-		}
+		printk(KERN_INFO "flatfs: get raw_inode OK\n");
 	}/* 结束判断inode存在性 */
 	else{//目录
-		if(ino == FLATFS_ROOT_INO){//没找到
+		if(ino == dir->i_ino){//没找到
 			inode = NULL;
+			printk(KERN_INFO "inode is NULL\n");
 			goto out;
 		}
 		//获取目录inode
 		inode = iget_locked(dir->i_sb, ino);
+		if (!inode)
+			return ERR_PTR(-ENOMEM);
+		if (!(inode->i_state & I_NEW))
+			goto out;
 		lba_t pblk = ffs_get_lba_dir_meta(ino, -1);
 		raw_inode = ffs_get_inode_dir(dir->i_sb, pblk , &bh);
 	}
@@ -316,7 +355,7 @@ void ffs_add_entry(struct inode *dir){
 static int
 ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
-	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev, 0);//分配VFS inode
+	struct inode * inode = flatfs_get_inode(dir->i_sb, mode, dev);//分配VFS inode
 	int error = -ENOSPC;
 	struct flatfs_sb_info *ffs_sb = dir->i_sb->s_fs_info; 
 	// strcpy(ffs_sb->name, "flatfs");
@@ -327,23 +366,17 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	unsigned long ino = 0;
 	int useless;
 
-	//为新inode分配ino#
-	if(mknod_is_dir){
-		//获取name
-		struct hlist_node *tmp_list = NULL;
-		struct inode* pinode = dir;
- 		struct dentry *s_dentry = NULL;
-		hlist_for_each(tmp_list, &(pinode->i_dentry))
-		{
-    		s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
-		}
-		//分配dir_id:
-		char *dir_name;
-		memcpy(dir_name, s_dentry->d_name.name, my_strlen((char *)(s_dentry->d_name.name)));
+	// dump_stack();
+	// 为新inode分配ino#
+	if(mknod_is_dir) {
+		// printk(KERN_INFO "mknod d/f name: %s\n", s_dentry->d_name.name);
+		char *dir_name = kmalloc(my_strlen((char *)(dentry->d_name.name))+2, GFP_KERNEL);
+		memcpy(dir_name, dentry->d_name.name, my_strlen((char *)(dentry->d_name.name)));
 		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dir_name);
 		unsigned long parent_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+		printk("mknod dir id: %lu\n", dir_id);
 		// unsigned long parent_ino = dir->i_ino;
-		insert_dir(dir->i_sb->s_fs_info, parent_ino, dir_id);
+		insert_dir(dir->i_sb->s_fs_info, dfi->dir_id, dir_id);
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
 		fi->dir_id = dir_id;
 		fi->bucket_id = -1;
