@@ -63,6 +63,12 @@ typedef u64 lba_t;
 #define FILE_META_LBA_BASE 1 << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
 #define FILE_DATA_LBA_BASE 1 << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
 
+/* for dirent rec len */
+#define FFS_DIR_PAD		 	        4
+#define FFS_DIR_ROUND 			    (FFS_DIR_PAD - 1)
+#define FFS_DIR_REC_LEN(name_len)	(((name_len) + 8 + FFS_DIR_ROUND) & ~FFS_DIR_ROUND)
+#define FFS_MAX_REC_LEN		        ((1<<16)-1)
+
 enum {
     ENOINO = 0
 };
@@ -119,6 +125,7 @@ struct dir_entry {
     /* 目录名 */
     char dir_name[FFS_MAX_FILENAME_LEN + 2];
     int namelen;
+    unsigned short rec_len;
 
     /* LBA分配上，每一个字段占的位数 */
     // unsigned short dir_bits;

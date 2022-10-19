@@ -24,6 +24,7 @@ void init_dir_tree(struct dir_tree **dtree)
         de->dir_id = dir_id;
         de->dir_size = 0;
         de->namelen = 0;
+        de->rec_len = 0;
         de->dir_name[0] = '\0';
         de->subdirs = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
         de->subdirs->head = NULL;
@@ -42,6 +43,7 @@ void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
     // strcpy(root->dir_name, inode_to_name(ino));
     memcpy(sb_i->root->dir_name, "/", strlen("/"));
     sb_i->root->namelen = 1;
+    sb_i->root->rec_len = FFS_DIR_REC_LEN(sb_i->root->namelen);
     printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
     printk(KERN_INFO "init_root_entry 2\n");
     sb_i->root->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
@@ -52,7 +54,6 @@ void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
 }
 
 /*  根据相关参数，创建一个新的目录项   */
-
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsigned long insert_dir_id) 
 {
     printk("insert_dir_id: %d\n", insert_dir_id);
@@ -86,6 +87,7 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
     // de->subdirs->head = de->subdirs->tail = NULL;
     de->dir_size = 0;
     de->namelen = my_strlen(dir_name);
+    de->rec_len = FFS_DIR_REC_LEN(de->namelen);
     if(de->namelen > 0) {
         printk("fill_one_dir_entry: %2s\n", dir_name);
         memcpy(de->dir_name, dir_name, de->namelen);
@@ -165,17 +167,25 @@ int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context 
     printk("fyc_test, ls, dir_ino: %lu\n", dir_ino);
 
     struct dir_entry *de = &(sb_i->dtree_root->de[dir_ino]);
-    struct dir_list_entry *dle;
-    int start;
+    struct dir_list_entry *dle = de->subdirs->head;
+    int start = 0;
     printk("de->dir_size = %d, dir name = %s", de->dir_size, de->dir_name);
-    for(dle = de->subdirs->head, start = 0; start < de->dir_size && dle != NULL; start ++, dle = dle->next) {
-        unsigned char d_type = DT_UNKNOWN;
+    /* 先移动到ctx->pos指向的地方 */
+    while (start < de->dir_size && start < ctx->pos && dle != NULL) {
+        start ++;
+        dle = dle->next;
+    }
+
+    for (; start < de->dir_size && dle != NULL; start ++, dle = dle->next) {
+        unsigned char d_type = DT_DIR;
         printk("dle->de->dir_name: %s", dle->de->dir_name);
-        if (dle->de->namelen == 0) {
+        if (dle->de->rec_len == 0) {
 			return -EIO;
 		}
         dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(dir_id_to_inode(dle->de->dir_id)), d_type);
-        __le16 dlen = dle->de->namelen;
+        __le16 dlen = 1;
+        printk("ffs_rec_len_from_dtree(dlen): %u\n", ffs_rec_len_from_dtree(dlen));
+        /* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
         ctx->pos += ffs_rec_len_from_dtree(dlen);
     }
 
