@@ -90,20 +90,20 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if(bdev_inode == NULL) 
 	{
 		printk("bdev_inode error\n");
-		return 0;
+		return ;
 	}
 	if(fi){
 		if(fi->bucket_id >= 0)//file
 		{
-			printk("ffs_get_lba_meta:inode = %d", inode->i_ino);
+			printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_meta(inode);
-			printk("ffs_get_lba_meta:inode = %d, pblk = %lld", inode->i_ino, pblk);
+			printk("ffs_get_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 		}
 		else				  //dir
 		{
-			printk("ffs_get_lba_dir_meta:inode = %d", inode->i_ino);
+			printk("ffs_get_lba_dir_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id);
-			printk(KERN_INFO "ffs_get_lba_dir_meta:inode = %d, pblk = %lld", inode->i_ino, pblk);
+			printk(KERN_INFO "ffs_get_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 			// dump_stack();
 		}
 	}
@@ -114,7 +114,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 
 	printk(KERN_INFO "allocate bh for ffs_inode, s_blocksize = %ld\n", inode->i_sb->s_blocksize);
 	pblk = pblk >> BLOCK_SHIFT;
-	printk(KERN_INFO "sb->s_bdev = %ld, fs type = %s\n", inode->i_sb->s_dev, sb->s_type->name);
+	printk(KERN_INFO "sb->s_bdev = %d, fs type = %s\n", inode->i_sb->s_dev, sb->s_type->name);
 	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
 	// ibh = sb_getblk(inode->i_sb, 0);//这里不使用bread，避免读盘
 	printk(KERN_INFO "allocate bh for ffs_inode OK");
@@ -143,7 +143,8 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		{
     		s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
 		}
-		memcpy(raw_inode->filename, (char *)(s_dentry->d_name.name), my_strlen((char *)(s_dentry->d_name.name)));
+		raw_inode->filename.name_len = my_strlen((char *)(s_dentry->d_name.name));
+		memcpy(raw_inode->filename.name, (char *)(s_dentry->d_name.name), my_strlen((char *)(s_dentry->d_name.name)));
 		// raw_inode->filename = s_dentry->d_name.name;
 	}
 
@@ -347,7 +348,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 
 	printk(KERN_INFO "flatfs: flatfs_get_inode OK\n");
 	inode->i_ino = dir_id_to_inode(FLATFS_ROOT_INO);//为根inode分配ino#，不能为0
-	printk(KERN_INFO "flatfs: root inode = %x\n", inode->i_ino);
+	printk(KERN_INFO "flatfs: root inode = %lx\n", inode->i_ino);
 
 	init_dir_tree(&ffs_sb->dtree_root);
 	printk(KERN_INFO "init_dir_tree OK\n");
@@ -355,6 +356,9 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	printk(KERN_INFO "init_dir_tree OK\n");
 	dir_size = i_size_read(inode);
 	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
+
+	/* 创建hash表 */
+	init_file_ht(&(ffs_sb->hashtbl));
 
 	sb->s_fs_info = ffs_sb;
 	// ffs_sb->s_sb_block = sb_block;

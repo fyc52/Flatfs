@@ -210,7 +210,7 @@ void dir_exit(struct flatfs_sb_info *sb_i)
  * 通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
  * is_dir:若dentry是目录则返回1，是文件则返回0
 */
-unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, struct qstr *child, int* is_dir) 
+unsigned long flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, struct qstr *child) 
 {
     parent_dir_id = inode_to_dir_id(parent_dir_id);
 	struct dir_entry *dir = &(sb_i->dtree_root->de[parent_dir_id]);
@@ -219,14 +219,16 @@ unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
     unsigned long ino = parent_dir_id;
     int namelen = child->len;
     int start;
-    // *is_dir = 0;
     printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_dir_id, name, namelen);
     for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
         if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
             ino = dir_node->de->dir_id;
-            *is_dir = 1;
             break;
         }
+    }
+
+    if (ino == parent_dir_id) {
+        return 0;
     }
     return dir_id_to_inode(ino);
 }

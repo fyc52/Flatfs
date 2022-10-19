@@ -47,21 +47,34 @@ typedef u64 lba_t;
 #define MIN_DIR_BITS 7
 
 #define MAX_FILE_BUCKET_BITS 20
-#define MIN_FILE_BUCKET_BITS 12
+#define MIN_FILE_BUCKET_BITS 8
 
 
 #define FILE_SLOT_BITS 3
 
+/* block refers to file offset */
 #define MAX_FILE_BLOCK_BITS 40
 #define MIN_FILE_BLOCK_BITS 16
 #define DEFAULT_FILE_BLOCK_BITS 32
 
 #define LBA_TT_BITS 63
 
-#define BUCKETS_PER_DIR (1 << MIN_FILE_BUCKET_BITS)
-#define BLOCKS_PER_BUCKET (1 << FILE_SLOT_BITS)
-#define FILE_META_LBA_BASE 1 << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
-#define FILE_DATA_LBA_BASE 1 << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
+#define BLOCKS_PER_SLOT (1ULL << DEFAULT_FILE_BLOCK_BITS)
+#define BLOCKS_PER_BUCKET (1ULL << (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS))
+#define BUCKETS_PER_DIR (1ULL << MIN_FILE_BUCKET_BITS)
+#define SLOTS_PER_BUCKET (1ULL << FILE_SLOT_BITS)
+#define FILE_META_LBA_BASE 1ULL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
+#define FILE_DATA_LBA_BASE 1ULL << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
+
+/* LBA convert to any segment*/
+#define lba_to_block(lba)  (lba & (BLOCKS_PER_SLOT - 1ULL))
+#define lba_to_slot(lba)   ((lba >> DEFAULT_FILE_BLOCK_BITS) & (SLOTS_PER_BUCKET - 1ULL))
+#define lba_to_bucket(lba) ((lba >> (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS) & (BUCKETS_PER_DIR - 1ULL))
+#define lba_to_dir(lba)    ((lba >> (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS+MIN_FILE_BUCKET_BITS)))
+#define compose_to_lba(dir,bucket,slot,block) (block + ((slot + ((bucket + dir << MIN_FILE_BUCKET_BITS) << FILE_SLOT_BITS)) << DEFAULT_FILE_BLOCK_BITS))
+
+#define ino_to_slot(ino) (ino & (SLOTS_PER_BUCKET-1ULL))
+#define ino_to_bucket(ino) (ino >> FILE_SLOT_BITS) & (BUCKETS_PER_DIR - 1)
 
 /* for dirent rec len */
 #define FFS_DIR_PAD		 	        4
@@ -71,6 +84,11 @@ typedef u64 lba_t;
 
 enum {
     ENOINO = 0
+};
+
+struct ffs_name {
+	__u8	name_len;		/* Name length */
+	char	name[FFS_MAX_FILENAME_LEN + 2];			/* Dir name */
 };
 
 struct ffs_lba
@@ -85,7 +103,7 @@ struct ffs_inode //磁盘inode
 {					  
 	int valid;
     loff_t size; //尺寸
-    char* filename;
+    struct ffs_name filename;
 };
 
 struct ffs_inode_info //内存文件系统特化inode
@@ -112,11 +130,6 @@ FFS_SB(struct super_block *sb)
 {
 	return sb->s_fs_info; //文件系统特殊信息
 }
-
-struct ffs_name {
-	__u8	name_len;		/* Name length */
-	char	name[FFS_MAX_FILENAME_LEN + 2];			/* Dir name */
-};
 
 /** dir tree **/
 struct dir_entry {
@@ -189,19 +202,6 @@ static unsigned long get_unused_dir_id(unsigned long *dir_id_bitmap) {
     return dir_id;
 }
 
-/* ffs在内存superblock */
-struct flatfs_sb_info
-{ //一般会包含信息和数据结构，kevin的db就是在这里实现的
-	//cuckoo_hash_t *cuckoo;
-	struct dir_entry *root;
-    struct dir_tree  *dtree_root;
-    char   name[MAX_FILE_TYPE_NAME];
-};
-
-extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
-unsigned long flatfs_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child, int* is_dir);
-
-
 
 /*                            
  *    Copied for File Hash index
@@ -224,6 +224,20 @@ struct bucket {
 struct HashTable {
     struct bucket buckets[1 << MIN_FILE_BUCKET_BITS];
 };
+
+
+/* ffs在内存superblock */
+struct flatfs_sb_info
+{ //一般会包含信息和数据结构，kevin的db就是在这里实现的
+	//cuckoo_hash_t *cuckoo;
+	struct dir_entry *root;
+    struct dir_tree  *dtree_root;
+    char   name[MAX_FILE_TYPE_NAME];
+    struct HashTable *hashtbl;
+};
+
+extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
+unsigned long flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child);
 
 
 /*

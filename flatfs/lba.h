@@ -18,3 +18,6 @@ static inline unsigned long dir_id_to_inode(unsigned long dir_id)
 	return (dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS)) + 1;
 }
 unsigned int BKDRHash(char *str);
+void init_file_ht(struct HashTable **file_ht);
+unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child);
+unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child);
