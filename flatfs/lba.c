@@ -49,9 +49,9 @@ unsigned int BKDRHash(char *str)
 static inline unsigned long insert_file(struct HashTable *file_ht, char * filename)
 {	
 	unsigned int hashcode = BKDRHash(filename);
-	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (DEFAULT_FILE_BLOCK_BITS + FILE_SLOT_BITS)) - 1LU);
-	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1);
-	my_bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
+	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS)) - 1LU);
+	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1 << FILE_SLOT_BITS);
+	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count ++;
 
 	size_t namelen = my_strlen(filename);
@@ -61,8 +61,11 @@ static inline unsigned long insert_file(struct HashTable *file_ht, char * filena
 	file_ht->buckets[bucket_id].slots[slt].filename.name_len = namelen;
 
 	unsigned long file_seg = 0LU;
-	file_seg = file_seg | ((unsigned long)slt << DEFAULT_FILE_BLOCK_BITS);
-	file_seg = file_seg | (bucket_id << (DEFAULT_FILE_BLOCK_BITS + FILE_SLOT_BITS));
+	printk("file_seg1: %lx\n", file_seg);
+	file_seg = file_seg | ((unsigned long)slt);
+	printk("file_seg2: %lx\n", file_seg);
+	file_seg = file_seg | (bucket_id << FILE_SLOT_BITS);
+	printk("file_seg3: %lx, bkt_id: %lx\n", file_seg, bucket_id);
 	return file_seg;
 }
 
@@ -84,7 +87,7 @@ static inline unsigned long get_file_seg(struct HashTable *file_ht, char * filen
 	}
 
 	file_seg = file_seg | (unsigned long)slt;
-	file_seg = file_seg | (bucket_id << (FILE_SLOT_BITS));
+	file_seg = file_seg | (bucket_id << FILE_SLOT_BITS);
 	return file_seg;
 }
 
@@ -215,5 +218,6 @@ unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct i
 	unsigned long ino = 0;
 
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
+	printk("flatfs_file_slot_alloc_by_name: file_seg:%lx, ino:%lx\n", file_seg, ino);
 	return ino;	
 }

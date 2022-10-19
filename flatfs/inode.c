@@ -241,7 +241,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	else{
 		printk(KERN_INFO "flatfs: create\n");
 		int dir_id = dfi->dir_id;
-		printk(KERN_INFO "flatfs: dir_id = %d and dir_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
+		printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 
 		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl, dir, dir_id, &dentry->d_name);
 		

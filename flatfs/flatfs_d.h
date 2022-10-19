@@ -184,11 +184,7 @@ static void init_dir_id_bitmap(unsigned long *dir_id_bitmap) {
     bitmap_set(dir_id_bitmap, 2, 1); //根结点inode为1
     // printk("bitmap: %lx\n", *dir_id_bitmap);
 }
-static void my_bitmap_set(unsigned long *ino_bitmap, unsigned long ino, int bit) {
-    if(ino >= 1 << MAX_DIR_BITS)
-        return ;
-    ino_bitmap[ino] = bit;
-}
+
 static unsigned long get_unused_dir_id(unsigned long *dir_id_bitmap) {
     unsigned long dir_id;
     dir_id = find_first_zero_bit(dir_id_bitmap, 1 << MAX_DIR_BITS);
