@@ -154,12 +154,20 @@ struct file_operations ffs_file_file_ops = {
 
 static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	printk(KERN_INFO "flatfs read dir");
-	loff_t pos = ctx->pos;/*文件的偏移*/
+	loff_t pos;/*文件的偏移*/
 	struct inode *ino = file_inode(file);
 	struct super_block *sb = ino->i_sb;
-	struct ffs_inode_info * dfi = FFS_I(ino);
+	struct ffs_inode_info *dfi = FFS_I(ino);
+	struct flatfs_sb_info *ffs_sb = sb->s_fs_info;
 	unsigned long dir_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
-	read_dir(FFS_SB(sb), dir_ino, ctx);
+
+	if(!ctx->pos)
+	{
+		ffs_sb->hashtbl->pos = 0;
+
+	}
+	read_dir_dirs(ffs_sb, dir_ino, ctx);
+	read_dir_files(ffs_sb->hashtbl, dir_ino, ctx);
 	return 0;
 }
 

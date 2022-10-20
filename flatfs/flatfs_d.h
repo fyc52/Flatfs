@@ -71,7 +71,7 @@ typedef u64 lba_t;
 #define lba_to_slot(lba)   ((lba >> DEFAULT_FILE_BLOCK_BITS) & (SLOTS_PER_BUCKET - 1ULL))
 #define lba_to_bucket(lba) ((lba >> (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS) & (BUCKETS_PER_DIR - 1ULL))
 #define lba_to_dir(lba)    ((lba >> (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS+MIN_FILE_BUCKET_BITS)))
-#define compose_to_lba(dir,bucket,slot,block) (block + ((slot + ((bucket + dir << MIN_FILE_BUCKET_BITS) << FILE_SLOT_BITS)) << DEFAULT_FILE_BLOCK_BITS))
+#define compose_to_lba(dir,bucket,slot,block) (block + ((slot + ((bucket + (dir << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS)) << DEFAULT_FILE_BLOCK_BITS))
 
 #define ino_to_slot(ino) (ino & (SLOTS_PER_BUCKET-1ULL))
 #define ino_to_bucket(ino) (ino >> FILE_SLOT_BITS) & (BUCKETS_PER_DIR - 1)
@@ -152,7 +152,7 @@ struct dir_entry {
     struct dir_list *subdirs;
     /* 子目录的个数 */
     unsigned long dir_size;
-    
+    loff_t pos;
 };
 
 
@@ -219,6 +219,7 @@ struct bucket {
 
 struct HashTable {
     struct bucket buckets[1 << MIN_FILE_BUCKET_BITS];
+    loff_t pos;
 };
 
 
@@ -274,4 +275,4 @@ void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct dir_tree **dtree);
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);
 void remove_dir(struct flatfs_sb_info *sb_i, unsigned long ino);
-int read_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);
+int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

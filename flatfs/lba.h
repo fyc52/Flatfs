@@ -24,3 +24,4 @@ unsigned int BKDRHash(char *str);
 void init_file_ht(struct HashTable **file_ht);
 unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child);
 unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child);
+int read_dir_files(struct HashTable *hashtbl, unsigned long ino, struct dir_context *ctx);

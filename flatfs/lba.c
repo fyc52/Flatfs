@@ -12,7 +12,6 @@ void init_file_ht(struct HashTable **file_ht)
 {
 	int bkt, slt;
 	*file_ht = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);
-	
 	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
 		(*file_ht)->buckets[bkt].bucket_id = bkt;
 		bitmap_zero((*file_ht)->buckets[bkt].slot_bitmap, 1 << FILE_SLOT_BITS);
@@ -220,4 +219,63 @@ unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct i
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
 	printk("flatfs_file_slot_alloc_by_name: file_seg:%lx, ino:%lx\n", file_seg, ino);
 	return ino;	
+}
+
+
+int read_dir_files(struct HashTable *hashtbl, unsigned long ino, struct dir_context *ctx)
+{
+    unsigned long dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
+	int bkt, slt;
+	int pos = 0;
+	printk("ctx->pos:%d\n", ctx->pos);
+	if(hashtbl->pos == 0)
+	{
+		bkt = -1;
+		goto first;
+	}
+
+	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
+		for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
+			if(pos >= hashtbl->pos) break;
+			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) 
+				pos ++;
+		}	
+		if(pos >= hashtbl->pos) break;
+	}
+	for(1; slt < (1 << FILE_SLOT_BITS); slt++ ) {
+		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
+			/* 开始传 */
+			unsigned char d_type = NT_FILE;
+
+			ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
+			printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt,hashtbl->buckets[bkt].slots[slt].filename.name);
+        	dir_emit(ctx, hashtbl->buckets[bkt].slots[slt].filename.name, hashtbl->buckets[bkt].slots[slt].filename.name_len, le32_to_cpu(ino), d_type);
+        	__le16 dlen = 1;
+        	/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
+        	ctx->pos +=  le16_to_cpu(dlen);
+			hashtbl->pos +=  le16_to_cpu(dlen);
+		}
+	}
+	printk("bkt:%d, slt:%d\n", bkt, slt);
+
+first:
+	for(bkt ++; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
+		for(slt = 0 ; slt < (1 << FILE_SLOT_BITS); slt++ ) {
+			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
+				/* 开始传 */
+				unsigned char d_type = NT_FILE;
+
+				ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
+				printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt,hashtbl->buckets[bkt].slots[slt].filename.name);
+        		dir_emit(ctx, hashtbl->buckets[bkt].slots[slt].filename.name, hashtbl->buckets[bkt].slots[slt].filename.name_len, le32_to_cpu(ino), d_type);
+        		__le16 dlen = 1;
+        		/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
+        		ctx->pos +=  le16_to_cpu(dlen);
+				hashtbl->pos += le16_to_cpu(dlen);
+			}
+		}
+	}
+
+
+    return 0;
 }
