@@ -113,11 +113,56 @@ static inline void clear_dir_entry(struct dir_entry *dir)
     kfree(dir->subdirs);
 }
 
-void remove_dir(struct flatfs_sb_info *sb_i, unsigned long ino)
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino)
 {
-    unsigned long dir_id = inode_to_dir_id(ino);
-    struct dir_entry *dir = &(sb_i->dtree_root->de[dir_id]);
-    clear_dir_entry(dir);
+    struct dir_entry *parent_dir = &(sb_i->dtree_root->de[inode_to_dir_id(parent_ino)]);
+    struct dir_entry *dir = &(sb_i->dtree_root->de[inode_to_dir_id(dir_ino)]);
+    struct dir_list_entry *dle;
+    int start, pos;
+    int name_len = my_strlen(dir->dir_name);
+    printk("remove_dir, dir name:%s\n", dir->dir_name);
+
+    for(dle = parent_dir->subdirs->head, start = 0; start < parent_dir->dir_size && dle != NULL; start ++) {
+        if(dir->dir_id != dle->de->dir_id) 
+        {
+            dle = dle->next;
+            continue;
+        }
+
+        struct dir_list_entry *last = dle->last;
+        struct dir_list_entry *next = dle->next;   
+        
+        if(dle == dir->subdirs->head) {  
+            dir->subdirs->head = next; 
+        } 
+        else {
+            if(last != NULL) last->next = next;
+        }
+
+        if(dle == dir->subdirs->tail) {
+            dir->subdirs->tail = last;
+        } 
+        else {
+            if(next != NULL) next->last = last;
+        }
+        parent_dir->dir_size --;
+        dle->last = NULL;
+        dle->next = NULL;
+        kfree(dle);
+        break;
+    }
+
+    for(pos = 0; pos < name_len; pos ++)
+    {
+        dir->dir_name[pos] = 0;
+    }
+    dir->namelen = 0;
+    dir->subdirs->head = NULL;
+    dir->subdirs->tail = NULL;
+
+    free_file_ht(&(sb_i->hashtbl[dir->dir_id]));
+    sb_i->dtree_root->dir_entry_num --;
+    bitmap_clear(sb_i->dtree_root->dir_id_bitmap, dir->dir_id, 1);
 }
 
 void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)

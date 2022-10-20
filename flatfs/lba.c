@@ -96,7 +96,7 @@ static inline unsigned long get_file_seg(struct HashTable *file_ht, char * filen
 }
 
 
-void delete_file(struct HashTable *file_ht, struct qstr *filename)
+int delete_file(struct HashTable *file_ht, struct qstr *filename)
 {
 	unsigned int hashcode = BKDRHash(filename->name);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
@@ -119,9 +119,10 @@ void delete_file(struct HashTable *file_ht, struct qstr *filename)
 			file_ht->buckets[bucket_id].valid_slot_count --;
 			bitmap_clear(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 			printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
-			break;
+			return 1;
 		}
 	}
+	return 0;
 }
 
 struct ffs_inode_info* FFS_I(struct inode * inode){

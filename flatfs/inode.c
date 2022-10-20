@@ -307,11 +307,15 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	struct inode *inode = dentry->d_inode;
 	struct ffs_inode_info* fi = FFS_I(inode);
 	int dir_id = fi->dir_id;
+	int err;
 
 	printk("ffs_unlink: dir_id is %d, filename is %s\n", dir_id, dentry->d_name.name);
 	/*delete file in hashtbl*/
-	delete_file(ffs_sb->hashtbl[dir_id], &dentry->d_name);
-	
+	err = delete_file(ffs_sb->hashtbl[dir_id], &dentry->d_name);
+	if(!err)
+	{
+		printk("unlink failed, filename is %s", dentry->d_name.name);
+	}
 	/* mark inode invalid */
 	fi->valid = 0;
 	inode->i_ctime = dir->i_ctime;
@@ -328,6 +332,7 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct inode * inode = d_inode(dentry);
+	// struct inode * pinode = d_inode(dentry->d_parent);
 	loff_t dir_size;
 	int err = -ENOTEMPTY;
 	struct flatfs_sb_info *flatfs_sb_i = FFS_SB(dir->i_sb);
@@ -340,7 +345,8 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 			inode_dec_link_count(inode);
 			inode_dec_link_count(dir);
 			//TUDO free dentry in memory
-			remove_dir(flatfs_sb_i, dir_ino);
+			printk("ffs_rmdir, dir_id = %d, inode_id = %d, dir name = %s\n", inode_to_dir_id(dir_ino), inode_to_dir_id(inode->i_ino), dentry->d_name.name);
+			remove_dir(flatfs_sb_i, dir->i_ino, inode->i_ino);
 		}
 		return 0;
 	}
