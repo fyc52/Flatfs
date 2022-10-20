@@ -359,7 +359,22 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 
 	/* 创建hash表 */
 	init_file_ht(&(ffs_sb->hashtbl[FLATFS_ROOT_INO]));
+	if(ffs_sb->hashtbl[FLATFS_ROOT_INO] != NULL)
+	{
+		printk("fill_super:Create hashtable 1 OK\n");
+	}
 
+	free_file_ht(&(ffs_sb->hashtbl[FLATFS_ROOT_INO]));
+	if(ffs_sb->hashtbl[FLATFS_ROOT_INO] == NULL)
+	{
+		printk("fill_super:free hashtable OK\n");
+	}
+
+	init_file_ht(&(ffs_sb->hashtbl[FLATFS_ROOT_INO]));
+	if(ffs_sb->hashtbl[FLATFS_ROOT_INO] != NULL)
+	{
+		printk("fill_super:Create hashtable 2 OK\n");
+	}
 	sb->s_fs_info = ffs_sb;
 	// ffs_sb->s_sb_block = sb_block;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志

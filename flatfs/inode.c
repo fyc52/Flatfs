@@ -137,7 +137,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 
 	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	printk("dir_id = %x\n", dir_id);
-	printk("dir_id = %x\n", flags);
+	printk("flags = %x\n", flags);
 
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
 	if(ino == 0) {
@@ -303,16 +303,24 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 
 static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 {
+	struct flatfs_sb_info *ffs_sb = FFS_SB(dir->i_sb); 
 	struct inode *inode = dentry->d_inode;
-	//删除磁盘 inode
 	struct ffs_inode_info* fi = FFS_I(inode);
-	fi->valid =0;
-	mark_inode_dirty(inode);
+	int dir_id = fi->dir_id;
 
-	inode_dec_link_count(inode);//drop_nlink & mark_inode_dirty
-	loff_t dir_size = i_size_read(dir);
-	i_size_write(dir, dir_size - 1);
-	mark_inode_dirty(dir);
+	printk("ffs_unlink: dir_id is %d, filename is %s\n", dir_id, dentry->d_name.name);
+	/*delete file in hashtbl*/
+	delete_file(ffs_sb->hashtbl[dir_id], &dentry->d_name);
+	
+	/* mark inode invalid */
+	fi->valid = 0;
+	inode->i_ctime = dir->i_ctime;
+
+	/* drop_nlink & mark_inode_dirty */
+	inode_dec_link_count(inode);
+	// loff_t dir_size = i_size_read(dir);
+	// i_size_write(dir, dir_size - 1);
+	// mark_inode_dirty(dir);
 	
 	return 0;
 }

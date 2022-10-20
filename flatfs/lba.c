@@ -26,6 +26,11 @@ void init_file_ht(struct HashTable **file_ht)
 	}
 }
 
+void free_file_ht(struct HashTable **file_ht)
+{
+	kfree(*file_ht);
+}
+
 
 // BKDR Hash Function
 unsigned int BKDRHash(char *str)
@@ -91,14 +96,19 @@ static inline unsigned long get_file_seg(struct HashTable *file_ht, char * filen
 }
 
 
-static void delete_file(struct HashTable *file_ht, char * filename)
+void delete_file(struct HashTable *file_ht, struct qstr *filename)
 {
-	unsigned int hashcode = BKDRHash(filename);
+	unsigned int hashcode = BKDRHash(filename->name);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
 	int slt;
-	for(slt = 1; slt < (1 << FILE_SLOT_BITS); slt++) {
-		int namelen = my_strlen(filename);
-		if(ffs_match(namelen, filename, &file_ht->buckets[bucket_id].slots[slt].filename))
+	printk("start to delete file\n");
+	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++) {
+		if (!test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) {
+			continue;
+		}
+		int namelen = my_strlen(filename->name);
+		printk("delete: bkt id is %lx, slot id is %lx\n", bucket_id, slt);
+		if(ffs_match(namelen, filename->name, &file_ht->buckets[bucket_id].slots[slt].filename))
 		{
 			int name_pos;
 			for(name_pos = 0; name_pos <= file_ht->buckets[bucket_id].slots[slt].filename.name_len; name_pos ++)
@@ -107,6 +117,8 @@ static void delete_file(struct HashTable *file_ht, char * filename)
 			}
 			file_ht->buckets[bucket_id].slots[slt].filename.name_len = 0;
 			file_ht->buckets[bucket_id].valid_slot_count --;
+			bitmap_clear(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
+			printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
 			break;
 		}
 	}
@@ -233,6 +245,9 @@ int read_dir_files(struct HashTable *hashtbl, unsigned long ino, struct dir_cont
 		bkt = -1;
 		goto first;
 	}
+	
+	hashtbl->pos = 0;
+	return 0;
 
 	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
 		for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
@@ -242,6 +257,7 @@ int read_dir_files(struct HashTable *hashtbl, unsigned long ino, struct dir_cont
 		}	
 		if(pos >= hashtbl->pos) break;
 	}
+
 	for(1; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 			/* 开始传 */
