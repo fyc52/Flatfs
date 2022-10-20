@@ -141,7 +141,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
 	if(ino == 0) {
-		ino = flatfs_file_inode_by_name(ffs_sb->hashtbl, dir, dir_id, &dentry->d_name);
+		ino = flatfs_file_inode_by_name(ffs_sb->hashtbl[inode_to_dir_id(dir->i_ino)], dir, dir_id, &dentry->d_name);
 	}
 		
 	/* 子目录树和子文件中均没找到，说明没有这个子文件/目录 */
@@ -219,7 +219,6 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct ffs_inode_info * dfi = FFS_I(dir);
 	struct ffs_inode_info * fi = FFS_I(inode);
 	unsigned long ino = 0;
-	int useless;
 
 	// dump_stack();
 	// 为新inode分配ino#
@@ -232,6 +231,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		printk("mknod dir id: %lu\n", dir_id);
 		// unsigned long parent_ino = dir->i_ino;
 		insert_dir(dir->i_sb->s_fs_info, dfi->dir_id, dir_id);
+		init_file_ht(&(ffs_sb->hashtbl[dir_id]));
 		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
 		fi->dir_id = dir_id;
 		fi->bucket_id = -1;
@@ -243,7 +243,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		int dir_id = dfi->dir_id;
 		printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 
-		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl, dir, dir_id, &dentry->d_name);
+		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dfi->dir_id], dir, dir_id, &dentry->d_name);
 		
 		fi->dir_id = dir_id;
 		fi->bucket_id = ino_to_bucket(ino); 

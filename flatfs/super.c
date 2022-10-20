@@ -358,7 +358,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
 
 	/* 创建hash表 */
-	init_file_ht(&(ffs_sb->hashtbl));
+	init_file_ht(&(ffs_sb->hashtbl[FLATFS_ROOT_INO]));
 
 	sb->s_fs_info = ffs_sb;
 	// ffs_sb->s_sb_block = sb_block;

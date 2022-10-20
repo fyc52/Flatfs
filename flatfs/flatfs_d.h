@@ -222,7 +222,6 @@ struct HashTable {
     loff_t pos;
 };
 
-
 /* ffs在内存superblock */
 struct flatfs_sb_info
 { //一般会包含信息和数据结构，kevin的db就是在这里实现的
@@ -230,7 +229,7 @@ struct flatfs_sb_info
 	struct dir_entry *root;
     struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
-    struct HashTable *hashtbl;
+    struct HashTable *hashtbl[1 << MAX_DIR_BITS];
 };
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);

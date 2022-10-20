@@ -163,11 +163,11 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 
 	if(!ctx->pos)
 	{
-		ffs_sb->hashtbl->pos = 0;
+		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
 
 	}
 	read_dir_dirs(ffs_sb, dir_ino, ctx);
-	read_dir_files(ffs_sb->hashtbl, dir_ino, ctx);
+	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], dir_ino, ctx);
 	return 0;
 }
 
