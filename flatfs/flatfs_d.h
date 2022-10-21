@@ -115,6 +115,7 @@ struct ffs_inode_info //内存文件系统特化inode
     struct inode vfs_inode;
     int valid;
     unsigned long i_flags;
+    loff_t size; // 尺寸
     //__u8 i_type;  
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/

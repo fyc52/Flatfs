@@ -249,6 +249,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->bucket_id = ino_to_bucket(ino); 
 		fi->slot_id = ino_to_slot(ino);
 		fi->valid = 1;
+		fi->size = 0;
 		printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
 	}
 	inode->i_ino = ino;

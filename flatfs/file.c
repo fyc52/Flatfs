@@ -44,24 +44,21 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
 	int ret = 0;
-
- 	sector_t pblk;
-	//TUDO
-	pblk = ffs_get_lba_data(inode, iblock);
+ 	sector_t pblk = ffs_get_lba_data(inode, iblock);
+	bool new = false, boundary = false;
 	printk("pblk: %lld\n", pblk);
 
-	map_bh(bh, inode->i_sb, pblk);//核心
-	
-	if (buffer_unwritten(bh)) {  //设置bh为mapped 和 new
-		/* A delayed write to unwritten bh should be marked
-		 * new and mapped.  Mapped ensures that we don't do
-		 * get_block multiple times when we write to the same
-		 * offset and new ensures that we do proper zero out
-		 * for partial write.
-		 */
-		set_buffer_new(bh);
-		set_buffer_mapped(bh);
+	/* todo: if pblk is a new block or update */
+	if(iblock >= FFS_I(inode)->size) {
+		new = true;
 	}
+	/* todo: if pblk is out of field */
+
+	map_bh(bh, inode->i_sb, pblk);//核心
+	if (new)
+		set_buffer_new(bh);
+	if (boundary)
+		set_buffer_boundary(bh);
 	return ret;
 
 }
@@ -69,11 +66,18 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 static int ffs_write_begin(struct file *file, struct address_space *mapping,
                  loff_t pos, unsigned len, unsigned flags,
                  struct page **pagep, void **fsdata)
-{	int ret;
+{	
+	int ret;
 	//todo : 可以在这里实现inode-inlined data
 	printk("write begin\n");
 
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
+
+	/* update ffs_inode size */
+	loff_t end = pos + len;
+	if (end >= FFS_I(mapping->host)->size) {
+		FFS_I(mapping->host)->size = end;
+	}
 	
 	return ret;
 }
@@ -84,14 +88,14 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	printk(KERN_INFO "writepage\n");
-	dump_stack();
+	// dump_stack();
 	return block_write_full_page(page, ffs_get_block_prep, wbc);
 }
 
 static int ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
 	printk(KERN_INFO "writepages\n");
-	dump_stack();
+	// dump_stack();
 	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
 }
 
