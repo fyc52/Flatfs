@@ -138,13 +138,13 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 		lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 		printk("compose_lba: lba_base = %lld", lba_base);
 		if(slot_id != -1){
-			lba |= (BUCKETS_PER_DIR * dir_id + bucket_id) << PAGE_SHIFT;
-			lba |= slot_id << BLOCK_SHIFT;
-			lba += lba_base;
+			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) << FILE_SLOT_BITS);
+			lba |= slot_id;
+			lba = lba << DEFAULT_FILE_BLOCK_BITS;
 		}
 		else{//文件inode所在bucket的slba
 			printk("compose_lba: dir_id = %d, bucket_id = %d", dir_id, bucket_id);
-			lba = (lba_t)((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) * lba_base);
+			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) * lba_base);
 			// lba += lba_base;
 		}
 			
