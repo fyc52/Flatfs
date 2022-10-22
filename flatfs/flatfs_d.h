@@ -116,6 +116,7 @@ struct ffs_inode_info //内存文件系统特化inode
     int valid;
     unsigned long i_flags;
     loff_t size; // 尺寸
+    char	name[FFS_MAX_FILENAME_LEN + 2];
     //__u8 i_type;  
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
@@ -231,6 +232,13 @@ struct flatfs_sb_info
     struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
     struct HashTable *hashtbl[1 << MAX_DIR_BITS];
+};
+
+/* disk super block */ 
+struct flatfs_super_block
+{ 
+    /* fill vaild dir id */ 
+	DECLARE_BITMAP(dir_id_bitmap, 1 << MAX_DIR_BITS);
 };
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);

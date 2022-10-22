@@ -196,9 +196,9 @@ lba_t ffs_get_lba_dir_meta(unsigned long ino, int dir_id){
 	if(ino != -1)
 		dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	// lba_t lba = (dir_id) << PAGE_SHIFT;
-	sector_t lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+	sector_t lba_base = 1LL << DEFAULT_FILE_BLOCK_BITS;
 	printk("lba_base: %lld\n", lba_base);
-    lba_t lba = (lba_t)((((lba_t)(dir_id) * BUCKETS_PER_DIR) - 1) * lba_base);
+    lba_t lba = ( (lba_t)(dir_id) << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS) ) * lba_base;
 	printk("lba: %lld\n", lba);
 	return lba;
 }

@@ -224,9 +224,9 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	// 为新inode分配ino#
 	if(mknod_is_dir) {
 		// printk(KERN_INFO "mknod d/f name: %s\n", s_dentry->d_name.name);
-		char *dir_name = kmalloc(my_strlen((char *)(dentry->d_name.name))+2, GFP_KERNEL);
-		memcpy(dir_name, dentry->d_name.name, my_strlen((char *)(dentry->d_name.name)));
-		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dir_name);
+		// char *dir_name = kmalloc(my_strlen((char *)(dentry->d_name.name)) + 2, GFP_KERNEL);
+		// memcpy(dir_name, dentry->d_name.name, my_strlen((char *)(dentry->d_name.name)));
+		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dentry->d_name.name);
 		unsigned long parent_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
 		printk("mknod dir id: %lu\n", dir_id);
 		// unsigned long parent_ino = dir->i_ino;
@@ -237,6 +237,9 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->bucket_id = -1;
 		fi->slot_id = -1;
 		fi->valid = 1;
+		memcpy(fi->name, dentry->d_name.name, my_strlen((char *)(dentry->d_name.name)));
+		struct ffs_inode_info * testi = FFS_I(inode);
+		printk("test inode info valid:%d\n", testi->valid);
 	}
 	else{
 		printk(KERN_INFO "flatfs: create\n");
@@ -250,6 +253,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->slot_id = ino_to_slot(ino);
 		fi->valid = 1;
 		fi->size = 0;
+		memcpy(fi->name, dentry->d_name.name, my_strlen((char *)(dentry->d_name.name)));
 		printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
 	}
 	inode->i_ino = ino;

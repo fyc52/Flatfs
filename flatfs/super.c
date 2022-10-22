@@ -77,7 +77,7 @@ flatfs_put_super(struct super_block *sb)
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
 	struct buffer_head *ibh;
-	struct super_block	*sb = inode->i_sb;
+	struct super_block *sb = inode->i_sb;
 	struct ffs_inode* raw_inode;
 	sector_t pblk;
 	// 目录的inode在实现中也要做持久化
@@ -87,6 +87,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_info *fi = FFS_I(inode);
 	struct block_device *bdev = sb->s_bdev;
 	struct inode *bdev_inode = bdev->bd_inode;
+	printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
 	if(bdev_inode == NULL) 
 	{
 		printk("bdev_inode error\n");
@@ -114,10 +115,10 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 
 	printk(KERN_INFO "allocate bh for ffs_inode, s_blocksize = %ld\n", inode->i_sb->s_blocksize);
 	pblk = pblk >> BLOCK_SHIFT;
-	printk(KERN_INFO "sb->s_bdev = %d, fs type = %s\n", inode->i_sb->s_dev, sb->s_type->name);
+	printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
 	// ibh = sb_getblk(inode->i_sb, 0);//这里不使用bread，避免读盘
-	printk(KERN_INFO "allocate bh for ffs_inode OK");
+	printk(KERN_INFO "allocate bh for ffs_inode OK, fi->vaild:%d\n", fi->valid);
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		// return -ENOMEM;
@@ -126,28 +127,23 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	lock_buffer(ibh);
 	//actual write inode in buffer cache
 	//zero bh
-	memset(ibh->b_data, 0, ibh->b_size);
+	//memset(ibh->b_data, 0, ibh->b_size);
 	//fill bh
 	if(fi->valid){
-		struct hlist_node *tmp_list;
-		struct inode* pinode;
-		pinode = inode;
- 		struct dentry *s_dentry;
-
+		if(my_strlen(fi->name) > FFS_MAX_FILENAME_LEN) 
+		{
+			printk("file name len error\n");
+			goto out;
+		}
 		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
-
-		//通过inode号查询文件名
-		hlist_for_each(tmp_list, &(pinode->i_dentry))
-		{
-    		s_dentry = hlist_entry(tmp_list, struct dentry, d_u.d_alias);
-		}
-		raw_inode->filename.name_len = my_strlen((char *)(s_dentry->d_name.name));
-		memcpy(raw_inode->filename.name, (char *)(s_dentry->d_name.name), my_strlen((char *)(s_dentry->d_name.name)));
-		// raw_inode->filename = s_dentry->d_name.name;
+		raw_inode->filename.name_len = my_strlen(fi->name);
+		memcpy(raw_inode->filename.name, fi->name, raw_inode->filename.name_len);
+		printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 	}
 
+out:
 	if (!buffer_uptodate(ibh))
    		set_buffer_uptodate(ibh);//表示可以回写
 	unlock_buffer(ibh);
@@ -185,7 +181,7 @@ struct super_operations flatfs_super_ops = {
 	.statfs = flatfs_super_statfs,
 	.drop_inode = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super = flatfs_put_super,
-	//.dirty_inode = ffs_dirty_inode,
+	.dirty_inode = ffs_dirty_inode,
 	.alloc_inode = ffs_alloc_inode,
 	.destroy_inode	= ffs_destroy_inode,
 };
@@ -203,15 +199,18 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	
 	if (inode)
 	{
+		pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
+		bh = sb_bread(sb, pblk);
+		printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
+		raw_inode = (struct ffs_inode *) (bh->b_data);
+
 		ei = FLAT_I(inode);
 		ei->valid = 1;
 		ei->bucket_id = -1;
 		ei->dir_id = FLATFS_ROOT_INO;
 		ei->slot_id = 0;
-		pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
-		bh = sb_bread(sb, pblk);
-		printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
-		raw_inode = (struct ffs_inode *) (bh->b_data);
+		memcpy(ei->name, "/", strlen("/"));
+		
 		inode->i_sb = sb;
 		inode->i_mode = mode;													//访问权限,https://zhuanlan.zhihu.com/p/78724124
 		inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
@@ -321,6 +320,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	else{
 		printk("fill super, bh = %lld, sb dev = %d", bh->b_blocknr, sb->s_dev);		/* start block number */
 	}
+	//es = (struct ext2_super_block *) (((char *)bh->b_data) + offset);
 	
 	printk(KERN_INFO "flatfs_fill_super 1\n");
 	ffs_sb = kzalloc(sizeof(struct flatfs_sb_info), GFP_NOIO);
