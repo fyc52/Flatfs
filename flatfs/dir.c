@@ -15,7 +15,7 @@ void init_dir_tree(struct dir_tree **dtree)
 {
     struct dir_entry *de;
     int dir_id;
-    printk(KERN_INFO "init_dir_tree 1\n");
+    //printk(KERN_INFO "init_dir_tree 1\n");
 
     *dtree = kmalloc(sizeof(struct dir_tree), GFP_NOIO);
     (*dtree)->dir_entry_num = 1;
@@ -30,24 +30,24 @@ void init_dir_tree(struct dir_tree **dtree)
         de->subdirs->head = NULL;
         de->subdirs->tail = NULL;
     } 
-    printk(KERN_INFO "init_dir_tree 2\n");
+    //printk(KERN_INFO "init_dir_tree 2\n");
     init_dir_id_bitmap((*dtree)->dir_id_bitmap);
-    printk(KERN_INFO "init_dir_tree 3\n"); 
+    //printk(KERN_INFO "init_dir_tree 3\n"); 
 }
 
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
 {
     sb_i->root = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
-    printk(KERN_INFO "init_root_entry 1\n");
+    //printk(KERN_INFO "init_root_entry 1\n");
     sb_i->root->dir_id = FLATFS_ROOT_INO;
     // strcpy(root->dir_name, inode_to_name(ino));
     memcpy(sb_i->root->dir_name, "/", strlen("/"));
     sb_i->root->namelen = 1;
     sb_i->root->rec_len = FFS_DIR_REC_LEN(sb_i->root->namelen);
-    printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
-    printk(KERN_INFO "init_root_entry 2\n");
+    //printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
+    //printk(KERN_INFO "init_root_entry 2\n");
     sb_i->root->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
-    printk(KERN_INFO "init_root_entry 3\n");
+    //printk(KERN_INFO "init_root_entry 3\n");
     sb_i->root->subdirs->head = NULL;
     sb_i->root->subdirs->tail = NULL;
     sb_i->root->dir_size = i_size_read(ino);
@@ -56,13 +56,13 @@ void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
 /*  根据相关参数，创建一个新的目录项   */
 void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsigned long insert_dir_id) 
 {
-    printk("insert_dir_id: %d\n", insert_dir_id);
+    //printk("insert_dir_id: %d\n", insert_dir_id);
     struct dir_entry *dir = &(sb_i->dtree_root->de[parent_dir_id]);                            // 父目录entry
     struct dir_entry *inserted_dir = &(sb_i->dtree_root->de[insert_dir_id]);                   // 插入目录的entry
     struct dir_list_entry *dle = (struct dir_list_entry *)kzalloc(sizeof(struct dir_list_entry), GFP_KERNEL);
     dle->de = inserted_dir;
     dle->last = dle->next = NULL;
-    printk("inserted dir name: %s\n", inserted_dir->dir_name);
+    //printk("inserted dir name: %s\n", inserted_dir->dir_name);
 
     if(dir->dir_size == 0) {
         dir->subdirs->head = dir->subdirs->tail = dle;
@@ -89,7 +89,7 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
     de->namelen = my_strlen(dir_name);
     de->rec_len = FFS_DIR_REC_LEN(de->namelen);
     if(de->namelen > 0) {
-        printk("fill_one_dir_entry: %2s\n", dir_name);
+        //printk("fill_one_dir_entry: %2s\n", dir_name);
         memcpy(de->dir_name, dir_name, de->namelen);
     }
     sb_i->dtree_root->dir_entry_num++;
@@ -120,7 +120,7 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     struct dir_list_entry *dle;
     int start, pos;
     int name_len = my_strlen(dir->dir_name);
-    printk("remove_dir, dir name:%s\n", dir->dir_name);
+    //printk("remove_dir, dir name:%s\n", dir->dir_name);
 
     for(dle = parent_dir->subdirs->head, start = 0; start < parent_dir->dir_size && dle != NULL; start ++) {
         if(dir->dir_id != dle->de->dir_id) 
@@ -209,12 +209,12 @@ static inline unsigned ffs_rec_len_from_dtree(__le16 dlen)
 int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx)
 {
     unsigned long dir_ino = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-    printk("fyc_test, ls, dir_ino: %lu\n", dir_ino);
+    //printk("fyc_test, ls, dir_ino: %lu\n", dir_ino);
 
     struct dir_entry *de = &(sb_i->dtree_root->de[dir_ino]);
     struct dir_list_entry *dle = de->subdirs->head;
     int pos = 0;
-    printk("de->dir_size = %d, dir name = %s", de->dir_size, de->dir_name);
+    //printk("de->dir_size = %d, dir name = %s", de->dir_size, de->dir_name);
     /* 先移动到ctx->pos指向的地方 */
     if(ctx->pos == 0)
     {
@@ -228,13 +228,13 @@ int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_con
 first:
     for (; pos < de->dir_size && dle != NULL; pos ++, dle = dle->next) {
         unsigned char d_type = DT_DIR;
-        printk("dle->de->dir_name: %s", dle->de->dir_name);
+        //("dle->de->dir_name: %s", dle->de->dir_name);
         if (dle->de->rec_len == 0) {
 			return -EIO;
 		}
         dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(dir_id_to_inode(dle->de->dir_id)), d_type);
         __le16 dlen = 1;
-        printk("ffs_rec_len_from_dtree(dlen): %u\n", ffs_rec_len_from_dtree(dlen));
+        //printk("ffs_rec_len_from_dtree(dlen): %u\n", ffs_rec_len_from_dtree(dlen));
         /* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
         ctx->pos += ffs_rec_len_from_dtree(dlen);
         de->pos += ffs_rec_len_from_dtree(dlen);
@@ -270,7 +270,7 @@ unsigned long flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned lon
     unsigned long ino = parent_dir_id;
     int namelen = child->len;
     int start;
-    printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_dir_id, name, namelen);
+    //printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_dir_id, name, namelen);
     for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
         if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
             ino = dir_node->de->dir_id;

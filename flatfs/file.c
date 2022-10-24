@@ -46,7 +46,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	int ret = 0;
  	sector_t pblk = ffs_get_lba_data(inode, iblock);
 	bool new = false, boundary = false;
-	printk("pblk: %lld\n", pblk);
+	//printk("pblk: %lld\n", pblk);
 
 	/* todo: if pblk is a new block or update */
 	if(iblock >= FFS_I(inode)->size) {
@@ -69,7 +69,7 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 {	
 	int ret;
 	//todo : 可以在这里实现inode-inlined data
-	printk("write begin\n");
+	//("write begin\n");
 
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
 
@@ -87,14 +87,14 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 // {
 static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 {
-	printk(KERN_INFO "writepage\n");
+	//printk(KERN_INFO "writepage\n");
 	// dump_stack();
 	return block_write_full_page(page, ffs_get_block_prep, wbc);
 }
 
 static int ffs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
-	printk(KERN_INFO "writepages\n");
+	//printk(KERN_INFO "writepages\n");
 	// dump_stack();
 	return mpage_writepages(mapping, wbc, ffs_get_block_prep);
 }
@@ -102,7 +102,7 @@ static int ffs_writepages(struct address_space *mapping, struct writeback_contro
 
 static int ffs_readpage(struct file *file, struct page *page)
 {
-	printk(KERN_INFO "readpage\n");
+	//printk(KERN_INFO "readpage\n");
 	return mpage_readpage(page, ffs_get_block_prep);
 }
 
@@ -110,7 +110,7 @@ static int
 ffs_readpages(struct file *file, struct address_space *mapping,
 		struct list_head *pages, unsigned nr_pages)
 {
-	printk(KERN_INFO "readpages\n");
+	//printk(KERN_INFO "readpages\n");
 	return mpage_readpages(mapping, pages, nr_pages, ffs_get_block_prep);
 }
 
@@ -120,14 +120,14 @@ ffs_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	struct file *file = iocb->ki_filp;
 	struct address_space *mapping = file->f_mapping;
 	struct inode *inode = mapping->host;
-	printk(KERN_INFO "ffs_direct_IO\n");
+	//printk(KERN_INFO "ffs_direct_IO\n");
 	return blockdev_direct_IO(iocb, inode, iter, ffs_get_block_prep);
 }
 
 
 int ffs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
-	printk(KERN_INFO "ffs file fsync");
+	//printk(KERN_INFO "ffs file fsync");
 	return  generic_file_fsync(file, start, end, datasync);
 }
 
@@ -157,7 +157,7 @@ struct file_operations ffs_file_file_ops = {
 };
 
 static int ffs_readdir(struct file *file, struct dir_context *ctx){
-	printk(KERN_INFO "flatfs read dir");
+	//printk(KERN_INFO "flatfs read dir");
 	loff_t pos;/*文件的偏移*/
 	struct inode *ino = file_inode(file);
 	struct super_block *sb = ino->i_sb;
@@ -171,7 +171,7 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 
 	}
 	read_dir_dirs(ffs_sb, dir_ino, ctx);
-	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], dir_ino, ctx);
+	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
 	return 0;
 }
 

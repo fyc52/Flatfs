@@ -47,10 +47,10 @@ typedef u64 lba_t;
 #define MIN_DIR_BITS 7
 
 #define MAX_FILE_BUCKET_BITS 20
-#define MIN_FILE_BUCKET_BITS 8
+#define MIN_FILE_BUCKET_BITS 11
 
 
-#define FILE_SLOT_BITS 3
+#define FILE_SLOT_BITS 4
 
 /* block refers to file offset */
 #define MAX_FILE_BLOCK_BITS 40
@@ -116,7 +116,7 @@ struct ffs_inode_info //内存文件系统特化inode
     int valid;
     unsigned long i_flags;
     loff_t size; // 尺寸
-    char	name[FFS_MAX_FILENAME_LEN + 2];
+    struct ffs_name filename;
     //__u8 i_type;  
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
@@ -216,7 +216,7 @@ struct bucket {
     unsigned long bucket_id;
     DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
     __u8 valid_slot_count;
-    struct slot slots[1 << FILE_SLOT_BITS];
+    // struct slot slots[1 << FILE_SLOT_BITS];
 };
 
 struct HashTable {

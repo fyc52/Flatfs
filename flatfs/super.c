@@ -87,7 +87,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_info *fi = FFS_I(inode);
 	struct block_device *bdev = sb->s_bdev;
 	struct inode *bdev_inode = bdev->bd_inode;
-	printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
+	//printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
 	if(bdev_inode == NULL) 
 	{
 		printk("bdev_inode error\n");
@@ -96,15 +96,15 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if(fi){
 		if(fi->bucket_id >= 0)//file
 		{
-			printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
+			//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_meta(inode);
-			printk("ffs_get_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			//printk("ffs_get_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 		}
 		else				  //dir
 		{
-			printk("ffs_get_lba_dir_meta:inode = %ld", inode->i_ino);
+			//printk("ffs_get_lba_dir_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id);
-			printk(KERN_INFO "ffs_get_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			//printk(KERN_INFO "ffs_get_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 			// dump_stack();
 		}
 	}
@@ -113,33 +113,35 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		//pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
-	printk(KERN_INFO "allocate bh for ffs_inode, s_blocksize = %ld\n", inode->i_sb->s_blocksize);
+	//printk(KERN_INFO "allocate bh for ffs_inode, s_blocksize = %ld\n", inode->i_sb->s_blocksize);
 	pblk = pblk >> BLOCK_SHIFT;
-	printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
+	//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
+	//printk("fill super, bh = %lld, sb dev = %d", ibh->b_blocknr, sb->s_dev);	
 	// ibh = sb_getblk(inode->i_sb, 0);//这里不使用bread，避免读盘
-	printk(KERN_INFO "allocate bh for ffs_inode OK, fi->vaild:%d\n", fi->valid);
+	//printk(KERN_INFO "allocate bh for ffs_inode OK, fi->vaild:%d, fi->filename:%s\n", fi->valid, fi->filename.name);
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		// return -ENOMEM;
 	}	
-
 	lock_buffer(ibh);
 	//actual write inode in buffer cache
 	//zero bh
 	//memset(ibh->b_data, 0, ibh->b_size);
 	//fill bh
 	if(fi->valid){
-		if(my_strlen(fi->name) > FFS_MAX_FILENAME_LEN) 
+		if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) 
 		{
 			printk("file name len error\n");
 			goto out;
 		}
+		printk("fill raw_inode 1\n");
 		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
-		raw_inode->filename.name_len = my_strlen(fi->name);
-		memcpy(raw_inode->filename.name, fi->name, raw_inode->filename.name_len);
+		raw_inode->filename.name_len = fi->filename.name_len;
+		printk("fill raw_inode 2\n");
+		memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
 		printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 	}
 
@@ -209,8 +211,9 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 		ei->bucket_id = -1;
 		ei->dir_id = FLATFS_ROOT_INO;
 		ei->slot_id = 0;
-		memcpy(ei->name, "/", strlen("/"));
-		
+		memcpy(ei->filename.name, "/", strlen("/"));
+		ei->filename.name_len = my_strlen("/");
+
 		inode->i_sb = sb;
 		inode->i_mode = mode;													//访问权限,https://zhuanlan.zhihu.com/p/78724124
 		inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
@@ -365,7 +368,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	}
 
 	sb->s_fs_info = ffs_sb;
-	// ffs_sb->s_sb_block = sb_block;
+	//ffs_sb->s_sb_block = sb_block;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
 	printk(KERN_INFO "flatfs: sb->s_fs_info init ok\n");
 	ffs_sb = FFS_SB(sb);
