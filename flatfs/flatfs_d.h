@@ -47,10 +47,10 @@ typedef u64 lba_t;
 #define MIN_DIR_BITS 7
 
 #define MAX_FILE_BUCKET_BITS 20
-#define MIN_FILE_BUCKET_BITS 11
+#define MIN_FILE_BUCKET_BITS 12
 
 
-#define FILE_SLOT_BITS 4
+#define FILE_SLOT_BITS 3
 
 /* block refers to file offset */
 #define MAX_FILE_BLOCK_BITS 40

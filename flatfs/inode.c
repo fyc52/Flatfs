@@ -115,7 +115,7 @@ struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, struct b
 //dentry：本目录的dentry，需要关联到本目录的inode
 static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)	
 {
-	//printk(KERN_INFO "flatfs: lookup\n");
+	printk(KERN_INFO "flatfs: lookup, name = %s\n", dentry->d_name.name);
 	int r, err;
 	struct inode *inode;
 	unsigned long ino = 0;
@@ -133,10 +133,10 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	
 	//printk(KERN_INFO "flatfs: flatfs_dir_inode_by_name\n");
 	ino = flatfs_dir_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name);
-	//printk(KERN_INFO "flatfs: flatfsdir_inode_by_name OK ino = %ld\n", ino);
+	printk(KERN_INFO "flatfs: flatfsdir_inode_by_name OK ino = %lx\n", ino);
 
 	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-	//printk("dir_id = %x\n", dir_id);
+	printk("dir_id = %x\n", dir_id);
 	//printk("flags = %x\n", flags);
 
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
@@ -150,7 +150,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 		//printk(KERN_INFO "inode is NULL\n");
 		goto out2;
 	}
-
+	printk(KERN_INFO "flatfs: get ino = %lx\n", ino);
 	/* 有子文件/目录 */
 	inode = iget_locked(dir->i_sb, ino);
 	if (!inode)
@@ -248,7 +248,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 
 		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dfi->dir_id], dir, dir_id, &dentry->d_name);
-		printk("mknod, ino:%ld\n", ino);
+		printk("mknod, ino:%lx\n", ino);
 		fi->dir_id = dir_id;
 		fi->bucket_id = ino_to_bucket(ino); 
 		fi->slot_id = ino_to_slot(ino);
@@ -256,7 +256,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->size = 0;
 		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
-		//printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
+		printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
 	}
 	inode->i_ino = ino;
 	//printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);

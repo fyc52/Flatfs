@@ -58,7 +58,7 @@ static void
 flatfs_put_super(struct super_block *sb)
 {
 	struct flatfs_sb_info *ffs_sb;
-	printk(KERN_INFO "put super of flatfs\n");
+	//printk(KERN_INFO "put super of flatfs\n");
 
 	ffs_sb = FFS_SB(sb);
 	if (ffs_sb == NULL)
@@ -90,7 +90,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	//printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
 	if(bdev_inode == NULL) 
 	{
-		printk("bdev_inode error\n");
+		//printk("bdev_inode error\n");
 		return ;
 	}
 	if(fi){
@@ -109,7 +109,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		}
 	}
 	else{//错误情况
-		printk(KERN_WARNING "ffs lookup() didin't initialize fi\n");
+		//printk(KERN_WARNING "ffs lookup() didin't initialize fi\n");
 		//pblk = ffs_get_lba(inode,0);//计算inode的lba
 	}
 
@@ -121,7 +121,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	// ibh = sb_getblk(inode->i_sb, 0);//这里不使用bread，避免读盘
 	//printk(KERN_INFO "allocate bh for ffs_inode OK, fi->vaild:%d, fi->filename:%s\n", fi->valid, fi->filename.name);
  	if (unlikely(!ibh)){
-		printk(KERN_ERR "allocate bh for ffs_inode fail");
+		//printk(KERN_ERR "allocate bh for ffs_inode fail");
 		// return -ENOMEM;
 	}	
 	lock_buffer(ibh);
@@ -132,17 +132,17 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if(fi->valid){
 		if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) 
 		{
-			printk("file name len error\n");
+			//printk("file name len error\n");
 			goto out;
 		}
-		printk("fill raw_inode 1\n");
+		//printk("fill raw_inode 1\n");
 		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
 		raw_inode->filename.name_len = fi->filename.name_len;
-		printk("fill raw_inode 2\n");
+		//printk("fill raw_inode 2\n");
 		memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
-		printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
+		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 	}
 
 out:
@@ -203,7 +203,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	{
 		pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
 		bh = sb_bread(sb, pblk);
-		printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
+		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
 		raw_inode = (struct ffs_inode *) (bh->b_data);
 
 		ei = FLAT_I(inode);
@@ -220,7 +220,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
 		inode->i_size = 0;													//文件的大小（byte）
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
-		printk(KERN_INFO "about to set inode ops\n");
+		//printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
 		// inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
 		switch (mode & S_IFMT)
@@ -229,7 +229,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 			init_special_inode(inode, mode, dev); //为字符设备或者块设备文件创建一个Inode（在文件系统层）.
 			break;
 		case S_IFREG: /* regular 普通文件*/
-			printk(KERN_INFO "file inode\n");
+			//printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
 			inode->i_mapping->a_ops = &ffs_aops;
@@ -264,7 +264,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int 
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
 		inode->i_size = 0;													//文件的大小（byte）
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
-		printk(KERN_INFO "about to set inode ops\n");
+		//printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
 		// inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
 		switch (mode & S_IFMT)
@@ -273,7 +273,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev, int 
 			init_special_inode(inode, mode, dev); //为字符设备或者块设备文件创建一个Inode（在文件系统层）.
 			break;
 		case S_IFREG: /* regular 普通文件*/
-			printk(KERN_INFO "file inode\n");
+			//printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
 			inode->i_mapping->a_ops = &ffs_aops;
