@@ -98,13 +98,13 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		{
 			//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_meta(inode);
-			//printk("ffs_get_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 		}
 		else				  //dir
 		{
 			//printk("ffs_get_lba_dir_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id);
-			//printk(KERN_INFO "ffs_get_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			printk(KERN_INFO "ffs_get_dir_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 			// dump_stack();
 		}
 	}
@@ -194,15 +194,15 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	struct buffer_head * bh = NULL;
 	struct ffs_inode *raw_inode;
 	struct inode *inode;
-	sector_t pblk;
+	// sector_t pblk;
 	
 	unsigned long root_ino = dir_id_to_inode(FLATFS_ROOT_INO);
 	inode = iget_locked(sb, root_ino);
 	
 	if (inode)
 	{
-		pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
-		bh = sb_bread(sb, pblk);
+		// pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
+		// bh = sb_bread(sb, pblk);
 		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
 		raw_inode = (struct ffs_inode *) (bh->b_data);
 

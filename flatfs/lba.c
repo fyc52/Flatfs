@@ -118,11 +118,10 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 		if(slot_id != -1){
 			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) << FILE_SLOT_BITS);
 			lba |= slot_id;
-			lba = lba << DEFAULT_FILE_BLOCK_BITS;
 		}
 		else{//文件inode所在bucket的slba
 			//printk("compose_lba: dir_id = %d, bucket_id = %d", dir_id, bucket_id);
-			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) * lba_base);
+			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) * SLOTS_PER_BUCKET);
 			// lba += lba_base;
 		}
 			
@@ -174,9 +173,8 @@ lba_t ffs_get_lba_dir_meta(unsigned long ino, int dir_id){
 	if(ino != -1)
 		dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	// lba_t lba = (dir_id) << PAGE_SHIFT;
-	sector_t lba_base = 1LL << DEFAULT_FILE_BLOCK_BITS;
 	//printk("lba_base: %lld\n", lba_base);
-    lba_t lba = ( (lba_t)(dir_id) << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS) ) * lba_base;
+    lba_t lba = ((lba_t)(1) << (MIN_FILE_BUCKET_BITS - 1)) + dir_id;
 	//printk("lba: %lld\n", lba);
 	return lba;
 }
@@ -187,12 +185,12 @@ unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct i
 	struct ffs_inode_info* p_fi = FFS_I(parent);
 	char * name = (char *)(child->name);
 	// strcpy(name, "fycnbb");
-	printk("start to insert file\n");
+	//printk("start to insert file\n");
 	unsigned long file_seg = insert_file(hashtbl, name);
 	unsigned long ino = 0;
 
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
-	printk("flatfs_file_slot_alloc_by_name: file_seg:%lx, ino:%lx\n", file_seg, ino);
+	//printk("flatfs_file_slot_alloc_by_name: file_seg:%lx, ino:%lx\n", file_seg, ino);
 	return ino;	
 }
 
@@ -255,7 +253,7 @@ first:
 				ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
 				inode = iget_locked(sb, ino);
 				struct ffs_inode_info *fi = FFS_I(inode);
-				printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
+				//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
         		dir_emit(ctx, fi->filename.name, fi->filename.name_len, le32_to_cpu(ino), d_type);
         		__le16 dlen = 1;
         		/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
@@ -281,7 +279,7 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 	struct ffs_inode_info* fi = FFS_I(inode);
 	sector_t pblk;
 	struct buffer_head *ibh[SLOTS_PER_BUCKET];
-	printk("get_file_seg, bucket_id:%x, name:%s\n", bucket_id, filename);
+	//printk("get_file_seg, bucket_id:%x, name:%s\n", bucket_id, filename);
 	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++) {
 		if(!test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) 
 		{
@@ -289,16 +287,16 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 		}
 		pblk = compose_lba(fi->dir_id, bucket_id, slt, 0);
 		pblk = pblk >> BLOCK_SHIFT;
-		printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
+		//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 		ibh[slt] = sb_bread(sb, pblk);
 		wait_on_buffer(ibh[slt]);
 		if (unlikely(!ibh)){
-			printk(KERN_ERR "allocate bh for ffs_inode fail");
+			//printk(KERN_ERR "allocate bh for ffs_inode fail");
 			return -ENOMEM;
 		}
 
 		raw_inode = (struct ffs_inode *) ibh[slt]->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
-		printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
+		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
 			brelse(ibh[slt]);
