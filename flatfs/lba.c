@@ -262,7 +262,7 @@ first:
 			}
 		}
 	}
-	brelse(ibh);
+	if(ibh) brelse(ibh);
 
     return 0;
 }
@@ -299,10 +299,10 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
-			brelse(ibh[slt]);
+			if(ibh[slt])  brelse(ibh[slt]);
 			break;
 		}
-		brelse(ibh[slt]);
+		if(ibh[slt]) brelse(ibh[slt]);
 	}
 
 	unsigned long file_seg = 0LU;

@@ -98,13 +98,13 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		{
 			//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_meta(inode);
-			printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			//printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 		}
 		else				  //dir
 		{
 			//printk("ffs_get_lba_dir_meta:inode = %ld", inode->i_ino);
 			pblk = ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id);
-			printk(KERN_INFO "ffs_get_dir_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			//printk(KERN_INFO "ffs_get_dir_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
 			// dump_stack();
 		}
 	}
@@ -151,7 +151,7 @@ out:
 	unlock_buffer(ibh);
 
 	mark_buffer_dirty(ibh);//触发回写
-	brelse(ibh);//put_bh, 对应getblk
+	if(ibh) brelse(ibh);//put_bh, 对应getblk
 	
 	// return 0;
 }
@@ -247,7 +247,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 			// break;
 		}
 	}
-	brelse (bh);
+	if(bh) (bh);
 	return inode;
 }
 
@@ -391,7 +391,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	}
 
 	mark_inode_dirty(inode);
-	unlock_new_inode(inode);
+	if(inode) unlock_new_inode(inode);
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
 	return 0;
 }

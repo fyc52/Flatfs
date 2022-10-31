@@ -93,7 +93,7 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 	for (i = 0; i < SLOTS_PER_BUCKET; i++){
 		if(i == index )
 			continue;
-		brelse(bhs[i]);
+		if(bhs[i]) brelse(bhs[i]);
 	}
 
 	return (struct ffs_inode *)(bhs[index]->b_data);
@@ -199,7 +199,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	inode->i_fop = &ffs_file_file_ops;
 	set_nlink(inode, 1);            //不允许硬链接，常规文件的nlink固定为1
 		
-	brelse(bh);
+	if(bh) brelse(bh);
 out1:
 	unlock_new_inode(inode);
 out2:
