@@ -201,9 +201,9 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 	int bkt, slt;
 	int pos = 0;
 	struct super_block *sb = inode->i_sb;
-	// struct buffer_head *ibh;
-	// struct ffs_inode* raw_inode;
-	// sector_t pblk;
+	struct buffer_head *ibh;
+	struct ffs_inode* raw_inode;
+	sector_t pblk;
 
 
 	//printk("ctx->pos:%d\n", ctx->pos);
@@ -231,10 +231,10 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 			unsigned char d_type = NT_FILE;
 
 			ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-			inode = iget_locked(sb, ino);
-			struct ffs_inode_info *fi = FFS_I(inode);
-			//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt,hashtbl->buckets[bkt].slots[slt].filename.name);
-        	dir_emit(ctx, fi->filename.name, fi->filename.name_len, le32_to_cpu(ino), d_type);
+			ibh = sb_bread(sb, ino);
+			raw_inode = (struct ffs_inode*)(ibh->b_data);
+			//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
+        	dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         	__le16 dlen = 1;
         	/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
         	ctx->pos +=  le16_to_cpu(dlen);
@@ -251,10 +251,10 @@ first:
 				unsigned char d_type = NT_FILE;
 
 				ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-				inode = iget_locked(sb, ino);
-				struct ffs_inode_info *fi = FFS_I(inode);
+				ibh = sb_bread(sb, ino);
+				raw_inode = (struct ffs_inode*)(ibh->b_data);
 				//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
-        		dir_emit(ctx, fi->filename.name, fi->filename.name_len, le32_to_cpu(ino), d_type);
+        		dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         		__le16 dlen = 1;
         		/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
         		ctx->pos +=  le16_to_cpu(dlen);
@@ -262,7 +262,7 @@ first:
 			}
 		}
 	}
-
+	brelse(ibh);
 
     return 0;
 }
@@ -286,7 +286,7 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 			continue;
 		}
 		pblk = compose_lba(fi->dir_id, bucket_id, slt, 0);
-		pblk = pblk >> BLOCK_SHIFT;
+		// pblk = pblk >> BLOCK_SHIFT;
 		//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 		ibh[slt] = sb_bread(sb, pblk);
 		wait_on_buffer(ibh[slt]);
