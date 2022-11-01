@@ -47,7 +47,7 @@ typedef u64 lba_t;
 #define MIN_DIR_BITS 7
 
 #define MAX_FILE_BUCKET_BITS 20
-#define MIN_FILE_BUCKET_BITS 12
+#define MIN_FILE_BUCKET_BITS 14
 
 
 #define FILE_SLOT_BITS 3
@@ -213,7 +213,7 @@ struct slot {
 };
 
 struct bucket {
-    unsigned long bucket_id;
+    // unsigned long bucket_id;
     DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
     __u8 valid_slot_count;
     // struct slot slots[1 << FILE_SLOT_BITS];

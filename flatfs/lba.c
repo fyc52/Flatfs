@@ -27,7 +27,7 @@ void init_file_ht(struct HashTable **file_ht)
 	int bkt, slt;
 	*file_ht = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);
 	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
-		(*file_ht)->buckets[bkt].bucket_id = bkt;
+		// (*file_ht)->buckets[bkt].bucket_id = bkt;
 		bitmap_zero((*file_ht)->buckets[bkt].slot_bitmap, 1 << FILE_SLOT_BITS);
 		/* 第一个slot固定用来存放该bucket下所有文件的inode信息 */
 		// bitmap_set(file_ht->buckets[bkt].slot_bitmap, 0, 1);
@@ -174,7 +174,7 @@ lba_t ffs_get_lba_dir_meta(unsigned long ino, int dir_id){
 		dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
 	// lba_t lba = (dir_id) << PAGE_SHIFT;
 	//printk("lba_base: %lld\n", lba_base);
-    lba_t lba = ((lba_t)(1) << (MIN_FILE_BUCKET_BITS - 1)) + dir_id;
+    lba_t lba =  dir_id;
 	//printk("lba: %lld\n", lba);
 	return lba;
 }
@@ -262,8 +262,7 @@ first:
 			}
 		}
 	}
-	if(ibh) brelse(ibh);
-
+	// if(ibh) brelse(ibh);
     return 0;
 }
 
