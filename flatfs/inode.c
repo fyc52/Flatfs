@@ -248,6 +248,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 
 		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dfi->dir_id], dir, dir_id, &dentry->d_name);
+		if(ino == -1) goto out;
 		//printk("mknod, ino:%lx\n", ino);
 		fi->dir_id = dir_id;
 		fi->bucket_id = ino_to_bucket(ino); 
@@ -290,6 +291,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		//同步数据
 		return 0;
 	}
+out:
 	return error;
 }
 
@@ -374,8 +376,14 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bo
 	// printk(KERN_ALERT "--------------[create] dump_stack start----------------");
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");
+	int err;
 	mknod_is_dir = 0;
-	return ffs_mknod(dir, dentry, mode | S_IFREG, 0);
+	err = ffs_mknod(dir, dentry, mode | S_IFREG, 0);
+	if(err = ENOSPC)
+	{
+		printk("Create failed, hash crash!");
+	}
+	return err;
 }
 
 // static int ffs_get_link(struct inode * dir, struct dentry *dentry, 

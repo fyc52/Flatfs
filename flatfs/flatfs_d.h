@@ -47,7 +47,7 @@ typedef u64 lba_t;
 #define MIN_DIR_BITS 7
 
 #define MAX_FILE_BUCKET_BITS 20
-#define MIN_FILE_BUCKET_BITS 14
+#define MIN_FILE_BUCKET_BITS 10
 
 
 #define FILE_SLOT_BITS 3

@@ -69,6 +69,8 @@ static inline unsigned long insert_file(struct HashTable *file_ht, char * filena
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS)) - 1LU);
 	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1 << FILE_SLOT_BITS);
+	if(slt == -1)
+		return slt;
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count ++;
 
@@ -187,6 +189,7 @@ unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct i
 	// strcpy(name, "fycnbb");
 	//printk("start to insert file\n");
 	unsigned long file_seg = insert_file(hashtbl, name);
+	if(file_seg == -1) return file_seg;
 	unsigned long ino = 0;
 
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
