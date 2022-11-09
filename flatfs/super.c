@@ -151,7 +151,7 @@ out:
 	unlock_buffer(ibh);
 
 	mark_buffer_dirty(ibh);//触发回写
-	if(ibh) brelse(ibh);//put_bh, 对应getblk
+	///if(ibh) brelse(ibh);//put_bh, 对应getblk
 	
 	// return 0;
 }
@@ -201,8 +201,8 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	
 	if (inode)
 	{
-		// pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
-		// bh = sb_bread(sb, pblk);
+		long long pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
+		bh = sb_bread(sb, pblk);
 		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
 		raw_inode = (struct ffs_inode *) (bh->b_data);
 

@@ -69,8 +69,6 @@ static inline unsigned long insert_file(struct HashTable *file_ht, char * filena
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS)) - 1LU);
 	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1 << FILE_SLOT_BITS);
-	if(slt == -1)
-		return slt;
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count ++;
 
@@ -189,7 +187,6 @@ unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct i
 	// strcpy(name, "fycnbb");
 	//printk("start to insert file\n");
 	unsigned long file_seg = insert_file(hashtbl, name);
-	if(file_seg == -1) return file_seg;
 	unsigned long ino = 0;
 
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
@@ -280,31 +277,65 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 	struct ffs_inode* raw_inode;
 	struct ffs_inode_info* fi = FFS_I(inode);
 	sector_t pblk;
-	struct buffer_head *ibh[SLOTS_PER_BUCKET];
+	struct buffer_head *head;
+	struct buffer_head *ibh;
+	int first_read = 0;
+	pblk = compose_lba(fi->dir_id, bucket_id, 0, 0);
 	//printk("get_file_seg, bucket_id:%x, name:%s\n", bucket_id, filename);
 	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++) {
 		if(!test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) 
 		{
 			continue;
 		}
-		pblk = compose_lba(fi->dir_id, bucket_id, slt, 0);
-		// pblk = pblk >> BLOCK_SHIFT;
-		//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
-		ibh[slt] = sb_bread(sb, pblk);
-		wait_on_buffer(ibh[slt]);
-		if (unlikely(!ibh)){
-			//printk(KERN_ERR "allocate bh for ffs_inode fail");
-			return -ENOMEM;
+		if(first_read == 0)
+		{
+			first_read = 1;
+			head = sb_bread(sb, pblk + slt);
+			wait_on_buffer(head);
+			if (unlikely(!head)){
+				//printk(KERN_ERR "allocate bh for ffs_inode fail");
+				return -ENOMEM;
+			}
+			ibh = head;
+			//printk("lookup, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
+		}
+		else
+		{
+			ibh = head;
+			// if(ibh)
+			// 	printk("lookup, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
+			do {
+				//printk("lookup, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
+  				if(ibh->b_blocknr == pblk +slt)
+  					break;
+				ibh = ibh->b_this_page;
+ 			} while (ibh != head);
+
+			if(ibh->b_blocknr != pblk + slt)
+			{
+				printk("unlike to happened");
+				ibh = sb_bread(sb, pblk + slt);
+				wait_on_buffer(ibh);
+				if (unlikely(!ibh)){
+					//printk(KERN_ERR "allocate bh for ffs_inode fail");
+					return -ENOMEM;
+				}
+				//printk("unlikely, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
+			}
 		}
 
-		raw_inode = (struct ffs_inode *) ibh[slt]->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
+		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
-			if(ibh[slt])  brelse(ibh[slt]);
+			if(ibh)  
+				brelse(ibh);
+			if(head)  
+				brelse(head);
 			break;
 		}
-		if(ibh[slt]) brelse(ibh[slt]);
+		if(head)  
+			brelse(head);
 	}
 
 	unsigned long file_seg = 0LU;
