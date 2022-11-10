@@ -76,7 +76,7 @@ flatfs_put_super(struct super_block *sb)
 
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
-	struct buffer_head *ibh;
+	struct buffer_head *ibh = NULL;
 	struct super_block *sb = inode->i_sb;
 	struct ffs_inode* raw_inode;
 	sector_t pblk;
@@ -151,7 +151,7 @@ out:
 	unlock_buffer(ibh);
 
 	mark_buffer_dirty(ibh);//触发回写
-	///if(ibh) brelse(ibh);//put_bh, 对应getblk
+	if(ibh) brelse(ibh);//put_bh, 对应getblk
 	
 	// return 0;
 }

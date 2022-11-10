@@ -201,7 +201,7 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 	int bkt, slt;
 	int pos = 0;
 	struct super_block *sb = inode->i_sb;
-	struct buffer_head *ibh;
+	struct buffer_head *ibh = NULL;
 	struct ffs_inode* raw_inode;
 	sector_t pblk;
 
@@ -212,9 +212,6 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 		bkt = -1;
 		goto first;
 	}
-	
-	hashtbl->pos = 0;
-	return 0;
 
 	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
 		for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
@@ -262,7 +259,7 @@ first:
 			}
 		}
 	}
-	// if(ibh) brelse(ibh);
+	brelse(ibh);
     return 0;
 }
 
@@ -328,16 +325,10 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
-			if(ibh)  
-				brelse(ibh);
-			if(head)  
-				brelse(head);
 			break;
 		}
-		if(head)  
-			brelse(head);
 	}
-
+	if(first_read) brelse(head);
 	unsigned long file_seg = 0LU;
 	if(slt >= (1 << FILE_SLOT_BITS)) {
 		return file_seg;

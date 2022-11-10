@@ -90,13 +90,14 @@ struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, ch
 
 	*p = bhs[index]; 
 
+	temp =  (struct ffs_inode *)(bhs[index]->b_data);
+
 	for (i = 0; i < SLOTS_PER_BUCKET; i++){
 		if(i == index )
 			continue;
 		if(bhs[i]) brelse(bhs[i]);
 	}
-
-	return (struct ffs_inode *)(bhs[index]->b_data);
+	return temp;
 }
 
 // struct ffs_inode *ffs_get_inode_dir(struct super_block *sb, lba_t slba, char* name, struct buffer_head **p)
@@ -247,7 +248,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		int dir_id = dfi->dir_id;
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 
-		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dfi->dir_id], dir, dir_id, &dentry->d_name);
+		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dir_id], dir, dir_id, &dentry->d_name);
 		if(ino == -1) return -1;
 		//printk("mknod, ino:%lx\n", ino);
 		fi->dir_id = dir_id;
