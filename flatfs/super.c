@@ -136,7 +136,10 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 			goto out;
 		}
 		//printk("fill raw_inode 1\n");
-		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
+		if(fi->slot_id == -1)
+			raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
+		else
+			raw_inode = (struct ffs_inode *) (ibh->b_data + (fi->slot_id << 9));
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
 		raw_inode->filename.name_len = fi->filename.name_len;

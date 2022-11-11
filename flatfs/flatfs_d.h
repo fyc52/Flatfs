@@ -29,7 +29,7 @@
 /* helpful if this is different than other fs */
 #define FLATFS_MAGIC 0x73616d70 /* "FLAT" */
 #define PAGE_SHIFT 12
-#define BLOCK_SHIFT 10
+#define BLOCK_SHIFT 12
 #define BLOCK_SIZE 1 << BLOCK_SHIFT
 // #define BLOCK_SIZE 512
 #define FLATFS_BSTORE_BLOCKSIZE BLOCK_SIZE
@@ -51,7 +51,7 @@ typedef u64 lba_t;
 #define MIN_FILE_BUCKET_BITS 12
 
 
-#define FILE_SLOT_BITS 2
+#define FILE_SLOT_BITS 3
 
 /* block refers to file offset */
 #define MAX_FILE_BLOCK_BITS 40

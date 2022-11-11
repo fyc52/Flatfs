@@ -137,7 +137,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	//printk(KERN_INFO "flatfs: flatfsdir_inode_by_name OK ino = %lx\n", ino);
 
 	dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-	//printk("dir_id = %x\n", dir_id);
+	//printk("dir_id = %x\n", inode_to_dir_id(dir->i_ino));
 	//printk("flags = %x\n", flags);
 
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
@@ -220,7 +220,6 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct ffs_inode_info * dfi = FFS_I(dir);
 	struct ffs_inode_info * fi = FFS_I(inode);
 	unsigned long ino = 0;
-
 	// dump_stack();
 	// 为新inode分配ino#
 	if(mknod_is_dir) {
@@ -258,7 +257,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->size = 0;
 		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
-		//printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
+		printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x\n", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
 	}
 	inode->i_ino = ino;
 	//printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);

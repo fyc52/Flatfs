@@ -69,9 +69,10 @@ static inline unsigned long insert_file(struct HashTable *file_ht, char * filena
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS)) - 1LU);
 	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1 << FILE_SLOT_BITS);
+	if(slt == -1) return slt;
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count ++;
-
+	//printk("insert file Bitmap: %lx\n", *file_ht->buckets[bucket_id].slot_bitmap);
 	// size_t namelen = my_strlen(filename);
 	// //file_ht->buckets[bucket_id].slots[slt].filename = kmalloc(sizeof(struct ffs_name), GFP_NOIO);
 
@@ -151,7 +152,7 @@ lba_t ffs_get_lba_data(struct inode *inode, lba_t iblock) {
 lba_t ffs_get_lba_meta(struct inode *inode) {
 	
 	struct ffs_inode_info* fi = FFS_I(inode);
-	lba_t lba = compose_lba(fi->dir_id, fi->bucket_id,fi->slot_id, 0);
+	lba_t lba = compose_lba(fi->dir_id, fi->bucket_id, 0, 0);
 
 	return lba;
 }
@@ -184,9 +185,10 @@ unsigned long flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct i
 {
 	struct ffs_inode_info* p_fi = FFS_I(parent);
 	char * name = (char *)(child->name);
-	// strcpy(name, "fycnbb");
+	//strcpy(name, "f1");
 	//printk("start to insert file\n");
 	unsigned long file_seg = insert_file(hashtbl, name);
+	if(file_seg == -1) return file_seg;
 	unsigned long ino = 0;
 
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
@@ -222,14 +224,16 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 		if(pos >= hashtbl->pos) break;
 	}
 
+	ino = (bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS;
+	ibh = sb_bread(sb, ino);
+
 	for(1; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 			/* 开始传 */
 			unsigned char d_type = NT_FILE;
 
 			ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-			ibh = sb_bread(sb, ino);
-			raw_inode = (struct ffs_inode*)(ibh->b_data);
+			raw_inode = (struct ffs_inode*)(ibh->b_data + slt * (1 << 9));
 			//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
         	dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         	__le16 dlen = 1;
@@ -242,14 +246,23 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 
 first:
 	for(bkt ++; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
+		int flag = 0;
+		for(slt = 0 ; slt < (1 << FILE_SLOT_BITS); slt++ ) {
+			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
+				flag = 1;
+				break;
+			}
+		}
+		if(flag = 0) continue;
+		ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
+		ibh = sb_bread(sb, ino);
 		for(slt = 0 ; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 				/* 开始传 */
 				unsigned char d_type = NT_FILE;
 
 				ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-				ibh = sb_bread(sb, ino);
-				raw_inode = (struct ffs_inode*)(ibh->b_data);
+				raw_inode = (struct ffs_inode*)(ibh->b_data + slt * (1 << 9));
 				//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
         		dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         		__le16 dlen = 1;
@@ -266,6 +279,7 @@ first:
 /* 根据文件名查找slot，生成文件的 <file, slot> 字段 */
 static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct HashTable *file_ht, char * filename)
 {	
+	//printk(KERN_ERR "Get_file_seg start\n");
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
 	int slt;
@@ -274,61 +288,42 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 	struct ffs_inode* raw_inode;
 	struct ffs_inode_info* fi = FFS_I(inode);
 	sector_t pblk;
-	struct buffer_head *head;
-	struct buffer_head *ibh;
-	int first_read = 0;
-	pblk = compose_lba(fi->dir_id, bucket_id, 0, 0);
-	//printk("get_file_seg, bucket_id:%x, name:%s\n", bucket_id, filename);
+	struct buffer_head *bh;
+	int flag = 0;
+	//printk("lookup, Bitmap: %lx\n", *file_ht->buckets[bucket_id].slot_bitmap);
 	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++) {
-		if(!test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) 
+		if(test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) 
 		{
-			continue;
+			flag = 1;
+			break;
 		}
-		if(first_read == 0)
-		{
-			first_read = 1;
-			head = sb_bread(sb, pblk + slt);
-			wait_on_buffer(head);
-			if (unlikely(!head)){
-				//printk(KERN_ERR "allocate bh for ffs_inode fail");
-				return -ENOMEM;
-			}
-			ibh = head;
-			//printk("lookup, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
-		}
-		else
-		{
-			ibh = head;
-			// if(ibh)
-			// 	printk("lookup, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
-			do {
-				//printk("lookup, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
-  				if(ibh->b_blocknr == pblk +slt)
-  					break;
-				ibh = ibh->b_this_page;
- 			} while (ibh != head);
+	}
 
-			if(ibh->b_blocknr != pblk + slt)
-			{
-				printk("unlike to happened");
-				ibh = sb_bread(sb, pblk + slt);
-				wait_on_buffer(ibh);
-				if (unlikely(!ibh)){
-					//printk(KERN_ERR "allocate bh for ffs_inode fail");
-					return -ENOMEM;
-				}
-				//printk("unlikely, pblk = %lld, slt = %d, lba = %lld", pblk ,slt, ibh->b_blocknr);
-			}
-		}
+	if(flag == 0)
+	{
+		return 0LU;
+	}
 
-		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
+	//printk(KERN_ERR "Get vaild slot\n");
+	pblk = compose_lba(fi->dir_id, bucket_id, 0, 0);
+
+	bh = sb_bread(sb, pblk);
+	if (unlikely(!bh)){
+		//printk(KERN_ERR "allocate bh for ffs_inode fail");
+		return -ENOMEM;
+	}
+
+	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt ++)
+	{
+		raw_inode = (struct ffs_inode *)(bh->b_data + slt * (1 << 9));//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
 			break;
 		}
 	}
-	if(first_read) brelse(head);
+	
+	brelse(bh);
 	unsigned long file_seg = 0LU;
 	if(slt >= (1 << FILE_SLOT_BITS)) {
 		return file_seg;
