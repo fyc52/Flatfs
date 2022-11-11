@@ -277,7 +277,7 @@ first:
 }
 
 /* 根据文件名查找slot，生成文件的 <file, slot> 字段 */
-static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct HashTable *file_ht, char * filename)
+static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct HashTable *file_ht, char * filename, struct ffs_inode* raw_inode, struct buffer_head *bh)
 {	
 	//printk(KERN_ERR "Get_file_seg start\n");
 	unsigned int hashcode = BKDRHash(filename);
@@ -285,10 +285,10 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 	int slt;
 	int namelen = my_strlen(filename);
 	struct super_block *sb = inode->i_sb;
-	struct ffs_inode* raw_inode;
+	//struct ffs_inode* raw_inode;
 	struct ffs_inode_info* fi = FFS_I(inode);
 	sector_t pblk;
-	struct buffer_head *bh;
+	//struct buffer_head *bh;
 	int flag = 0;
 	//printk("lookup, Bitmap: %lx\n", *file_ht->buckets[bucket_id].slot_bitmap);
 	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++) {
@@ -323,7 +323,7 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 		}
 	}
 	
-	brelse(bh);
+	//brelse(bh);
 	unsigned long file_seg = 0LU;
 	if(slt >= (1 << FILE_SLOT_BITS)) {
 		return file_seg;
@@ -335,11 +335,11 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 }
 
 /* 根据文件名查找ino */
-unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child)
+unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child, struct ffs_inode *raw_inode, struct buffer_head *bh)
 {
 	struct ffs_inode_info* p_fi = FFS_I(parent);
 	char * name = (char *)(child->name);
-	unsigned long file_seg = get_file_seg(parent, parent_dir_id, hashtbl, name);
+	unsigned long file_seg = get_file_seg(parent, parent_dir_id, hashtbl, name, raw_inode, bh);
 	unsigned long ino = 0;
 
 	if(file_seg == 0) {

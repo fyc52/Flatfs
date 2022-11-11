@@ -142,7 +142,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
 	if(ino == 0) {
-		ino = flatfs_file_inode_by_name(ffs_sb->hashtbl[inode_to_dir_id(dir->i_ino)], dir, dir_id, &dentry->d_name);
+		ino = flatfs_file_inode_by_name(ffs_sb->hashtbl[inode_to_dir_id(dir->i_ino)], dir, dir_id, &dentry->d_name, raw_inode, bh);
 	}
 		
 	/* 子目录树和子文件中均没找到，说明没有这个子文件/目录 */
@@ -167,7 +167,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	 * 一般这个函数开机的时候才会调用，按照我们的设计，这个时候只可能是文件，
 	 * 因为目录树存在内存了
 	*/
-	raw_inode = ffs_find_get_inode_file(dir->i_sb, 0, (char *)(dentry->d_name.name), &slot_id, &bh);
+	//raw_inode = ffs_find_get_inode_file(dir->i_sb, 0, (char *)(dentry->d_name.name), &slot_id, &bh);
 	// printk(KERN_INFO "flatfs: ffs_find_get_inode_file\n");
 	if(unlikely(!raw_inode)) {
 		goto out1;
