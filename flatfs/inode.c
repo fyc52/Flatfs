@@ -199,11 +199,11 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	inode->i_op = &ffs_file_inode_ops;
 	inode->i_fop = &ffs_file_file_ops;
 	set_nlink(inode, 1);            //不允许硬链接，常规文件的nlink固定为1
-		
-	if(bh) brelse(bh);
+
 out1:
 	if(inode) unlock_new_inode(inode);
 out2:
+	if(bh) brelse(bh);
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
 }
 
