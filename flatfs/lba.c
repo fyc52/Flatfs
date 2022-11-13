@@ -43,6 +43,7 @@ void init_file_ht(struct HashTable **file_ht)
 void free_file_ht(struct HashTable **file_ht)
 {
 	kfree(*file_ht);
+	*file_ht = NULL;
 }
 
 
