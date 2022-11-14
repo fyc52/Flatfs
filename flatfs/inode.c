@@ -34,6 +34,7 @@ extern int shared_slot_id;
 extern int shared_is_flatfs;
 
 static int mknod_is_dir;
+static int test = 1;
 
 //当文件未找到时需返回空闲slot id
 struct ffs_inode *ffs_find_get_inode_file(struct super_block *sb, lba_t slba, char* name, int* slot_id, struct buffer_head **p)
@@ -248,7 +249,15 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
 
 		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dir_id], dir, dir_id, &dentry->d_name);
-		if(ino == -1) return -1;
+		if(!strcmp((char *)(dentry->d_name.name), "fycnb"))
+		{
+			print2log(ffs_sb->hashtbl[dir_id]);
+		}
+		if(ino == -1) 
+		{
+			printk("mknod, hash crash\n");
+			return -1;
+		}
 		//printk("mknod, ino:%lx\n", ino);
 		fi->dir_id = dir_id;
 		fi->bucket_id = ino_to_bucket(ino); 

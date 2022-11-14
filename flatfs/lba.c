@@ -350,3 +350,12 @@ unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode 
 	ino = (file_seg | (parent_dir_id << (FILE_SLOT_BITS + MIN_FILE_BUCKET_BITS))); 
 	return ino;	
 }
+
+void print2log(struct HashTable *hashtbl)
+{
+	int bkt, slt;
+	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt ++)
+	{
+		printk("%d %d\n", bkt, hashtbl->buckets[bkt].valid_slot_count);
+	}
+}
