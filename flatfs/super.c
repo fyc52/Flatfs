@@ -369,6 +369,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	{
 		printk("fill_super:Create hashtable OK\n");
 	}
+	ffs_sb->big_dir_num = 0;
 
 	sb->s_fs_info = ffs_sb;
 	//ffs_sb->s_sb_block = sb_block;

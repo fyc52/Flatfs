@@ -46,6 +46,7 @@ typedef u64 lba_t;
 /* LBA分配设置 */
 #define MAX_DIR_BITS 8
 #define MIN_DIR_BITS 7
+#define BIG_DIR_BITS 3
 
 #define MAX_FILE_BUCKET_BITS 20
 #define MIN_FILE_BUCKET_BITS 12
@@ -225,6 +226,12 @@ struct HashTable {
     loff_t pos;
 };
 
+struct Big_Dir_HashTable {
+    struct bucket buckets[1 << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)];
+    int dir_id;
+    loff_t pos;
+};
+
 /* ffs在内存superblock */
 struct flatfs_sb_info
 { //一般会包含信息和数据结构，kevin的db就是在这里实现的
@@ -233,6 +240,8 @@ struct flatfs_sb_info
     struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
     struct HashTable *hashtbl[1 << MAX_DIR_BITS];
+    struct Big_Dir_HashTable *big_dir_hashtbl[1 << BIG_DIR_BITS];
+    __u8 big_dir_num;
 };
 
 /* disk super block */ 

@@ -13,7 +13,7 @@
 #endif
 
 #define file_num 24000 + 10
-#define MIN_FILE_BUCKET_BITS 12
+#define MIN_FILE_BUCKET_BITS 19
 
 
 struct HashTable {
@@ -36,6 +36,7 @@ unsigned int BKDRHash(char *str)
 int main()   
 {   
     int fd;
+    int over_3slot_bucket = 0;
     fd = open("./hash_text_out.txt",O_RDWR);
     for(int i = 0; i < file_num; i ++)
     {
@@ -49,10 +50,12 @@ int main()
     for(int i = 0; i < (1 << MIN_FILE_BUCKET_BITS); i ++)
     {
         char buf[100];
+        if(ht.valid_slot_count[i] == 0) continue;
+        if(ht.valid_slot_count[i] > 3) over_3slot_bucket ++;
         sprintf(buf, "%d %d\n", i , ht.valid_slot_count[i]);
         write(fd, buf, strlen(buf));
     }
-
+    printf("over_3slot_bucket: %d\n", over_3slot_bucket);
     close(fd);
     return 0;
 }

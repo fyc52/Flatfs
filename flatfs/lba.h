@@ -22,6 +22,7 @@ static inline unsigned long dir_id_to_inode(unsigned long dir_id)
 
 unsigned int BKDRHash(char *str);
 void init_file_ht(struct HashTable **file_ht);
+void init_big_file_ht(struct Big_Dir_HashTable **file_ht);
 void free_file_ht(struct HashTable **file_ht);
 int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id);
 unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child, struct ffs_inode *raw_inode, struct buffer_head *bh);

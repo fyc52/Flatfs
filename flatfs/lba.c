@@ -16,6 +16,7 @@
 #include <linux/uaccess.h>
 #include <linux/namei.h>
 #include <linux/buffer_head.h>
+#include <linux/vmalloc.h> 
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -27,6 +28,24 @@ void init_file_ht(struct HashTable **file_ht)
 	int bkt, slt;
 	*file_ht = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);
 	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++) {
+		// (*file_ht)->buckets[bkt].bucket_id = bkt;
+		bitmap_zero((*file_ht)->buckets[bkt].slot_bitmap, 1 << FILE_SLOT_BITS);
+		/* 第一个slot固定用来存放该bucket下所有文件的inode信息 */
+		// bitmap_set(file_ht->buckets[bkt].slot_bitmap, 0, 1);
+		(*file_ht)->buckets[bkt].valid_slot_count = 0;
+		
+		// for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt++ ) {
+		// 	(*file_ht)->buckets[bkt].slots[slt].slot_id  = (unsigned char)slt;
+		// 	(*file_ht)->buckets[bkt].slots[slt].filename.name_len = 0;
+		// }
+	}
+}
+
+void init_big_file_ht(struct Big_Dir_HashTable **file_ht)
+{
+	int bkt, slt;
+	(*file_ht) = (struct Big_Dir_HashTable *)vmalloc(sizeof(struct Big_Dir_HashTable));
+	for(bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS + MIN_DIR_BITS); bkt++) {
 		// (*file_ht)->buckets[bkt].bucket_id = bkt;
 		bitmap_zero((*file_ht)->buckets[bkt].slot_bitmap, 1 << FILE_SLOT_BITS);
 		/* 第一个slot固定用来存放该bucket下所有文件的inode信息 */
