@@ -64,9 +64,11 @@ typedef u64 lba_t;
 #define BLOCKS_PER_SLOT (1ULL << DEFAULT_FILE_BLOCK_BITS)
 #define BLOCKS_PER_BUCKET (1ULL << (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS))
 #define BUCKETS_PER_DIR (1ULL << MIN_FILE_BUCKET_BITS)
+#define BUCKETS_PER_BIG_DIR (1ULL << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))
 #define SLOTS_PER_BUCKET (1ULL << FILE_SLOT_BITS)
 #define FILE_META_LBA_BASE 1ULL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
 #define FILE_DATA_LBA_BASE 1ULL << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
+#define BIG_FILE_DATA_LBA_BASE 1ULL << (MIN_DIR_BITS + MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
 
 /* LBA convert to any segment*/
 #define lba_to_block(lba)  (lba & (BLOCKS_PER_SLOT - 1ULL))
@@ -77,6 +79,9 @@ typedef u64 lba_t;
 
 #define ino_to_slot(ino) (ino & (SLOTS_PER_BUCKET-1ULL))
 #define ino_to_bucket(ino) (ino >> FILE_SLOT_BITS) & (BUCKETS_PER_DIR - 1)
+
+#define big_ino_to_slot(ino) (ino & (SLOTS_PER_BUCKET-1ULL))
+#define big_ino_to_bucket(ino) (ino >> FILE_SLOT_BITS) & (BUCKETS_PER_BIG_DIR - 1)
 
 /* for dirent rec len */
 #define FFS_DIR_PAD		 	        4
@@ -116,9 +121,12 @@ struct ffs_inode_info //内存文件系统特化inode
     int slot_id;
     struct inode vfs_inode;
     int valid;
+    __u8 is_big_dir;
+    int big_dir_id;
     unsigned long i_flags;
     loff_t size; // 尺寸
     struct ffs_name filename;
+    __u8 test;
     //__u8 i_type;  
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
@@ -241,6 +249,7 @@ struct flatfs_sb_info
     char   name[MAX_FILE_TYPE_NAME];
     struct HashTable *hashtbl[1 << MAX_DIR_BITS];
     struct Big_Dir_HashTable *big_dir_hashtbl[1 << BIG_DIR_BITS];
+    DECLARE_BITMAP(big_dir_bitmap, 1 << BIG_DIR_BITS);
     __u8 big_dir_num;
 };
 
@@ -292,5 +301,5 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsign
 void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct dir_tree **dtree);
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);
-void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino);
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino, int big_dir_id);
 int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

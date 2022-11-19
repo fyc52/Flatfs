@@ -114,7 +114,7 @@ static inline void clear_dir_entry(struct dir_entry *dir)
     kfree(dir->subdirs);
 }
 
-void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino)
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino, int big_dir_id)
 {
     struct dir_entry *parent_dir = &(sb_i->dtree_root->de[inode_to_dir_id(parent_ino)]);
     struct dir_entry *dir = &(sb_i->dtree_root->de[inode_to_dir_id(dir_ino)]);
@@ -173,6 +173,13 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     dir->subdirs->tail = NULL;
     //printk("remove_dir, free_file_ht\n");
     if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]));
+    //printk("remove_dir, free_file_ht ok\n");
+    if(big_dir_id >= 0 && sb_i->big_dir_hashtbl[big_dir_id]){
+        free_big_file_ht(&(sb_i->big_dir_hashtbl[big_dir_id]));
+        bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
+        sb_i->big_dir_num --;
+        //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
+    }
     sb_i->dtree_root->dir_entry_num --;
     bitmap_clear(sb_i->dtree_root->dir_id_bitmap, dir->dir_id, 1);
 }
@@ -254,12 +261,6 @@ first:
 
     return pos;
 }
-
-void resize_dir(unsigned long dir_ino)
-{
-    //TODO
-}
-
 
 /* 卸载文件系统时调用，释放整个目录树结构 */
 void dir_exit(struct flatfs_sb_info *sb_i)

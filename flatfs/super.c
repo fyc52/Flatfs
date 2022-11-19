@@ -96,9 +96,15 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if(fi){
 		if(fi->bucket_id >= 0)//file
 		{
-			//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
-			pblk = ffs_get_lba_meta(inode);
-			//printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			if(fi->is_big_dir == 0){
+				//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
+				pblk = ffs_get_lba_meta(inode);
+				//printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			}
+			else{
+				pblk = ffs_get_big_file_lba_meta(inode);
+				//printk("dirty inode, big dir, ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
+			}
 		}
 		else				  //dir
 		{
@@ -213,6 +219,9 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 		ei->valid = 1;
 		ei->bucket_id = -1;
 		ei->dir_id = FLATFS_ROOT_INO;
+		ei->is_big_dir = 0;
+		ei->big_dir_id = -1;
+		ei->test = 1;
 		ei->slot_id = 0;
 		memcpy(ei->filename.name, "/", strlen("/"));
 		ei->filename.name_len = my_strlen("/");
@@ -370,6 +379,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 		printk("fill_super:Create hashtable OK\n");
 	}
 	ffs_sb->big_dir_num = 0;
+	bitmap_zero(ffs_sb->big_dir_bitmap, 1 << MAX_DIR_BITS);
 
 	sb->s_fs_info = ffs_sb;
 	//ffs_sb->s_sb_block = sb_block;
