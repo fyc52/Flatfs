@@ -234,7 +234,7 @@ struct HashTable {
     loff_t pos;
 };
 
-struct Big_Dir_HashTable {
+static struct Big_Dir_HashTable {
     struct bucket buckets[1 << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)];
     int dir_id;
     loff_t pos;

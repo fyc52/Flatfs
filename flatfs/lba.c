@@ -23,6 +23,7 @@
 #include "lba.h"
 #endif
 
+
 void init_file_ht(struct HashTable **file_ht)
 {
 	int bkt, slt;
@@ -194,11 +195,11 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 			
 	}
 	else{//file data区的lba计算，按offset算
-		lba_base = FILE_DATA_LBA_BASE;
+		// lba_base = FILE_DATA_LBA_BASE;
 		lba |= dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 		lba |= bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 		lba |= slot_id << (DEFAULT_FILE_BLOCK_BITS);
-		lba += lba_base;
+		// lba += lba_base;
 	}
 
 	return lba;
@@ -223,11 +224,11 @@ lba_t compose_big_file_lba(int dir_id, int bucket_id, int slot_id, int flag){//f
 			
 	}
 	else{//file data区的lba计算，按offset算
-		lba_base = BIG_FILE_DATA_LBA_BASE;
+		// lba_base = BIG_FILE_DATA_LBA_BASE;
 		lba |= dir_id << (MIN_DIR_BITS + MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 		lba |= bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 		lba |= slot_id << (DEFAULT_FILE_BLOCK_BITS);
-		lba += lba_base;
+		// lba += lba_base;
 	}
 
 	return lba;
@@ -248,7 +249,7 @@ lba_t ffs_get_big_file_lba_data(struct inode *inode, lba_t iblock) {
 	struct ffs_inode_info* fi = FFS_I(inode);
 	lba_t base = compose_big_file_lba(fi->dir_id, fi->bucket_id,fi->slot_id, 1);
 	lba_t lba  = base | iblock << BLOCK_SHIFT;
-
+	//printk("lba:%lld\n", lba);
 	return lba;
 }
 
