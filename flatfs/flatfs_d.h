@@ -44,7 +44,7 @@ typedef u64 lba_t;
 #define FFS_MAX_FILENAME_LEN 64
 
 /* LBA分配设置 */
-#define MAX_DIR_BITS 8
+#define MAX_DIR_BITS 7
 #define MIN_DIR_BITS 7
 #define BIG_DIR_BITS 3
 

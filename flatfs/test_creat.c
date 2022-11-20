@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <string.h>
  
-#define file_num 1000000 + 10
+#define file_num 10000
 const char path[16] = "/mnt/bbssd/";
  
 int main()   

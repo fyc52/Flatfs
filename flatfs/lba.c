@@ -354,11 +354,11 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 
 	ino = (bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS;
 	ibh = sb_bread(sb, ino);
-
+	wait_on_buffer(ibh);
 	for(1; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 			/* 开始传 */
-			unsigned char d_type = NT_FILE;
+			unsigned char d_type = FT_UNKNOWN;
 
 			ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
 			raw_inode = (struct ffs_inode*)(ibh->b_data + slt * (1 << 9));
@@ -384,15 +384,16 @@ first:
 		if(flag == 0) continue;
 		ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
 		ibh = sb_bread(sb, ino);
+		wait_on_buffer(ibh);
 		//printk("ino:%ld", ino);
 		for(slt = 0 ; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 				/* 开始传 */
-				unsigned char d_type = NT_FILE;
+				unsigned char d_type = FT_UNKNOWN;
 
 				ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
 				raw_inode = (struct ffs_inode*)(ibh->b_data + slt * (1 << 9));
-				//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
+				//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
         		dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         		__le16 dlen = 1;
         		/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
@@ -434,11 +435,11 @@ int read_big_dir_files(struct Big_Dir_HashTable *hashtbl, struct inode *inode, u
 
 	ino = (bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS;
 	ibh = sb_bread(sb, ino);
-
+	wait_on_buffer(ibh);
 	for(1; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 			/* 开始传 */
-			unsigned char d_type = NT_FILE;
+			unsigned char d_type = FT_UNKNOWN;
 
 			ino = (slt + ((bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS));
 			raw_inode = (struct ffs_inode*)(ibh->b_data + slt * (1 << 9));
@@ -446,8 +447,8 @@ int read_big_dir_files(struct Big_Dir_HashTable *hashtbl, struct inode *inode, u
         	dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         	__le16 dlen = 1;
         	/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-        	ctx->pos +=  le16_to_cpu(dlen);
-			hashtbl->pos +=  le16_to_cpu(dlen);
+        	ctx->pos += le16_to_cpu(dlen);
+			hashtbl->pos += le16_to_cpu(dlen);
 		}
 	}
 	//printk("bkt:%d, slt:%d\n", bkt, slt);
@@ -464,15 +465,16 @@ first:
 		if(flag == 0) continue;
 		ino = (slt + ((bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS));
 		ibh = sb_bread(sb, ino);
+		wait_on_buffer(ibh);
 		//printk("ino:%ld", ino);
 		for(slt = 0 ; slt < (1 << FILE_SLOT_BITS); slt++ ) {
 			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap)) {
 				/* 开始传 */
-				unsigned char d_type = NT_FILE;
+				unsigned char d_type = FT_UNKNOWN;
 
 				ino = (slt + ((bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS));
 				raw_inode = (struct ffs_inode*)(ibh->b_data + slt * (1 << 9));
-				//printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
+				//printk("ino:%ld, dir_id:%d, bucket_id:%d, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
         		dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
         		__le16 dlen = 1;
         		/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
@@ -516,6 +518,7 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 	pblk = compose_lba(fi->dir_id, bucket_id, 0, 0);
 
 	bh = sb_bread(sb, pblk);
+	wait_on_buffer(bh);
 	if (unlikely(!bh)){
 		//printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return -ENOMEM;
@@ -524,7 +527,7 @@ static inline unsigned long get_file_seg(struct inode *inode, int dir_id, struct
 	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt ++)
 	{
 		raw_inode = (struct ffs_inode *)(bh->b_data + slt * (1 << 9));//b_data就是地址，我们的inode位于bh内部offset为0的地方
-		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
+		//if(slt == 0) printk("Old hashtbl, and filename:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
 			break;
@@ -573,6 +576,7 @@ static inline unsigned long get_big_file_seg(struct inode *inode, int dir_id, st
 	pblk = compose_big_file_lba(fi->dir_id, bucket_id, 0, 0);
 
 	bh = sb_bread(sb, pblk);
+	wait_on_buffer(bh);
 	if (unlikely(!bh)){
 		//printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return -ENOMEM;
@@ -581,7 +585,7 @@ static inline unsigned long get_big_file_seg(struct inode *inode, int dir_id, st
 	for(slt = 0; slt < (1 << FILE_SLOT_BITS); slt ++)
 	{
 		raw_inode = (struct ffs_inode *)(bh->b_data + slt * (1 << 9));//b_data就是地址，我们的inode位于bh内部offset为0的地方
-		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
+		//if(slt == 0) printk("New hashtbl, and filename:%s\n", raw_inode->filename.name);
 		if(!strcmp(filename, raw_inode->filename.name))
 		{
 			break;

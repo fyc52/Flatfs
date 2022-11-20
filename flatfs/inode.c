@@ -244,11 +244,11 @@ re_mknod:
 		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
 
-		fi->test = 1;
+		fi->test = 0;
 		// struct ffs_inode_info * testi = FFS_I(inode);
 		//printk("test inode info valid:%d\n", testi->valid);
 	}
-	else if(mknod_is_dir ==  0 && dfi->is_big_dir == 0){
+	else if(mknod_is_dir == 0 && dfi->is_big_dir == 0){
 		//printk(KERN_INFO "flatfs: create\n");
 		int dir_id = dfi->dir_id;
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
@@ -258,7 +258,7 @@ re_mknod:
 		// {
 		// 	print2log(ffs_sb->hashtbl[dir_id]);
 		// }
-		if(ino == -1 || dfi->test == 0) 
+		if(ino == -1) 
 		{
 			printk("mknod, hash crash\n");
 			error = resize_dir(ffs_sb, dir_id);
@@ -301,7 +301,7 @@ re_mknod:
 		fi->big_dir_id = dfi->big_dir_id;
 		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
-		//printk("big dir, create bucket id:%d, slot id:%d ,ino:%ld\n", fi->bucket_id, fi->slot_id, ino);
+		//printk("big dir, create bucket id:%d, slot id:%d ,ino:%ld, filename:%s\n", fi->bucket_id, fi->slot_id, ino, dentry->d_name.name);
 	}
 	inode->i_ino = ino;
 	//printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
