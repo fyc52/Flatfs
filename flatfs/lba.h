@@ -41,3 +41,6 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 int read_big_dir_files(struct Big_Dir_HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx);
 void print2log(struct HashTable *hashtbl);
 int resize_dir(struct flatfs_sb_info *sb, int dir_id);
+
+lba_t compose_big_file_lba(int dir_id, int bucket_id, int slot_id, int flag);
+lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag);

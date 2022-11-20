@@ -51,6 +51,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	else{
 		pblk = ffs_get_big_file_lba_data(inode, iblock);
 	}
+	pblk = pblk >> BLOCK_SHIFT;
 	bool new = false, boundary = false;
 	//printk("pblk: %lld\n", pblk);
 

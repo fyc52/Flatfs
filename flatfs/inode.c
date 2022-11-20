@@ -30,6 +30,8 @@ extern void wait_on_buffer(struct buffer_head *bh);
 extern struct buffer_head * sb_bread_unmovable(struct super_block *sb, sector_t block);
 extern unsigned int BKDRHash(char *str);
 extern struct ffs_inode_info* FFS_I(struct inode * inode);
+extern int blkdev_issue_discard(struct block_device *bdev, sector_t sector,
+		sector_t nr_sects, gfp_t gfp_mask, unsigned long flags);
 
 static int mknod_is_dir;
 static int test = 1;
@@ -361,20 +363,51 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	int dir_id = fi->dir_id;
 	int err;
 	int start;
+	//int bkt_left;
+	//sector_t meta_start, meta_size, data_start, data_size;
 
 	//printk("ffs_unlink: dir_id is %d, filename is %s\n", dir_id, dentry->d_name.name);
 	/*delete file in hashtbl*/
 	if(fi->is_big_dir == 0){
 		err = delete_file(ffs_sb->hashtbl[dir_id], fi->bucket_id, fi->slot_id);
+		//bkt_left = ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id].valid_slot_count;
 	}
 	else{
 		err = delete_big_file(ffs_sb->big_dir_hashtbl[fi->big_dir_id], fi->bucket_id, fi->slot_id);
+		//bkt_left = ffs_sb->big_dir_hashtbl[fi->big_dir_id]->buckets[fi->bucket_id].valid_slot_count;
 		//printk("delete_big_file, big_dir_id:%d, bucket_id:%d, slot_id:%d\n", fi->big_dir_id, fi->bucket_id, fi->slot_id);
 	}
 	if(!err)
 	{
 		printk("unlink failed, filename is %s", dentry->d_name.name);
 	}
+
+	// if(fi->slot_id != -1)
+	// {
+	// 	if(fi->is_big_dir == 0)
+	// 	{//小目录或大目录中位于非扩容区文件
+	// 		data_start = (compose_lba(fi->dir_id, fi->bucket_id, fi->slot_id, 1) >> 9);
+	// 		data_size = ((fi->size + 4095UL) >> 9) & (~7UL);	
+	// 		blkdev_issue_discard(dir->i_sb->s_bdev, data_start, data_size, GFP_NOFS, 0);
+	// 		if(!bkt_left){
+	// 			meta_start = (compose_lba(fi->dir_id, fi->bucket_id, 0, 0) << 3);
+	// 			meta_size = 8;//discard整个bucket
+	// 			blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
+	// 		}
+	// 	}
+	// 	else
+	// 	{//大目录中位于扩容区
+	// 		data_start = (compose_big_file_lba(fi->dir_id, fi->bucket_id, fi->slot_id, 1) >> 9);
+	// 		data_size = ((fi->size + 4095UL) >> 9) & (~7UL);	
+	// 		blkdev_issue_discard(dir->i_sb->s_bdev, data_start, data_size, GFP_NOFS, 0);
+	// 		if(!bkt_left){
+	// 			meta_start = (compose_big_file_lba(fi->dir_id, fi->bucket_id, 0, 0) << 3);
+	// 			meta_size = 8;
+	// 			blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
+	// 		}
+	// 	}
+	// }
+
 	/* mark inode invalid */
 	fi->valid = 0;
 	for(start = 0; start < fi->filename.name_len; start ++)
@@ -403,10 +436,16 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	struct ffs_inode_info * dfi = FFS_I(dir);
 	struct ffs_inode_info * fi = FFS_I(inode);
 	unsigned long dir_ino = dir->i_ino;
+	//sector_t meta_start, meta_size, data_start, data_size;
 	
 	if(!i_size_read(inode)){
 		err = ffs_unlink(dir, dentry);
 		if(!err){
+			//trim:
+			//meta_start = (ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id) << 3);
+			//meta_size = 8;//4KB
+			//blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
+
 			inode->i_size = 0;
 			inode_dec_link_count(inode);
 			inode_dec_link_count(dir);

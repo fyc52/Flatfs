@@ -181,7 +181,7 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag){//flag: 0,in
 	lba_t lba = 0;
 	if(flag == 0){//file inode区lba计算,按照bucket算
 		// dump_stack();
-		lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		//lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
 		//printk("compose_lba: lba_base = %lld", lba_base);
 		if(slot_id != -1){
 			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) << FILE_SLOT_BITS);
@@ -218,7 +218,7 @@ lba_t compose_big_file_lba(int dir_id, int bucket_id, int slot_id, int flag){//f
 		}
 		else{//文件inode所在bucket的slba
 			//printk("compose_lba: dir_id = %d, bucket_id = %d", dir_id, bucket_id);
-			lba = ((((lba_t)(dir_id) * BUCKETS_PER_BIG_DIR) + bucket_id) * SLOTS_PER_BUCKET);
+			lba = ((((lba_t)(dir_id) * BUCKETS_PER_DIR) + bucket_id) * SLOTS_PER_BUCKET);
 			// lba += lba_base;
 		}
 			
