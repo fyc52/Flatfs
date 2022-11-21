@@ -94,6 +94,7 @@ static inline unsigned long insert_file(struct HashTable *file_ht, char *filenam
 {
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS)) - 1LU);
+	spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1 << FILE_SLOT_BITS);
 	// printk("bkt_id: %ld, slt_id:%d\n", bucket_id, slt);
 	if (slt == (1 << FILE_SLOT_BITS))

@@ -239,6 +239,7 @@ struct bucket {
     // unsigned long bucket_id;
     DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
     __u8 valid_slot_count;
+    spinlock_t		bkt_lock;
     // struct slot slots[1 << FILE_SLOT_BITS];
 };
 
