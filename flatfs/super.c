@@ -87,16 +87,17 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_info *fi = FFS_I(inode);
 	struct block_device *bdev = sb->s_bdev;
 	struct inode *bdev_inode = bdev->bd_inode;
+	struct ffs_inode_page *raw_inode_page;
 	//printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
 	if(bdev_inode == NULL) 
 	{
 		//printk("bdev_inode error\n");
 		return ;
 	}
-	if(fi){
+	if(fi) {
 		if(fi->bucket_id >= 0)//file
 		{
-			if(fi->is_big_dir == 0){
+			if(fi->is_big_dir == 0) {
 				//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
 				pblk = ffs_get_lba_meta(inode);
 				//printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
@@ -145,8 +146,12 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		//printk("fill raw_inode 1\n");
 		if(fi->slot_id == -1)
 			raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
-		else
-			raw_inode = (struct ffs_inode *) (ibh->b_data + (fi->slot_id << 9));
+		else {
+			raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
+			raw_inode = &(raw_inode_page->inode[fi->slot_id]);
+			bitmap_set(raw_inode_page->header.slot_bitmap, fi->slot_id, 1);
+		}
+			
 		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
 		raw_inode->filename.name_len = fi->filename.name_len;

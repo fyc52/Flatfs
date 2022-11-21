@@ -41,7 +41,7 @@ typedef u64 lba_t;
 #define FFS_BLOCK_SIZE_BITS 9
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
-#define FFS_MAX_FILENAME_LEN 64
+#define FFS_MAX_FILENAME_LEN 496
 
 /* LBA分配设置 */
 #define MAX_DIR_BITS 7
@@ -105,12 +105,25 @@ struct ffs_lba
 	unsigned offset;
 };
 
+struct ffs_inode_page_header
+{
+    DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
+    int valid_slot_num;
+    __u32 reserved[14];
+};
 
 struct ffs_inode //磁盘inode
 {					  
 	int valid;
     loff_t size; //尺寸
     struct ffs_name filename;
+    
+};
+
+struct ffs_inode_page //磁盘inode_page
+{					  
+	struct ffs_inode_page_header header;
+    struct ffs_inode inode[8];
 };
 
 struct ffs_inode_info //内存文件系统特化inode
