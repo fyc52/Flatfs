@@ -254,10 +254,12 @@ struct flatfs_sb_info
 };
 
 /* disk super block */ 
-struct flatfs_super_block
+struct dir_tree_meta
 { 
     /* fill vaild dir id */ 
-	DECLARE_BITMAP(dir_id_bitmap, 1 << MAX_DIR_BITS);
+	int dir_parent[1 << MAX_DIR_BITS];
+    __u16 vaild_dir_num;
+
 };
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
