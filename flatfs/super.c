@@ -124,7 +124,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	// pblk = pblk >> BLOCK_SHIFT;
 	//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
-	wait_on_buffer(ibh);
+	//wait_on_buffer(ibh);
 	//printk("fill super, bh = %lld, sb dev = %d", ibh->b_blocknr, sb->s_dev);	
 	// ibh = sb_getblk(inode->i_sb, 0);//这里不使用bread，避免读盘
 	//printk(KERN_INFO "allocate bh for ffs_inode OK, fi->vaild:%d, fi->filename:%s\n", fi->valid, fi->filename.name);

@@ -134,7 +134,7 @@ struct ffs_inode_info //内存文件系统特化inode
     int slot_id;
     struct inode vfs_inode;
     int valid;
-    __u8 is_big_dir;
+    __u8 is_big_dir;//根据父目录这个值判断是否在大目录，根据自己的这个变量判断自己位于非扩容区/扩容区
     int big_dir_id;
     unsigned long i_flags;
     loff_t size; // 尺寸
@@ -144,6 +144,33 @@ struct ffs_inode_info //内存文件系统特化inode
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
 };
+
+typedef struct ffs_io_end {
+	// struct list_head	list;		/* per-file finished IO list */
+	// handle_t		*handle;	/* handle reserved for extent
+	// 					 * conversion */
+	// struct inode		*inode;		/* file being written to */
+	// struct bio		*bio;		/* Linked list of completed
+	// 					 * bios covering the extent */
+	// unsigned int		flag;		/* unwritten or not */
+	// atomic_t		count;		/* reference counter */
+	// loff_t			offset;		/* offset in the file */
+	// ssize_t			size;		/* size of the extent */
+    
+    struct flatfs_sb_info *ffs_sb;
+    int dir_id;//文件，该字段表示父目录的id；目录，该字段表示当前目录的id
+    int bucket_id; //-1表示目录
+    int slot_id;
+    //struct inode vfs_inode;
+    //int valid;
+    __u8 is_big_dir;
+    int big_dir_id;
+    //unsigned long i_flags;
+    //loff_t size; // 尺寸
+    //struct ffs_name filename;
+
+} ffs_io_end_t;
+
 
 static inline struct ffs_inode_info *FLAT_I(struct inode *inode)
 {

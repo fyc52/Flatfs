@@ -317,7 +317,7 @@ re_mknod:
 		insert_inode_locked(inode);//将inode添加到inode hash表中，并标记为I_NEW
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		if(inode) unlock_new_inode(inode);
-		if(mknod_is_dir == 0) spin_unlock(&(bucket->bkt_lock));
+		//if(mknod_is_dir == 0) spin_unlock(&(bucket->bkt_lock));
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
 		
 		// ffs_add_entry(dir);//写父目录
@@ -358,6 +358,104 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 }
 
 
+void callback_for_discard(ffs_io_end_t* ffs_io_end){
+	struct flatfs_sb_info *ffs_sb = ffs_io_end->ffs_sb;
+	ffs_io_end_t* fi = ffs_io_end;
+	int dir_id = fi->dir_id;
+	int err;
+	int start;
+	//int bkt_left;
+	//sector_t meta_start, meta_size, data_start, data_size;
+	printk(KERN_ERR "callback is called for dir_id: %d, bkcket_id: %d, slot_id: %d\n", fi->dir_id, fi->bucket_id, fi->slot_id );
+	if(fi->is_big_dir == 0) {
+		err = delete_file(ffs_sb->hashtbl[dir_id], fi->bucket_id, fi->slot_id);
+		//bkt_left = ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id].valid_slot_count;
+	}
+	else{
+		err = delete_big_file(ffs_sb->big_dir_hashtbl[fi->big_dir_id], fi->bucket_id, fi->slot_id);
+		//bkt_left = ffs_sb->big_dir_hashtbl[fi->big_dir_id]->buckets[fi->bucket_id].valid_slot_count;
+		//printk("delete_big_file, big_dir_id:%d, bucket_id:%d, slot_id:%d\n", fi->big_dir_id, fi->bucket_id, fi->slot_id);
+	}
+	// if(!err)
+	// {
+	// 	printk("unlink failed, filename is %s", dentry->d_name.name);
+	// }
+}
+
+//when req returns, it 1.clears bitmap; 2.calls end_buffer_write_sync as follows
+/**
+ *
+ * end_buffer_write_sync marks * the buffer up-to-date (if appropriate), 
+ * unlocks the buffer and wakes * any waiters. 
+ *
+ * */
+void define_callback_for_discard(struct buffer_head *bh, int uptodate){
+	ffs_io_end_t* ffs_io_end = (ffs_io_end_t*)bh->b_private;//类型强制转换
+	callback_for_discard(ffs_io_end);
+	//clear slot
+	end_buffer_write_sync(bh,uptodate);
+}
+
+
+
+void init_handler_for_discard(struct buffer_head *bh, struct ffs_inode_info* fi, struct flatfs_sb_info *ffs_sb){
+	ffs_io_end_t* ffs_io_end = (ffs_io_end_t*)bh->b_private;//类型强制转换
+	ffs_io_end->ffs_sb = ffs_sb;
+	ffs_io_end->big_dir_id = fi->big_dir_id;
+	ffs_io_end->dir_id = fi->dir_id;
+	ffs_io_end->bucket_id = fi->bucket_id;
+	ffs_io_end->slot_id = fi->slot_id;
+	ffs_io_end->big_dir_id = fi->big_dir_id;
+	unsigned long i_flags = fi->i_flags;
+}
+
+
+/*All the same as ll_rw_block, which is used for fs to issue bio directly on a bh, except that we diy the callback function in bh->b_end_io 
+
+  * ll_rw_block drops any buffer that it cannot get a lock on (with the
+  * BH_Lock state bit), any buffer that appears to be clean when doing a write
+  * request, and any buffer that appears to be up-to-date when doing read
+  * request.  Further it marks as clean buffers that are processed for
+  * writing (the buffer cache won't assume that they are actually clean
+  * until the buffer gets unlocked).
+  */ 
+void submit_bio_for_discard(int op, int op_flags,  int nr, struct buffer_head *bhs[])
+{//op=1,write
+	int i;
+
+	for (i = 0; i < nr; i++) {
+		struct buffer_head *bh = bhs[i];
+
+		if (!trylock_buffer(bh))
+			continue;
+		if (op == 1) {
+			if (test_clear_buffer_dirty(bh)) {
+				bh->b_end_io = define_callback_for_discard;
+				get_bh(bh);
+				submit_bh(op, op_flags, bh);
+				continue;
+			}
+		}
+		unlock_buffer(bh);
+	}
+}
+
+lba_t compose_pblk_for_discard(struct ffs_inode_info* fi){
+	lba_t pblk = -1;
+	if(fi->is_big_dir == 0)//小目录或大目录中位于非扩容区文件
+	{
+		pblk = compose_lba(fi->dir_id, fi->bucket_id, 0, 0);
+	}
+	else//大目录中位于扩容区
+	{
+		pblk = compose_big_file_lba(fi->dir_id, fi->bucket_id, 0, 0);
+	}
+	return pblk;
+}
+
+
+
+
 static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct flatfs_sb_info *ffs_sb = FFS_SB(dir->i_sb); 
@@ -368,50 +466,44 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	int start;
 	int bkt_left;
 	sector_t meta_start, meta_size, data_start, data_size;
-
+	struct buffer_head *bh;
+	lba_t pblk=-1;
+	struct ffs_inode_page * raw_inode_page = NULL;
 	//printk("ffs_unlink: dir_id is %d, filename is %s\n", dir_id, dentry->d_name.name);
 	/*delete file in hashtbl*/
 	
-	if(fi->is_big_dir == 0) {
-		err = delete_file(ffs_sb->hashtbl[dir_id], fi->bucket_id, fi->slot_id);
-		bkt_left = ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id].valid_slot_count;
-	}
-	else{
-		err = delete_big_file(ffs_sb->big_dir_hashtbl[fi->big_dir_id], fi->bucket_id, fi->slot_id);
-		bkt_left = ffs_sb->big_dir_hashtbl[fi->big_dir_id]->buckets[fi->bucket_id].valid_slot_count;
-		//printk("delete_big_file, big_dir_id:%d, bucket_id:%d, slot_id:%d\n", fi->big_dir_id, fi->bucket_id, fi->slot_id);
-	}
-	if(!err)
-	{
-		printk("unlink failed, filename is %s", dentry->d_name.name);
-	}
+	// if(fi->is_big_dir == 0) {
+	// 	err = delete_file(ffs_sb->hashtbl[dir_id], fi->bucket_id, fi->slot_id);
+	// 	bkt_left = ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id].valid_slot_count;
+	// }
+	// else{
+	// 	err = delete_big_file(ffs_sb->big_dir_hashtbl[fi->big_dir_id], fi->bucket_id, fi->slot_id);
+	// 	bkt_left = ffs_sb->big_dir_hashtbl[fi->big_dir_id]->buckets[fi->bucket_id].valid_slot_count;
+	// 	//printk("delete_big_file, big_dir_id:%d, bucket_id:%d, slot_id:%d\n", fi->big_dir_id, fi->bucket_id, fi->slot_id);
+	// }
+	// if(!err)
+	// {
+	// 	printk("unlink failed, filename is %s", dentry->d_name.name);
+	// }
 
-	if(fi->slot_id != -1)
-	{
-		if(fi->is_big_dir == 0)
-		{//小目录或大目录中位于非扩容区文件
-			data_start = (compose_lba(fi->dir_id, fi->bucket_id, fi->slot_id, 1) >> 9);
-			data_size = ((fi->size + 4095UL) >> 9) & (~7UL);	
-			blkdev_issue_discard(dir->i_sb->s_bdev, data_start, data_size, GFP_NOFS, 0);
-			if(!bkt_left){
-				meta_start = (compose_lba(fi->dir_id, fi->bucket_id, 0, 0) << 3);
-				meta_size = 8;//discard整个bucket
-				blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
-			}
-		}
-		else
-		{//大目录中位于扩容区
-			data_start = (compose_big_file_lba(fi->dir_id, fi->bucket_id, fi->slot_id, 1) >> 9);
-			data_size = ((fi->size + 4095UL) >> 9) & (~7UL);	
-			blkdev_issue_discard(dir->i_sb->s_bdev, data_start, data_size, GFP_NOFS, 0);
-			if(!bkt_left){
-				meta_start = (compose_big_file_lba(fi->dir_id, fi->bucket_id, 0, 0) << 3);
-				meta_size = 8;
-				blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
-			}
-		}
-	}
+	
 
+	if(fi->slot_id != -1){//仅发出discard文件类型的IO请求
+		//todo : get pblk
+		pblk = compose_pblk_for_discard(fi);
+		bh = sb_bread(dir->i_sb, pblk);//modify inode page
+		raw_inode_page = (struct ffs_inode_page *)(bh->b_data); // b_data就是地址，我们的inode位于bh内部offset为0的地方
+		if (unlikely(!bh)){}
+		lock_buffer(bh);
+		bitmap_clear(raw_inode_page->header.slot_bitmap, fi->slot_id, 1);
+		raw_inode_page->header.valid_slot_num--;
+		init_handler_for_discard(bh, fi, ffs_sb); //配置回调函数所需参数
+		unlock_buffer(bh);
+		mark_buffer_dirty(bh);
+		if(bh) brelse(bh);
+		submit_bio_for_discard(1, REQ_META | REQ_PRIO, 1, &bh); //配置bh,bio的回调函数，并下发异步请求
+	}
+	//请求发出去之后就可以删除inode并返回了
 	/* mark inode invalid */
 	fi->valid = 0;
 	for(start = 0; start < fi->filename.name_len; start ++)
