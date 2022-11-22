@@ -41,34 +41,35 @@ typedef u64 lba_t;
 #define FFS_BLOCK_SIZE_BITS 9
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
-#define FFS_MAX_FILENAME_LEN 496
+#define FFS_MAX_FILENAME_LEN 480
 
 /* LBA分配设置 */
-#define MAX_DIR_BITS 7
-#define MIN_DIR_BITS 7
-#define BIG_DIR_BITS 3
+#define TAG_BITS 1
+
+#define MAX_DIR_BITS 14
+#define MIN_DIR_BITS 6
 
 #define MAX_FILE_BUCKET_BITS 20
 #define MIN_FILE_BUCKET_BITS 12
 
 
 #define FILE_SLOT_BITS 3
+#define FILE_SLOT_NUM  (1<<FILE_SLOT_BITS)
 
 /* block refers to file offset */
 #define MAX_FILE_BLOCK_BITS 40
 #define MIN_FILE_BLOCK_BITS 16
 #define DEFAULT_FILE_BLOCK_BITS 32
 
-#define LBA_TT_BITS 63
+#define LBA_TT_BITS 62
 
 #define BLOCKS_PER_SLOT (1ULL << DEFAULT_FILE_BLOCK_BITS)
 #define BLOCKS_PER_BUCKET (1ULL << (DEFAULT_FILE_BLOCK_BITS+FILE_SLOT_BITS))
 #define BUCKETS_PER_DIR (1ULL << MIN_FILE_BUCKET_BITS)
-#define BUCKETS_PER_BIG_DIR (1ULL << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))
+#define BUCKETS_PER_BIG_DIR (1ULL << (MAX_FILE_BUCKET_BITS + MIN_DIR_BITS))
 #define SLOTS_PER_BUCKET (1ULL << FILE_SLOT_BITS)
-#define FILE_META_LBA_BASE 1ULL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)//文件的inode区域要从这里开始计算
-#define FILE_DATA_LBA_BASE 1ULL << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
-#define BIG_FILE_DATA_LBA_BASE 1ULL << (MIN_DIR_BITS + MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS)
+#define FILE_META_LBA_BASE (1ULL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS))//文件的inode区域要从这里开始计算
+#define BIG_TAG_BASE (1ULL << (MIN_DIR_BITS + MAX_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS))
 
 /* LBA convert to any segment*/
 #define lba_to_block(lba)  (lba & (BLOCKS_PER_SLOT - 1ULL))
@@ -109,7 +110,7 @@ struct ffs_inode_page_header
 {
     DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
     int valid_slot_num;
-    __u32 reserved[14];
+    __u32 reserved[13];
 };
 
 struct ffs_inode //磁盘inode
@@ -123,7 +124,7 @@ struct ffs_inode //磁盘inode
 struct ffs_inode_page //磁盘inode_page
 {					  
 	struct ffs_inode_page_header header;
-    struct ffs_inode inode[8];
+    struct ffs_inode inode[FILE_SLOT_NUM];
 };
 
 struct ffs_inode_info //内存文件系统特化inode
@@ -289,8 +290,8 @@ struct flatfs_sb_info
     struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
     struct HashTable *hashtbl[1 << MAX_DIR_BITS];
-    struct Big_Dir_HashTable *big_dir_hashtbl[1 << BIG_DIR_BITS];
-    DECLARE_BITMAP(big_dir_bitmap, 1 << BIG_DIR_BITS);
+    struct Big_Dir_HashTable *big_dir_hashtbl[1 << MIN_DIR_BITS];
+    DECLARE_BITMAP(big_dir_bitmap, 1 << MIN_DIR_BITS);
     __u8 big_dir_num;
 };
 
