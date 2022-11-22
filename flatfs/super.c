@@ -137,7 +137,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	//zero bh
 	//memset(ibh->b_data, 0, ibh->b_size);
 	//fill bh
-	if(fi->valid){
+	if(fi->valid) {
 		if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) 
 		{
 			//printk("file name len error\n");
@@ -151,14 +151,22 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 			raw_inode = &(raw_inode_page->inode[fi->slot_id]);
 			bitmap_set(raw_inode_page->header.slot_bitmap, fi->slot_id, 1);
 		}
-			
-		raw_inode->size = inode->i_size;
-		raw_inode->valid = fi->valid;
-		raw_inode->filename.name_len = fi->filename.name_len;
-		//printk("fill raw_inode 2\n");
-		memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
-		//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 	}
+	else if(fi->slot_id != -1) {
+		raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
+		raw_inode = &(raw_inode_page->inode[fi->slot_id]);
+		bitmap_clear(raw_inode_page->header.slot_bitmap, fi->slot_id, 1);
+	}
+	else {
+		goto out;
+	}
+
+	raw_inode->size = inode->i_size;
+	raw_inode->valid = fi->valid;
+	raw_inode->filename.name_len = fi->filename.name_len;
+	//printk("fill raw_inode 2\n");
+	memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
+	//printk("ffs_dirty_inode: name:%s\n", raw_inode->filename.name);
 
 out:
 	if (!buffer_uptodate(ibh))

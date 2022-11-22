@@ -366,50 +366,22 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	int dir_id = fi->dir_id;
 	int err;
 	int start;
-	int bkt_left;
-	sector_t meta_start, meta_size, data_start, data_size;
+	struct bucket *bucket;
 
 	//printk("ffs_unlink: dir_id is %d, filename is %s\n", dir_id, dentry->d_name.name);
 	/*delete file in hashtbl*/
-	
 	if(fi->is_big_dir == 0) {
 		err = delete_file(ffs_sb->hashtbl[dir_id], fi->bucket_id, fi->slot_id);
-		bkt_left = ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id].valid_slot_count;
+		bucket = &(ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id]);
 	}
 	else{
 		err = delete_big_file(ffs_sb->big_dir_hashtbl[fi->big_dir_id], fi->bucket_id, fi->slot_id);
-		bkt_left = ffs_sb->big_dir_hashtbl[fi->big_dir_id]->buckets[fi->bucket_id].valid_slot_count;
+		bucket = &(ffs_sb->big_dir_hashtbl[fi->big_dir_id]->buckets[fi->bucket_id]);
 		//printk("delete_big_file, big_dir_id:%d, bucket_id:%d, slot_id:%d\n", fi->big_dir_id, fi->bucket_id, fi->slot_id);
 	}
 	if(!err)
 	{
 		printk("unlink failed, filename is %s", dentry->d_name.name);
-	}
-
-	if(fi->slot_id != -1)
-	{
-		if(fi->is_big_dir == 0)
-		{//小目录或大目录中位于非扩容区文件
-			data_start = (compose_lba(fi->dir_id, fi->bucket_id, fi->slot_id, 1) >> 9);
-			data_size = ((fi->size + 4095UL) >> 9) & (~7UL);	
-			blkdev_issue_discard(dir->i_sb->s_bdev, data_start, data_size, GFP_NOFS, 0);
-			if(!bkt_left){
-				meta_start = (compose_lba(fi->dir_id, fi->bucket_id, 0, 0) << 3);
-				meta_size = 8;//discard整个bucket
-				blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
-			}
-		}
-		else
-		{//大目录中位于扩容区
-			data_start = (compose_big_file_lba(fi->dir_id, fi->bucket_id, fi->slot_id, 1) >> 9);
-			data_size = ((fi->size + 4095UL) >> 9) & (~7UL);	
-			blkdev_issue_discard(dir->i_sb->s_bdev, data_start, data_size, GFP_NOFS, 0);
-			if(!bkt_left){
-				meta_start = (compose_big_file_lba(fi->dir_id, fi->bucket_id, 0, 0) << 3);
-				meta_size = 8;
-				blkdev_issue_discard(dir->i_sb->s_bdev, meta_start, meta_size, GFP_NOFS, 0);
-			}
-		}
 	}
 
 	/* mark inode invalid */
@@ -420,6 +392,8 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	}
 	fi->filename.name_len = 0;
 	inode->i_ctime = dir->i_ctime;
+	mark_inode_dirty(inode);
+	spin_unlock(&(bucket->bkt_lock));
 
 	/* drop_nlink & mark_inode_dirty */
 	inode_dec_link_count(inode);

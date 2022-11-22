@@ -121,6 +121,7 @@ static inline unsigned long insert_big_file(struct Big_Dir_HashTable *file_ht, c
 {
 	unsigned int hashcode = BKDRHash(filename);
 	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)) - 1LU);
+	spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 	__u8 slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, 1 << FILE_SLOT_BITS);
 	if (slt == -1)
 		return slt;
@@ -147,6 +148,7 @@ int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
 	if (bucket_id == -1 || bucket_id > (1 << MIN_FILE_BUCKET_BITS) || slot_id > (1 << FILE_SLOT_BITS))
 		return 0;
 	// printk("start to delete file\n");
+	spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 	if (!test_bit(slot_id, file_ht->buckets[bucket_id].slot_bitmap))
 	{
 		return 0;
@@ -163,6 +165,7 @@ int delete_big_file(struct Big_Dir_HashTable *file_ht, int bucket_id, int slot_i
 	if (bucket_id == -1 || bucket_id > (1 << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)) || slot_id > (1 << FILE_SLOT_BITS))
 		return 0;
 	// printk("start to delete file\n");
+	spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 	if (!test_bit(slot_id, file_ht->buckets[bucket_id].slot_bitmap))
 	{
 		return 0;
@@ -182,32 +185,18 @@ struct ffs_inode_info *FFS_I(struct inode *inode)
 //这里处理文件的inode和data的lba，注意两者的起始基址不同
 lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag)
 { // flag: 0,inode 1,data
-	lba_t lba_base = 0;
 	lba_t lba = 0;
-	if (flag == 0)
-	{ // file inode区lba计算,按照bucket算
-		// dump_stack();
-		// lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		// printk("compose_lba: lba_base = %lld", lba_base);
-		if (slot_id != -1)
-		{
-			lba = ((((lba_t)(dir_id)*BUCKETS_PER_DIR) + bucket_id) << FILE_SLOT_BITS);
+	if (flag == 0) { 
+		lba |= ((((lba_t)(dir_id)) << MIN_FILE_BUCKET_BITS + (lba_t)bucket_id) << FILE_SLOT_BITS);
+		if (slot_id != -1) {
 			lba |= slot_id;
-		}
-		else
-		{ //文件inode所在bucket的slba
-			// printk("compose_lba: dir_id = %d, bucket_id = %d", dir_id, bucket_id);
-			lba = ((((lba_t)(dir_id)*BUCKETS_PER_DIR) + bucket_id) * SLOTS_PER_BUCKET);
-			// lba += lba_base;
+			lba += FILE_META_LBA_BASE;
 		}
 	}
-	else
-	{ // file data区的lba计算，按offset算
-		// lba_base = FILE_DATA_LBA_BASE;
-		lba |= dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		lba |= bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		lba |= slot_id << (DEFAULT_FILE_BLOCK_BITS);
-		// lba += lba_base;
+	else {
+		lba |= (lba_t)dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		lba |= (lba_t)bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		lba |= (lba_t)slot_id << (DEFAULT_FILE_BLOCK_BITS);
 	}
 
 	return lba;
@@ -215,34 +204,26 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int flag)
 
 lba_t compose_big_file_lba(int dir_id, int bucket_id, int slot_id, int flag)
 { // flag: 0,inode 1,data
-	lba_t lba_base = 0;
 	lba_t lba = 0;
+
 	if (flag == 0)
-	{ // file inode区lba计算,按照bucket算
-		// dump_stack();
-		lba_base = 1LL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		// printk("compose_lba: lba_base = %lld", lba_base);
+	{ 
+		lba |= ((((lba_t)(dir_id)) << MAX_FILE_BUCKET_BITS + (lba_t)bucket_id) << FILE_SLOT_BITS);
 		if (slot_id != -1)
 		{
-			lba = ((((lba_t)(dir_id)*BUCKETS_PER_BIG_DIR) + bucket_id) << FILE_SLOT_BITS);
-			lba |= slot_id;
-		}
-		else
-		{ //文件inode所在bucket的slba
-			// printk("compose_lba: dir_id = %d, bucket_id = %d", dir_id, bucket_id);
-			lba = ((((lba_t)(dir_id)*BUCKETS_PER_DIR) + bucket_id) * SLOTS_PER_BUCKET);
-			// lba += lba_base;
+			lba |= (lba_t)slot_id;
+			lba += FILE_META_LBA_BASE;
 		}
 	}
 	else
-	{ // file data区的lba计算，按offset算
-		// lba_base = BIG_FILE_DATA_LBA_BASE;
-		lba |= dir_id << (MIN_DIR_BITS + MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		lba |= bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
-		lba |= slot_id << (DEFAULT_FILE_BLOCK_BITS);
-		// lba += lba_base;
+	{
+		lba |= (lba_t)dir_id << (MAX_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		lba |= (lba_t)bucket_id << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS);
+		lba |= (lba_t)slot_id << (DEFAULT_FILE_BLOCK_BITS);
+		
 	}
 
+	lba |= BIG_TAG_BASE;
 	return lba;
 }
 
@@ -706,7 +687,7 @@ void print2log(struct HashTable *hashtbl)
 int resize_dir(struct flatfs_sb_info *sb, int dir_id)
 {
 	int pos;
-	if (sb->big_dir_num > (1 << BIG_DIR_BITS))
+	if (sb->big_dir_num > (1 << MIN_DIR_BITS))
 	{
 		printk("resize_dir failed, over max num of big dirs");
 		return -1;
