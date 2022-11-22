@@ -14,3 +14,8 @@ make编译生成.ko模块，sudo insmod flatfs.ko,然后 mount文件系统到bde
 
 
 femu分配空间时要全部memset 0
+
+# 分支
+- master;
+- writeback: 不保证数据和元数据持久化的顺序
+- hashfs： baseline
