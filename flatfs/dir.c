@@ -31,7 +31,8 @@ void init_dir_tree(struct dir_tree **dtree)
         de->subdirs->tail = NULL;
     } 
     //printk(KERN_INFO "init_dir_tree 2\n");
-    init_dir_id_bitmap((*dtree)->dir_id_bitmap);
+    init_dir_id_bitmap((*dtree)->sdir_id_bitmap);
+    bitmap_zero((*dtree)->ldir_id_bitmap, L_DIR_NUM);
     //printk(KERN_INFO "init_dir_tree 3\n"); 
 }
 
@@ -172,12 +173,12 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     dir->subdirs->head = NULL;
     dir->subdirs->tail = NULL;
     //printk("remove_dir, free_file_ht\n");
-    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]));
+    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[big_dir_id]->dtype);
     //printk("remove_dir, free_file_ht ok\n");
-    if(big_dir_id >= 0 && sb_i->big_dir_hashtbl[big_dir_id]){
-        free_big_file_ht(&(sb_i->big_dir_hashtbl[big_dir_id]));
-        bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
-        sb_i->big_dir_num --;
+    if(big_dir_id >= 0 && sb_i->hashtbl[big_dir_id]){
+        free_file_ht(&(sb_i->hashtbl[big_dir_id]), sb_i->hashtbl[big_dir_id]->dtype);
+        // bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
+        // sb_i->big_dir_num --;
         //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
     }
     sb_i->dtree_root->dir_entry_num --;
@@ -274,26 +275,22 @@ void dir_exit(struct flatfs_sb_info *sb_i)
  * 通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
  * is_dir:若dentry是目录则返回1，是文件则返回0
 */
-unsigned long flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, struct qstr *child) 
+ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, struct qstr *child) 
 {
-    parent_dir_id = inode_to_dir_id(parent_dir_id);
 	struct dir_entry *dir = &(sb_i->dtree_root->de[parent_dir_id]);
     struct dir_list_entry *dir_node;
     const char *name = child->name;
-    unsigned long ino = parent_dir_id;
+    ffs_ino_t ino = INVALID_INO;
     int namelen = child->len;
     int start;
     //printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_dir_id, name, namelen);
     for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
         if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
-            ino = dir_node->de->dir_id;
+            ino = dir_id_to_inode(dir_node->de->dir_id);
             break;
         }
     }
 
-    if (ino == parent_dir_id) {
-        return 0;
-    }
-    return dir_id_to_inode(ino);
+    return ino;
 }
 

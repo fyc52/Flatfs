@@ -48,7 +48,7 @@ extern void set_buffer_uptodate(struct buffer_head *bh);
 // extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
 extern struct ffs_inode_info* FFS_I(struct inode * inode);
 extern struct dentry *d_make_root(struct inode *root_inode);
-extern unsigned long dir_id_to_inode(unsigned long dir_id);
+extern ffs_ino_t dir_id_to_inode(unsigned dir_id);
 
 static int flatfs_super_statfs(struct dentry *d, struct kstatfs *buf)
 {
@@ -89,35 +89,13 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct inode *bdev_inode = bdev->bd_inode;
 	struct ffs_inode_page *raw_inode_page;
 	//printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
-	if(bdev_inode == NULL) 
-	{
+	if (bdev_inode == NULL) {
 		//printk("bdev_inode error\n");
 		return ;
 	}
-	if(fi) {
-		if(fi->bucket_id >= 0)//file
-		{
-			if(fi->is_big_dir == 0) {
-				//printk("ffs_get_lba_meta:inode = %ld", inode->i_ino);
-				pblk = ffs_get_lba_meta(inode);
-				//printk("ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
-			}
-			else{
-				pblk = ffs_get_big_file_lba_meta(inode);
-				//printk("dirty inode, big dir, ffs_get_file_lba_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
-			}
-		}
-		else				  //dir
-		{
-			//printk("ffs_get_lba_dir_meta:inode = %ld", inode->i_ino);
-			pblk = ffs_get_lba_dir_meta(fi->bucket_id, fi->dir_id);
-			//printk(KERN_INFO "ffs_get_dir_lba_dir_meta:inode = %ld, pblk = %lld", inode->i_ino, pblk);
-			// dump_stack();
-		}
-	}
-	else{//错误情况
-		//printk(KERN_WARNING "ffs lookup() didin't initialize fi\n");
-		//pblk = ffs_get_lba(inode,0);//计算inode的lba
+
+	if (fi) {
+		pblk = ffs_get_meta_lba(inode, fi->is_big_dir);
 	}
 
 	//printk(KERN_INFO "allocate bh for ffs_inode, s_blocksize = %ld\n", inode->i_sb->s_blocksize);
@@ -215,7 +193,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 {
 	struct ffs_inode_info *ei;
 	struct buffer_head * bh = NULL;
-	struct ffs_inode *raw_inode;
+	// struct ffs_inode *raw_inode;
 	struct inode *inode;
 	// sector_t pblk;
 	
@@ -224,11 +202,6 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	
 	if (inode)
 	{
-		long long pblk = ffs_get_lba_dir_meta(dir_id_to_inode(FLATFS_ROOT_INO), FLATFS_ROOT_INO);
-		bh = sb_bread(sb, pblk);
-		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
-		raw_inode = (struct ffs_inode *) (bh->b_data);
-
 		ei = FLAT_I(inode);
 		ei->valid = 1;
 		ei->bucket_id = -1;
@@ -237,6 +210,12 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 		ei->big_dir_id = -1;
 		ei->test = 0;
 		ei->slot_id = 0;
+		
+		lba_t pblk = ffs_get_meta_lba(inode, 0);
+		bh = sb_bread(sb, pblk);
+		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
+		// raw_inode = (struct ffs_inode *) (bh->b_data);
+		
 		memcpy(ei->filename.name, "/", strlen("/"));
 		ei->filename.name_len = my_strlen("/");
 
@@ -392,8 +371,6 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	{
 		printk("fill_super:Create hashtable OK\n");
 	}
-	ffs_sb->big_dir_num = 0;
-	bitmap_zero(ffs_sb->big_dir_bitmap, 1 << MAX_DIR_BITS);
 
 	sb->s_fs_info = ffs_sb;
 	//ffs_sb->s_sb_block = sb_block;

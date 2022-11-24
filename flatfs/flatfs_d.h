@@ -18,6 +18,8 @@
 #include "cuckoo_hash.h"
 #endif
 
+/* trash */
+
 #define FLATFS_ROOT_INO 0x00000002UL
 
 #define MAX_FILE_TYPE_NAME 256
@@ -35,13 +37,16 @@
 #define FLATFS_BSTORE_BLOCKSIZE BLOCK_SIZE
 #define FLATFS_BSTORE_BLOCKSIZE_BITS BLOCK_SHIFT
 
-typedef u64 lba_t;
+typedef __u64 lba_t;
+typedef __u32 ffs_ino_t;
+#define INVALID_LBA 0UL
+#define INVALID_INO 0U
 #define INIT_SPACE 10
 
 #define FFS_BLOCK_SIZE_BITS 9
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
-#define FFS_MAX_FILENAME_LEN 480
+#define FFS_MAX_FILENAME_LEN 100
 
 /* LBA分配设置 */
 #define TAG_BITS 1
@@ -69,7 +74,7 @@ typedef u64 lba_t;
 #define BUCKETS_PER_BIG_DIR (1ULL << (MAX_FILE_BUCKET_BITS + MIN_DIR_BITS))
 #define SLOTS_PER_BUCKET (1ULL << FILE_SLOT_BITS)
 #define FILE_META_LBA_BASE (1ULL << (FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS))//文件的inode区域要从这里开始计算
-#define BIG_TAG_BASE (1ULL << (MIN_DIR_BITS + MAX_FILE_BUCKET_BITS + FILE_SLOT_BITS + DEFAULT_FILE_BLOCK_BITS))
+
 
 /* LBA convert to any segment*/
 #define lba_to_block(lba)  (lba & (BLOCKS_PER_SLOT - 1ULL))
@@ -90,55 +95,181 @@ typedef u64 lba_t;
 #define FFS_DIR_REC_LEN(name_len)	(((name_len) + 8 + FFS_DIR_ROUND) & ~FFS_DIR_ROUND)
 #define FFS_MAX_REC_LEN		        ((1<<16)-1)
 
-enum {
-    ENOINO = 0
+
+/*****************************************************/
+
+/*****************************************************/
+
+
+/* block offset */
+#define BLOCK_OFFSET_BITS   (32)
+
+/* total slots in bucket */
+#define SLOT_BITS     (3)
+
+/* common dir mode */
+/* total buckets in hash table */
+#define S_BUCKET_BITS (12)
+/* total dirs */
+#define S_DIR_BITS    (14)
+#define DIR_BITS  S_DIR_BITS
+
+/* extend dir mode */
+/* total buckets in hash table */
+#define L_BUCKET_BITS (20)
+/* total dirs */
+#define L_DIR_BITS    (6)
+
+/* 
+    bit gap between small dir nad large dir,
+    for large dir add 0 in lower bits
+*/
+#define SL_DIR_DIFF   (S_DIR_BITS - L_DIR_BITS)
+
+/* (dir, bucket) total seg */
+#define FILE_BITS     (29)
+
+/* X tag for common/extend dir */
+#define X_BITS        (1)
+
+/* capacity number for each segment */
+#define S_BUCKET_NUM  (1UL << S_BUCKET_BITS)
+#define S_DIR_NUM     (1UL << S_DIR_BITS)
+#define L_BUCKET_NUM  (1UL << L_BUCKET_BITS)
+#define L_DIR_NUM     (1UL << L_DIR_BITS)
+#define TT_DIR_NUM    (1UL << (S_DIR_BITS + X_BITS))
+#define SLOT_NUM      (1UL << SLOT_BITS)
+#define BIG_TAG_BASE  (1ULL << (L_DIR_BITS + L_BUCKET_BITS + SLOT_BITS + BLOCK_OFFSET_BITS))
+
+struct lba {
+    union {
+        /* data lba in common(small) dir mode */
+        struct {
+            uint64_t off  : BLOCK_OFFSET_BITS;
+            uint64_t slot : SLOT_BITS;
+            uint64_t bkt  : S_BUCKET_BITS;
+            uint64_t dir  : S_DIR_BITS;
+            uint64_t xtag : X_BITS;
+            uint64_t rsv  : 2;
+        } s_seg;
+
+        /* data lba in extend(large) dir mode */
+        struct {
+            uint64_t off  : BLOCK_OFFSET_BITS;
+            uint64_t slot : SLOT_BITS;
+            uint64_t bkt  : L_BUCKET_BITS;
+            uint64_t dir  : L_DIR_BITS;
+            uint64_t xtag : X_BITS;
+            uint64_t rsv  : 2;
+        } l_seg;
+
+        /* meta data lba in extend(large) dir mode */
+        struct {
+            uint64_t off  : FFS_BLOCK_SIZE_BITS;
+            uint64_t slot : SLOT_BITS;
+            uint64_t bkt  : S_BUCKET_BITS;
+            uint64_t dir  : S_DIR_BITS;
+            uint64_t rsv1 : 23;
+            uint64_t xtag : X_BITS;
+            uint64_t rsv2 : 2;
+        } s_meta_seg;
+
+        struct {
+            uint64_t off  : FFS_BLOCK_SIZE_BITS;
+            uint64_t slot : SLOT_BITS;
+            uint64_t bkt  : L_BUCKET_BITS;
+            uint64_t dir  : L_DIR_BITS;
+            uint64_t rsv1 : 23;
+            uint64_t xtag : X_BITS;
+            uint64_t rsv2 : 2;
+        } l_meta_seg;
+
+        lba_t lba;
+    };
 };
+
+
+struct ffs_ino {
+    union {
+        /* data lba in common(small) dir mode */
+        struct {
+            uint32_t slot : SLOT_BITS;
+            uint32_t bkt  : S_BUCKET_BITS;
+            uint32_t dir  : S_DIR_BITS;
+            uint32_t xtag : X_BITS;
+            uint32_t rsv  : 2;
+        } s_file_seg;
+
+        struct {
+            uint32_t slot : SLOT_BITS;
+            uint32_t bkt  : L_BUCKET_BITS;
+            uint32_t dir  : L_DIR_BITS;
+            uint32_t xtag : X_BITS;
+            uint32_t rsv  : 2;
+        } l_file_seg;
+
+        struct {
+            uint32_t dir  : DIR_BITS;
+            uint32_t xtag : X_BITS;
+            uint32_t rsv  : 17;
+        } dir_seg;
+
+        ffs_ino_t ino;
+    };
+};
+
+enum dir_type {
+    small,
+    large,
+};
+
+/*****************************************************/
+
+/*****************************************************/
+
+/*****************************************************/
+
+/*****************************************************/
+
+
+/* trash2 */
 
 struct ffs_name {
-	__u8	name_len;		/* Name length */
+	__u16	name_len;		/* Name length */
 	char	name[FFS_MAX_FILENAME_LEN + 2];			/* Dir name */
-};
-
-struct ffs_lba
-{
-	unsigned long var; // ino
-	unsigned size;
-	unsigned offset;
 };
 
 struct ffs_inode_page_header
 {
-    DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
+    DECLARE_BITMAP(slot_bitmap, SLOT_NUM);
     int valid_slot_num;
     __u32 reserved[13];
 };
 
-struct ffs_inode //磁盘inode
+struct ffs_inode         // 磁盘inode
 {					  
 	int valid;
-    loff_t size; //尺寸
+    loff_t size;
     struct ffs_name filename;
-    
 };
 
-struct ffs_inode_page //磁盘inode_page
+struct ffs_inode_page   // 磁盘inode_page
 {					  
 	struct ffs_inode_page_header header;
-    struct ffs_inode inode[FILE_SLOT_NUM];
+    struct ffs_inode inode[SLOT_NUM];
 };
 
-struct ffs_inode_info //内存文件系统特化inode
+struct ffs_inode_info   // 内存文件系统特化inode
 {					   
-    //sector_t lba;//存放
-    int dir_id;//文件，该字段表示父目录的id；目录，该字段表示当前目录的id
-    int bucket_id; //-1表示目录
+    int dir_id;         // 文件: 表示父目录的id；目录：表示当前目录的id
+    int bucket_id;      // -1表示目录
     int slot_id;
     struct inode vfs_inode;
     int valid;
     __u8 is_big_dir;
     int big_dir_id;
     unsigned long i_flags;
-    loff_t size; // 尺寸
+    loff_t size;
     struct ffs_name filename;
     __u8 test;
     //__u8 i_type;  
@@ -166,19 +297,12 @@ struct dir_entry {
     int namelen;
     unsigned short rec_len;
 
-    /* LBA分配上，每一个字段占的位数 */
-    // unsigned short dir_bits;
-    // unsigned short bucket_bits;
-    // unsigned short slot_bits;
-    // unsigned short block_bits;
-
-    //struct dir_entry *parent_entry;
-
     /* 指向子目录的指针 */
     struct dir_list *subdirs;
     /* 子目录的个数 */
     unsigned long dir_size;
     loff_t pos;
+    enum dir_type dtype;
 };
 
 
@@ -196,15 +320,15 @@ struct dir_list {
 
 
 struct dir_tree {
-    struct dir_entry de[1 << MAX_DIR_BITS];
+    struct dir_entry de[TT_DIR_NUM];
     unsigned long dir_entry_num;
-    // unsigned long ino_bitmap[1 << MAX_DIR_BITS]
-    DECLARE_BITMAP(dir_id_bitmap, 1 << MAX_DIR_BITS);
+    DECLARE_BITMAP(sdir_id_bitmap, S_DIR_NUM);
+    DECLARE_BITMAP(ldir_id_bitmap, L_DIR_NUM);
 };
 
 
 static void init_dir_id_bitmap(unsigned long *dir_id_bitmap) {
-    bitmap_zero(dir_id_bitmap, 1 << MAX_DIR_BITS);
+    bitmap_zero(dir_id_bitmap, S_DIR_NUM);
     bitmap_set(dir_id_bitmap, 0, 1); //不使用
     bitmap_set(dir_id_bitmap, 1, 1); //根结点inode为1
     bitmap_set(dir_id_bitmap, 2, 1); //根结点inode为1
@@ -213,10 +337,10 @@ static void init_dir_id_bitmap(unsigned long *dir_id_bitmap) {
 
 static unsigned long get_unused_dir_id(unsigned long *dir_id_bitmap) {
     unsigned long dir_id;
-    dir_id = find_first_zero_bit(dir_id_bitmap, 1 << MAX_DIR_BITS);
+    dir_id = find_first_zero_bit(dir_id_bitmap, TT_DIR_NUM);
     // printk("get unused id: %lu\n", dir_id);
-    if(dir_id == 1 << MAX_DIR_BITS) {
-        return ENOINO;
+    if(dir_id == TT_DIR_NUM) {
+        return 0;
     }
     /* 设置该ino为已经被使用 */
     bitmap_set(dir_id_bitmap, dir_id, 1);
@@ -237,35 +361,27 @@ struct slot {
 };
 
 struct bucket {
-    // unsigned long bucket_id;
-    DECLARE_BITMAP(slot_bitmap, 1 << FILE_SLOT_BITS);
+    DECLARE_BITMAP(slot_bitmap, SLOT_NUM);
     __u8 valid_slot_count;
     spinlock_t		bkt_lock;
-    // struct slot slots[1 << FILE_SLOT_BITS];
 };
 
 struct HashTable {
-    struct bucket buckets[1 << MIN_FILE_BUCKET_BITS];
+    struct bucket *buckets;
     loff_t pos;
+    enum dir_type dtype;
 };
 
-static struct Big_Dir_HashTable {
-    struct bucket buckets[1 << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)];
-    int dir_id;
-    loff_t pos;
-};
-
-/* ffs在内存superblock */
+/* 
+    ffs在内存superblock,
+    一般会包含信息和数据结构，kevin的db就是在这里实现的
+*/
 struct flatfs_sb_info
-{ //一般会包含信息和数据结构，kevin的db就是在这里实现的
-	//cuckoo_hash_t *cuckoo;
+{
 	struct dir_entry *root;
     struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
-    struct HashTable *hashtbl[1 << MAX_DIR_BITS];
-    struct Big_Dir_HashTable *big_dir_hashtbl[1 << MIN_DIR_BITS];
-    DECLARE_BITMAP(big_dir_bitmap, 1 << MIN_DIR_BITS);
-    __u8 big_dir_num;
+    struct HashTable *hashtbl[TT_DIR_NUM];
 };
 
 /* disk super block */ 
@@ -278,7 +394,7 @@ struct dir_tree_meta
 };
 
 extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
-unsigned long flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child);
+ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child);
 
 
 /*

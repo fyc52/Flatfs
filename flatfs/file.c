@@ -44,14 +44,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
 	int ret = 0;
- 	sector_t pblk;
-	if(FFS_I(inode)->is_big_dir == 0){
-		pblk = ffs_get_lba_data(inode, iblock);
-	}
-	else{
-		pblk = ffs_get_big_file_lba_data(inode, iblock);
-	}
-	pblk = pblk >> BLOCK_SHIFT;
+ 	sector_t pblk = ffs_get_data_lba(inode, iblock, FFS_I(inode)->is_big_dir);
 	bool new = false, boundary = false;
 	//printk("pblk: %lld\n", pblk);
 
@@ -175,12 +168,12 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	if(!ctx->pos)
 	{
 		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
-		if(dfi->is_big_dir)ffs_sb->big_dir_hashtbl[dfi->big_dir_id]->pos = 0;
+		if(dfi->is_big_dir) ffs_sb->hashtbl[dfi->big_dir_id]->pos = 0;
 	}
 	read_dir_dirs(ffs_sb, dir_ino, ctx);
 	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
 	//printk("readdir, dfi->is_big_dir:%d, dfi->big_dir_id:%d\n", dfi->is_big_dir, dfi->big_dir_id);
-	if(dfi->is_big_dir) read_big_dir_files(ffs_sb->big_dir_hashtbl[dfi->big_dir_id], ino, dir_ino, ctx);
+	if(dfi->is_big_dir) read_big_dir_files(ffs_sb->hashtbl[dfi->big_dir_id], ino, dir_ino, ctx);
 	//printk("%d %d %d\n", ctx->pos, ffs_sb->hashtbl[dfi->dir_id]->pos, ffs_sb->big_dir_hashtbl[dfi->big_dir_id]->pos);
 
 	return 0;
