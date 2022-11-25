@@ -137,11 +137,12 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	//printk(KERN_INFO "flatfs: flatfs_dir_inode_by_name\n");
 	ino = flatfs_dir_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name);
 
-	dir_id = inode_to_dir_id(dir->i_ino);
-
+	dir_id = dir->i_ino;
+	//printk(KERN_INFO "flatfs: flatfs_dir_inode_by_name, dir_id = %d\n", dir_id);
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
 	if(ino == 0) {
 		ino = flatfs_file_inode_by_name(ffs_sb->hashtbl[dir_id], dir, &dentry->d_name, &raw_inode, &bh);
+		if(ino == 0 && dfi->is_big_dir) flatfs_file_inode_by_name(ffs_sb->hashtbl[S_DIR_NUM + dir_id], dir, &dentry->d_name, &raw_inode, &bh);
 	}
 		
 	/* 子目录树和子文件中均没找到，说明没有这个子文件/目录 */
@@ -214,30 +215,27 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	unsigned long ino = 0;
 	struct bucket *bucket;
 	int mknod_is_dir = mode & S_IFDIR;
+	struct ffs_ino ffs_ino;
 	// dump_stack();
 	// 为新inode分配ino#
-re_mknod:
 	if(mknod_is_dir) {
-		// printk(KERN_INFO "mknod d/f name: %s\n", s_dentry->d_name.name);
+		//printk(KERN_INFO "mknod dir name: %s\n", dentry->d_name.name);
 		// char *dir_name = kmalloc(my_strlen((char *)(dentry->d_name.name)) + 2, GFP_KERNEL);
 		// memcpy(dir_name, dentry->d_name.name, my_strlen((char *)(dentry->d_name.name)));
 		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dentry->d_name.name);
-		unsigned long parent_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+		unsigned long parent_ino = dfi->dir_id;
 		//printk("mknod dir id: %lu\n", dir_id);
 		// unsigned long parent_ino = dir->i_ino;
 		insert_dir(dir->i_sb->s_fs_info, dfi->dir_id, dir_id);
-		init_file_ht(&(ffs_sb->hashtbl[dir_id]));
-		ino = ((dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+		init_file_ht(&(ffs_sb->hashtbl[dir_id]), 0);
+		ino = dir_id;
 		fi->dir_id = dir_id;
 		fi->bucket_id = -1;
 		fi->slot_id = -1;
 		fi->valid = 1;
 		fi->is_big_dir = 0;
-		fi->big_dir_id = -1;
 		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
-
-		fi->test = 0;
 		// struct ffs_inode_info * testi = FFS_I(inode);
 		//printk("test inode info valid:%d\n", testi->valid);
 	}
@@ -245,35 +243,46 @@ re_mknod:
 		//printk(KERN_INFO "flatfs: create\n");
 		int dir_id = dfi->dir_id;
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
-		ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dir_id], dir, dir_id, &dentry->d_name);
+re_mknod:
+		if(dfi->is_big_dir == 0){
+			ffs_ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dir_id], dir, dir_id, &dentry->d_name);
+			if(ffs_ino.ino == 0) 
+			{
+				printk("mknod, hash crash\n");
+				resize_dir(ffs_sb, dir_id);
+				dfi->is_big_dir = 1;
+				goto re_mknod;
+			}
+		}
+		else{
+			ffs_ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[S_DIR_NUM + dir_id], dir, dir_id, &dentry->d_name);
+			if(ffs_ino.ino == 0) return -1;
+		}
 		// if(!strcmp((char *)(dentry->d_name.name), "fycnb"))
 		// {
 		// 	print2log(ffs_sb->hashtbl[dir_id]);
 		// }
-		if(ino == -1) 
-		{
-			printk("mknod, hash crash\n");
-			error = resize_dir(ffs_sb, dir_id);
-			if(error == -1) {
-				return -1;
-			}
-			dfi->is_big_dir = 1;
-			dfi->big_dir_id = error;
-			goto re_mknod;
-		}
+		
 		// dfi->test --;
 		//printk("mknod, ino:%lx\n", ino);
+		ino = ffs_ino.ino;
 		fi->dir_id = dir_id;
-		fi->bucket_id = ino_to_bucket(ino); 
-		fi->slot_id = ino_to_slot(ino);
+		if(dfi->is_big_dir == 0){
+			fi->bucket_id = ffs_ino.s_file_seg.bkt; 
+			fi->slot_id = ffs_ino.s_file_seg.slot;
+		}
+		else{
+			fi->bucket_id = ffs_ino.l_file_seg.bkt; 
+			fi->slot_id = ffs_ino.l_file_seg.slot;
+		}
+		fi->ino = ffs_ino;
 		fi->valid = 1;
-		fi->is_big_dir = 0;
-		fi->big_dir_id = -1;
+		fi->is_big_dir = dfi->is_big_dir;
 		fi->size = 0;
 		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
 		bucket = &(ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id]);
-		//printk("mknod --- ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x\n", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
+		//printk("mknod --- ino:%ld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
 	}
 
 	inode->i_ino = ino;
@@ -285,7 +294,7 @@ re_mknod:
 		insert_inode_locked(inode);//将inode添加到inode hash表中，并标记为I_NEW
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		if(inode) unlock_new_inode(inode);
-		if(mknod_is_dir == 0) spin_unlock(&(bucket->bkt_lock));
+		//if(mknod_is_dir == 0 && bucket->bkt_lock) spin_unlock(&(bucket->bkt_lock));
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
 		
 		// ffs_add_entry(dir);//写父目录
@@ -338,11 +347,12 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 
 	//printk("ffs_unlink: dir_id is %d, filename is %s\n", dir_id, dentry->d_name.name);
 	/*delete file in hashtbl*/
-	err = delete_file(ffs_sb->hashtbl[dir_id], fi->bucket_id, fi->slot_id);
-	bucket = &(ffs_sb->hashtbl[dir_id]->buckets[fi->bucket_id]);
+	err = delete_file(ffs_sb->hashtbl[S_DIR_NUM * fi->is_big_dir + dir_id], fi->bucket_id, fi->slot_id);
+	bucket = &(ffs_sb->hashtbl[S_DIR_NUM * fi->is_big_dir + dir_id]->buckets[fi->bucket_id]);
 
 	if(!err)
 	{
+		printk("unlink failed, dirid: %d, bucketid: %d, slotid: %d\n", dir_id, fi->bucket_id, fi->slot_id);
 		printk("unlink failed, filename is %s", dentry->d_name.name);
 	}
 
@@ -355,7 +365,7 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	fi->filename.name_len = 0;
 	inode->i_ctime = dir->i_ctime;
 	mark_inode_dirty(inode);
-	spin_unlock(&(bucket->bkt_lock));
+	//if(bucket->bkt_lock) spin_unlock(&(bucket->bkt_lock));
 
 	/* drop_nlink & mark_inode_dirty */
 	inode_dec_link_count(inode);
@@ -386,7 +396,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 			inode_dec_link_count(dir);
 			//TUDO free dentry in memory
 			//printk("ffs_rmdir, dir_id = %d, inode_id = %d, dir name = %s\n", inode_to_dir_id(dir_ino), inode_to_dir_id(inode->i_ino), dentry->d_name.name);
-			remove_dir(flatfs_sb_i, dir->i_ino, inode->i_ino, fi->big_dir_id);
+			remove_dir(flatfs_sb_i, dir->i_ino, inode->i_ino);
 		}
 		return 0;
 	}

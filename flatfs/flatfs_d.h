@@ -39,11 +39,12 @@
 
 typedef __u64 lba_t;
 typedef __u32 ffs_ino_t;
+
 #define INVALID_LBA 0UL
 #define INVALID_INO 0U
 #define INIT_SPACE 10
 
-#define FFS_BLOCK_SIZE_BITS 9
+#define FFS_BLOCK_SIZE_BITS 12
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
 #define FFS_MAX_FILENAME_LEN 100
@@ -99,7 +100,8 @@ typedef __u32 ffs_ino_t;
 /*****************************************************/
 
 /*****************************************************/
-
+/* total lba */
+#define TOTAL_LBA_BITS (61)
 
 /* block offset */
 #define BLOCK_OFFSET_BITS   (32)
@@ -169,7 +171,7 @@ struct lba {
             uint64_t slot : SLOT_BITS;
             uint64_t bkt  : S_BUCKET_BITS;
             uint64_t dir  : S_DIR_BITS;
-            uint64_t rsv1 : 23;
+            uint64_t rsv1 : TOTAL_LBA_BITS - S_DIR_BITS - S_BUCKET_BITS - SLOT_BITS - FFS_BLOCK_SIZE_BITS;
             uint64_t xtag : X_BITS;
             uint64_t rsv2 : 2;
         } s_meta_seg;
@@ -179,10 +181,16 @@ struct lba {
             uint64_t slot : SLOT_BITS;
             uint64_t bkt  : L_BUCKET_BITS;
             uint64_t dir  : L_DIR_BITS;
-            uint64_t rsv1 : 23;
+            uint64_t rsv1 : TOTAL_LBA_BITS - L_DIR_BITS - L_BUCKET_BITS - SLOT_BITS - FFS_BLOCK_SIZE_BITS;
             uint64_t xtag : X_BITS;
             uint64_t rsv2 : 2;
         } l_meta_seg;
+
+        struct {
+            uint64_t off  : FFS_BLOCK_SIZE_BITS;
+            uint64_t dir  : S_DIR_BITS;
+            uint64_t rsv  : 38;
+        } d_meta_seg;
 
         lba_t lba;
     };
@@ -267,11 +275,11 @@ struct ffs_inode_info   // 内存文件系统特化inode
     struct inode vfs_inode;
     int valid;
     __u8 is_big_dir;
-    int big_dir_id;
     unsigned long i_flags;
     loff_t size;
     struct ffs_name filename;
-    __u8 test;
+    struct ffs_ino ino;
+    struct lba lba;
     //__u8 i_type;  
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 	//struct buffer_head *i_bh;	/*i_bh contains a new or dirty disk inode.*/
@@ -322,8 +330,7 @@ struct dir_list {
 struct dir_tree {
     struct dir_entry de[TT_DIR_NUM];
     unsigned long dir_entry_num;
-    DECLARE_BITMAP(sdir_id_bitmap, S_DIR_NUM);
-    DECLARE_BITMAP(ldir_id_bitmap, L_DIR_NUM);
+    DECLARE_BITMAP(dir_id_bitmap, S_DIR_NUM);
 };
 
 
@@ -434,5 +441,5 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsign
 void dir_exit(struct flatfs_sb_info *sb_i);
 void init_dir_tree(struct dir_tree **dtree);
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);
-void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino, int big_dir_id);
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino);
 int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);

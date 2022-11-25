@@ -17,7 +17,7 @@ void init_dir_tree(struct dir_tree **dtree)
     int dir_id;
     //printk(KERN_INFO "init_dir_tree 1\n");
 
-    *dtree = kmalloc(sizeof(struct dir_tree), GFP_NOIO);
+    *dtree = (struct dir_tree *)vmalloc(sizeof(struct dir_tree));
     (*dtree)->dir_entry_num = 1;
     for(dir_id = 0; dir_id < (1 << MAX_DIR_BITS); dir_id++) {
         de = &((*dtree)->de[dir_id]);
@@ -31,8 +31,7 @@ void init_dir_tree(struct dir_tree **dtree)
         de->subdirs->tail = NULL;
     } 
     //printk(KERN_INFO "init_dir_tree 2\n");
-    init_dir_id_bitmap((*dtree)->sdir_id_bitmap);
-    bitmap_zero((*dtree)->ldir_id_bitmap, L_DIR_NUM);
+    init_dir_id_bitmap((*dtree)->dir_id_bitmap);
     //printk(KERN_INFO "init_dir_tree 3\n"); 
 }
 
@@ -115,10 +114,10 @@ static inline void clear_dir_entry(struct dir_entry *dir)
     kfree(dir->subdirs);
 }
 
-void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino, int big_dir_id)
+void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino)
 {
-    struct dir_entry *parent_dir = &(sb_i->dtree_root->de[inode_to_dir_id(parent_ino)]);
-    struct dir_entry *dir = &(sb_i->dtree_root->de[inode_to_dir_id(dir_ino)]);
+    struct dir_entry *parent_dir = &(sb_i->dtree_root->de[parent_ino]);
+    struct dir_entry *dir = &(sb_i->dtree_root->de[dir_ino]);
     struct dir_list_entry *dle;
     struct dir_list_entry *last, *next;
     int start, pos;
@@ -173,10 +172,10 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     dir->subdirs->head = NULL;
     dir->subdirs->tail = NULL;
     //printk("remove_dir, free_file_ht\n");
-    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[big_dir_id]->dtype);
+    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[dir->dir_id]->dtype);
     //printk("remove_dir, free_file_ht ok\n");
-    if(big_dir_id >= 0 && sb_i->hashtbl[big_dir_id]){
-        free_file_ht(&(sb_i->hashtbl[big_dir_id]), sb_i->hashtbl[big_dir_id]->dtype);
+    if(sb_i->hashtbl[S_DIR_NUM + dir->dir_id]){
+        free_file_ht(&(sb_i->hashtbl[S_DIR_NUM + dir->dir_id]), sb_i->hashtbl[S_DIR_NUM + dir->dir_id]->dtype);
         // bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
         // sb_i->big_dir_num --;
         //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
@@ -187,7 +186,7 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
 
 void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)
 {
-    struct dir_entry *dir = &(sb_i->dtree_root->de[inode_to_dir_id(ino)]);
+    struct dir_entry *dir = &(sb_i->dtree_root->de[ino]);
     struct dir_list_entry *dle;
     const char *name = child->name;
 	int namelen = child->len;
@@ -226,9 +225,8 @@ static inline unsigned ffs_rec_len_from_dtree(__le16 dlen)
 	return le16_to_cpu(dlen);
 }
 
-int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx)
+int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long dir_ino, struct dir_context *ctx)
 {
-    unsigned long dir_ino = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
     //printk("fyc_test, ls, dir_ino: %lu\n", dir_ino);
 
     struct dir_entry *de = &(sb_i->dtree_root->de[dir_ino]);
@@ -252,7 +250,7 @@ first:
         if (dle->de->rec_len == 0) {
 			return -EIO;
 		}
-        dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(dir_id_to_inode(dle->de->dir_id)), d_type);
+        dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(dle->de->dir_id), d_type);
         __le16 dlen = 1;
         //printk("ffs_rec_len_from_dtree(dlen): %u\n", ffs_rec_len_from_dtree(dlen));
         /* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */

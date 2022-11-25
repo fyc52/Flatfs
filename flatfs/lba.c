@@ -25,17 +25,19 @@
 
 void init_file_ht(struct HashTable **file_ht, int tag)
 {
-	int bkt, slt;
+	//printk("init_file_ht start\n");
+	int bkt;
 	int bkt_num;
 
 	(*file_ht) = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);
 	if (tag == 0) {
-		bkt_num == L_BUCKET_NUM;
+		//printk("init_file_ht small\n");
+		bkt_num = S_BUCKET_NUM;
 		(*file_ht)->dtype = small;
 		(*file_ht)->buckets = (struct bucket *)kzalloc(sizeof(struct bucket) * bkt_num, GFP_KERNEL);
 	}
 	else {	
-		bkt_num == S_BUCKET_NUM;
+		bkt_num = L_BUCKET_NUM;
 		(*file_ht)->dtype = large;
 		(*file_ht)->buckets = (struct bucket *)vmalloc(sizeof(struct bucket) * bkt_num);
 	}
@@ -78,14 +80,14 @@ unsigned int BKDRHash(char *str)
  * insert into file_hash
  * return file_seg
  */
-static inline ffs_ino_t insert_file(struct HashTable *file_ht, int parent_dir, char *filename)
+static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_dir, char *filename)
 {
 	unsigned long hashcode = BKDRHash(filename);
 	unsigned long mask;
 	unsigned long bucket_id;
 	__u8 slt;
 	struct ffs_ino ino;
-	ino.ino = 0;
+	ino.ino = INVALID_INO;
 
 	switch (file_ht->dtype) {
 		case small:
@@ -94,16 +96,16 @@ static inline ffs_ino_t insert_file(struct HashTable *file_ht, int parent_dir, c
 		case large:
 			mask = (L_BUCKET_NUM - 1LU);
 			break;
-		default: return INVALID_INO;
+		default: return ino;
 	}
 	bucket_id = (unsigned long)hashcode & mask;
 
 	/* lock for multiple create file, unlock after mark inode dirty */
-	spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
+	//if(bucket->bkt_lock) spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 
 	slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, SLOT_NUM);
 	if (slt == (1 << SLOT_BITS))
-		return INVALID_LBA;
+		return ino;
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count++;
 	
@@ -120,10 +122,10 @@ static inline ffs_ino_t insert_file(struct HashTable *file_ht, int parent_dir, c
 			ino.l_file_seg.dir = parent_dir;
 			ino.l_file_seg.xtag = 1;
 			break;
-		default: return INVALID_INO;
+		default: return ino;
 	}
 
-	return ino.ino;
+	return ino;
 }
 
 int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
@@ -132,7 +134,7 @@ int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
 	if (bucket_id == -1 || bucket_id > bkt_num || slot_id > SLOT_NUM)
 		return 0;
 	// printk("start to delete file\n");
-	spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
+	//if(bucket->bkt_lock) spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 	if (!test_bit(slot_id, file_ht->buckets[bucket_id].slot_bitmap))
 	{
 		return 0;
@@ -155,27 +157,30 @@ struct ffs_inode_info *FFS_I(struct inode *inode)
  * flag == 0: inode,
  * flag == 1: data.
  */
-static inline lba_t compose_lba_small_hash(int dir_id, int bucket_id, int slot_id, int block_id, int flag)
+lba_t compose_lba_small_hash(int dir_id, int bucket_id, int slot_id, int block_id, int flag)
 { 
 	struct lba lba;
 	lba.lba = 0;
 
 	if (flag == 0) {
-		lba.s_meta_seg.dir = dir_id;
-		lba.s_meta_seg.bkt = bucket_id;
 		if (slot_id != -1) {
+			lba.s_meta_seg.dir = dir_id;
+			lba.s_meta_seg.bkt = bucket_id;
 			lba.s_meta_seg.slot = slot_id;
-			lba.lba += FILE_META_LBA_BASE;
+			// lba.lba += FILE_META_LBA_BASE;
+		}
+		else{
+			lba.d_meta_seg.dir = dir_id;
 		}
 	}
 	else {
 		lba.s_seg.dir = dir_id;
 		lba.s_seg.bkt = bucket_id;
 		lba.s_seg.slot = slot_id;
-		lba.s_seg.off = block_id;
+		lba.s_seg.off = block_id << FFS_BLOCK_SIZE_BITS;
 	}
-
-	return lba;
+	//printk("compose_lba_small_hash, dir id:%d, bucket_id:%d, slot_id:%d, lba:%lld\n", dir_id, bucket_id, slot_id, lba.lba);
+	return lba.lba;
 }
 
 /**
@@ -183,28 +188,32 @@ static inline lba_t compose_lba_small_hash(int dir_id, int bucket_id, int slot_i
  * flag == 0: inode,
  * flag == 1: data.
  */
-static inline lba_t compose_lba_large_hash(int dir_id, int bucket_id, int slot_id, int block_id, int flag)
+lba_t compose_lba_large_hash(int dir_id, int bucket_id, int slot_id, int block_id, int flag)
 {
 	struct lba lba;
 	lba.lba = 0;
 
 	if (flag == 0) {
-		lba.l_meta_seg.dir = dir_id;
-		lba.l_meta_seg.bkt = bucket_id;
+		
 		if (slot_id != -1) {
+			lba.l_meta_seg.dir = dir_id;
+			lba.l_meta_seg.bkt = bucket_id;
 			lba.l_meta_seg.slot = slot_id;
-			lba.lba += FILE_META_LBA_BASE;
+			// lba.lba += FILE_META_LBA_BASE;
+		}
+		else{
+			lba.d_meta_seg.dir = dir_id;
 		}
 	}
 	else {
 		lba.l_seg.dir = dir_id;
 		lba.l_seg.bkt = bucket_id;
 		lba.l_seg.slot = slot_id;
-		lba.l_seg.off = block_id;
+		lba.l_seg.off = block_id << FFS_BLOCK_SIZE_BITS;
 	}
 
 	lba.l_seg.xtag = 1;
-	return lba;
+	return lba.lba;
 }
 
 /**
@@ -214,9 +223,9 @@ static inline lba_t compose_lba_large_hash(int dir_id, int bucket_id, int slot_i
  * tag == 0: small dir
  * tag == 1: large dir
  */
-static inline lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int block_id, int flag, int tag)
+lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int block_id, int flag, int tag)
 { 
-	if (tag == 0) {
+	if (tag == 1) {
 		return compose_lba_large_hash(dir_id, bucket_id, slot_id, block_id, flag);
 	}
 	else {
@@ -245,25 +254,32 @@ lba_t ffs_get_meta_lba(struct inode *inode, int tag)
 /**
  * 根据文件名分配slot，并返回ino
  */
-unsigned long flatfs_file_slot_alloc_by_name
-(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child)
+struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child)
 {
 	struct ffs_inode_info *p_fi = FFS_I(parent);
 	char *name = (char *)(child->name);
-	ffs_ino_t ino = insert_file(hashtbl, parent_dir_id, name);
+	struct ffs_ino ino = insert_file(hashtbl, parent_dir_id, name);
 	return ino;
 }
 
 int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx)
 {
-	unsigned long dir_id = inode_to_dir_id(ino);
+	unsigned long dir_id = ino;
 	int bkt, slt;
 	int pos = 0;
 	struct super_block *sb = inode->i_sb;
 	struct buffer_head *ibh = NULL;
 	struct ffs_inode *raw_inode;
+	struct ffs_inode_info *fi = FFS_I(inode);
 	struct ffs_inode_page *raw_inode_page;
+	int bucket_num;
 	lba_t pblk;
+	if(fi->is_big_dir){
+		bucket_num = L_BUCKET_NUM;
+	}
+	else{
+		bucket_num = S_BUCKET_NUM;
+	}
 
 	// printk("ctx->pos:%d\n", ctx->pos);
 	if (hashtbl->pos == 0)
@@ -272,9 +288,9 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 		goto first;
 	}
 
-	for (bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++)
+	for (bkt = 0; bkt < bucket_num; bkt++)
 	{
-		for (slt = 0; slt < (1 << FILE_SLOT_BITS); slt++)
+		for (slt = 0; slt < (1 << SLOT_BITS); slt++)
 		{
 			if (pos >= hashtbl->pos)
 				break;
@@ -285,18 +301,19 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 			break;
 	}
 
-	ino = (bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS;
-	ibh = sb_bread(sb, ino);
-	wait_on_buffer(ibh);
-	for (1; slt < (1 << FILE_SLOT_BITS); slt++)
+	ino = compose_lba(fi->dir_id, bkt, 0, 0, 0, hashtbl->dtype);
+
+	ibh = sb_bread(sb, ino >> FFS_BLOCK_SIZE_BITS);
+	raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
+	for (1; slt < (1 << SLOT_BITS); slt++)
 	{
 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
 		{
 			/* 开始传 */
 			unsigned char d_type = FT_UNKNOWN;
 
-			ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-			raw_inode = (struct ffs_inode *)(ibh->b_data + slt * (1 << 9));
+			ino = compose_lba(fi->dir_id, bkt, slt, 0, 0, hashtbl->dtype);
+			raw_inode = &(raw_inode_page->inode[slt]);
 			// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
 			dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
 			__le16 dlen = 1;
@@ -308,10 +325,10 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 	// printk("bkt:%d, slt:%d\n", bkt, slt);
 
 first:
-	for (bkt++; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++)
+	for (bkt++; bkt < bucket_num; bkt++)
 	{
 		int flag = 0;
-		for (slt = 0; slt < (1 << FILE_SLOT_BITS); slt++)
+		for (slt = 0; slt < (1 << SLOT_BITS); slt++)
 		{
 			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
 			{
@@ -321,112 +338,20 @@ first:
 		}
 		if (flag == 0)
 			continue;
-		ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-		ibh = sb_bread(sb, ino);
-		wait_on_buffer(ibh);
+		ino = compose_lba(fi->dir_id, bkt, 0, 0, 0, hashtbl->dtype);
+		ibh = sb_bread(sb, ino >> FFS_BLOCK_SIZE_BITS);
+		raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
 		// printk("ino:%ld", ino);
-		for (slt = 0; slt < (1 << FILE_SLOT_BITS); slt++)
+		for (slt = 0; slt < (1 << SLOT_BITS); slt++)
 		{
 			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
 			{
 				/* 开始传 */
 				unsigned char d_type = FT_UNKNOWN;
 
-				ino = (slt + ((bkt + (dir_id << MIN_FILE_BUCKET_BITS)) << FILE_SLOT_BITS));
-				raw_inode = (struct ffs_inode *)(ibh->b_data + slt * (1 << 9));
+				ino = compose_lba(fi->dir_id, bkt, slt, 0, 0, hashtbl->dtype);
+				raw_inode = &(raw_inode_page->inode[slt]);
 				// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
-				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
-				__le16 dlen = 1;
-				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-				ctx->pos += le16_to_cpu(dlen);
-				hashtbl->pos += le16_to_cpu(dlen);
-			}
-		}
-	}
-	brelse(ibh);
-	return 0;
-}
-
-int read_big_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx)
-{
-	unsigned long dir_id = (ino - 1) >> (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS);
-	int bkt, slt;
-	int pos = 0;
-	struct super_block *sb = inode->i_sb;
-	struct buffer_head *ibh = NULL;
-	struct ffs_inode *raw_inode;
-	sector_t pblk;
-
-	// printk("ctx->pos:%d\n", ctx->pos);
-	if (hashtbl->pos == 0)
-	{
-		bkt = -1;
-		goto first;
-	}
-
-	for (bkt = 0; bkt < (1 << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)); bkt++)
-	{
-		for (slt = 0; slt < (1 << FILE_SLOT_BITS); slt++)
-		{
-			if (pos >= hashtbl->pos)
-				break;
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
-				pos++;
-		}
-		if (pos >= hashtbl->pos)
-			break;
-	}
-
-	ino = (bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS;
-	ibh = sb_bread(sb, ino);
-	wait_on_buffer(ibh);
-	for (1; slt < (1 << FILE_SLOT_BITS); slt++)
-	{
-		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
-		{
-			/* 开始传 */
-			unsigned char d_type = FT_UNKNOWN;
-
-			ino = (slt + ((bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS));
-			raw_inode = (struct ffs_inode *)(ibh->b_data + slt * (1 << 9));
-			// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
-			dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
-			__le16 dlen = 1;
-			/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-			ctx->pos += le16_to_cpu(dlen);
-			hashtbl->pos += le16_to_cpu(dlen);
-		}
-	}
-	// printk("bkt:%d, slt:%d\n", bkt, slt);
-
-first:
-	for (bkt++; bkt < (1 << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS)); bkt++)
-	{
-		int flag = 0;
-		for (slt = 0; slt < (1 << FILE_SLOT_BITS); slt++)
-		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
-			{
-				flag = 1;
-				break;
-			}
-		}
-		if (flag == 0)
-			continue;
-		ino = (slt + ((bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS));
-		ibh = sb_bread(sb, ino);
-		wait_on_buffer(ibh);
-		// printk("ino:%ld", ino);
-		for (slt = 0; slt < (1 << FILE_SLOT_BITS); slt++)
-		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
-			{
-				/* 开始传 */
-				unsigned char d_type = FT_UNKNOWN;
-
-				ino = (slt + ((bkt + (dir_id << (MIN_FILE_BUCKET_BITS + MIN_DIR_BITS))) << FILE_SLOT_BITS));
-				raw_inode = (struct ffs_inode *)(ibh->b_data + slt * (1 << 9));
-				// printk("ino:%ld, dir_id:%d, bucket_id:%d, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
 				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
 				__le16 dlen = 1;
 				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
@@ -445,8 +370,9 @@ static inline ffs_ino_t get_file_ino
 (struct inode *inode, struct HashTable *file_ht, char *filename, struct ffs_inode **raw_inode, struct buffer_head **bh)
 {
 	unsigned int hashcode = BKDRHash(filename);
-	unsigned long bucket_id = (unsigned long)hashcode & ((1LU << MIN_FILE_BUCKET_BITS) - 1LU);
-	int slt;
+	unsigned long bucket_id;
+	__u8 slt;
+	
 	int namelen = my_strlen(filename);
 	struct super_block *sb = inode->i_sb;
 	struct ffs_inode_info *fi = FFS_I(inode);
@@ -454,37 +380,52 @@ static inline ffs_ino_t get_file_ino
 	int flag = 0;
 	struct ffs_inode_page *raw_inode_page; /* 8 slots composed bukcet */
 	struct ffs_ino ino;
-	ino.ino = 0
+	ino.ino = INVALID_INO;
+	unsigned long mask;
 
-	for (slt = 0; slt < SLOT_NUM; slt++) {
+	switch (file_ht->dtype) {
+		case small:
+			mask = (S_BUCKET_NUM - 1LU);
+			break;
+		case large:
+			mask = (L_BUCKET_NUM - 1LU);
+			break;
+		default: return INVALID_INO;
+	}
+	bucket_id = (unsigned long)hashcode & mask;
+
+	//("get_file_ino, file_ht type:%d, bkt_id:%d\n", file_ht->dtype, bucket_id);
+	for (slt = 0; slt < SLOT_NUM; slt ++) {
+		//printk("get_file_ino, slt:%d\n", slt);
 		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) {
 			flag = 1;
 			break;
 		}
 	}
+	//printk("get_file_ino, slt:%d\n", slt);
 
 	if (flag == 0) {
 		return INVALID_INO;
 	}
 
 	pblk = compose_lba(fi->dir_id, bucket_id, 0, 0, 0, file_ht->dtype);
-
+	pblk = pblk >> FFS_BLOCK_SIZE_BITS;
+	//printk("get_file_ino, pblk:%d\n", pblk);
 	(*bh) = sb_bread(sb, pblk);
 	wait_on_buffer(*bh);
 	if (unlikely(!(*bh))) {
 		return INVALID_INO;
 	}
 
-	raw_inode_page = (struct ffs_inode_page *)(bh->b_data);
+	raw_inode_page = (struct ffs_inode_page *)((*bh)->b_data);
 	for (slt = 0; slt < SLOT_NUM; slt++)
 	{
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
-		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap) && \
-			!strcmp(filename, (*raw_inode)->filename.name)) {
+		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap) && !strcmp(filename, (*raw_inode)->filename.name)) {
 			break;
 		}
 	}
-
+	///printk("get_file_ino, slt:%d\n", slt);
 	// brelse(bh);
 	if (slt >= SLOT_NUM) {
 		return INVALID_INO;
@@ -523,24 +464,13 @@ unsigned long flatfs_file_inode_by_name
 void print2log(struct HashTable *hashtbl)
 {
 	int bkt, slt;
-	for (bkt = 0; bkt < (1 << MIN_FILE_BUCKET_BITS); bkt++)
+	for (bkt = 0; bkt < (1 << S_BUCKET_BITS); bkt++)
 	{
 		printk("%d %d\n", bkt, hashtbl->buckets[bkt].valid_slot_count);
 	}
 }
 
-int resize_dir(struct flatfs_sb_info *sb, int dir_id)
+void resize_dir(struct flatfs_sb_info *sb, int dir_id)
 {
-	int pos;
-	if (sb->big_dir_num > (1 << MIN_DIR_BITS))
-	{
-		printk("resize_dir failed, over max num of big dirs");
-		return -1;
-	}
-	pos = find_first_zero_bit(sb->big_dir_bitmap, 1 << MAX_DIR_BITS);
-	printk("zero big_dir pos:%d, sb->big_dir_num:%d\n", pos, sb->big_dir_num);
-	init_big_file_ht(&(sb->hashtbl[pos]));
-	bitmap_set(sb->big_dir_bitmap, pos, 1);
-	sb->big_dir_num++;
-	return pos;
+	init_file_ht(&(sb->hashtbl[S_DIR_NUM + dir_id]), 1);
 }

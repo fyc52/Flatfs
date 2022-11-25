@@ -45,6 +45,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 {
 	int ret = 0;
  	sector_t pblk = ffs_get_data_lba(inode, iblock, FFS_I(inode)->is_big_dir);
+	pblk = pblk >> FFS_BLOCK_SIZE_BITS;
 	bool new = false, boundary = false;
 	//printk("pblk: %lld\n", pblk);
 
@@ -163,17 +164,17 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	struct super_block *sb = ino->i_sb;
 	struct ffs_inode_info *dfi = FFS_I(ino);
 	struct flatfs_sb_info *ffs_sb = sb->s_fs_info;
-	unsigned long dir_ino = ((dfi->dir_id << (MIN_FILE_BUCKET_BITS + FILE_SLOT_BITS))) + 1;
+	unsigned long dir_ino = dfi->dir_id;
 
 	if(!ctx->pos)
 	{
 		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
-		if(dfi->is_big_dir) ffs_sb->hashtbl[dfi->big_dir_id]->pos = 0;
+		if(dfi->is_big_dir) ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id]->pos = 0;
 	}
 	read_dir_dirs(ffs_sb, dir_ino, ctx);
 	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
 	//printk("readdir, dfi->is_big_dir:%d, dfi->big_dir_id:%d\n", dfi->is_big_dir, dfi->big_dir_id);
-	if(dfi->is_big_dir) read_big_dir_files(ffs_sb->hashtbl[dfi->big_dir_id], ino, dir_ino, ctx);
+	if(dfi->is_big_dir) read_dir_files(ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id], ino, dir_ino, ctx);
 	//printk("%d %d %d\n", ctx->pos, ffs_sb->hashtbl[dfi->dir_id]->pos, ffs_sb->big_dir_hashtbl[dfi->big_dir_id]->pos);
 
 	return 0;
