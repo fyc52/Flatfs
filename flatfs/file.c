@@ -169,12 +169,12 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	if(!ctx->pos)
 	{
 		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
-		if(dfi->is_big_dir) ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id]->pos = 0;
+		if(dfi->is_big_dir) ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id2]->pos = 0;
 	}
 	read_dir_dirs(ffs_sb, dir_ino, ctx);
 	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
 	//printk("readdir, dfi->is_big_dir:%d, dfi->big_dir_id:%d\n", dfi->is_big_dir, dfi->big_dir_id);
-	if(dfi->is_big_dir) read_dir_files(ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id], ino, dir_ino, ctx);
+	if(dfi->is_big_dir) read_dir_files(ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id2], ino, dir_ino, ctx);
 	//printk("%d %d %d\n", ctx->pos, ffs_sb->hashtbl[dfi->dir_id]->pos, ffs_sb->big_dir_hashtbl[dfi->big_dir_id]->pos);
 
 	return 0;

@@ -104,7 +104,8 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_d
 	//if(bucket->bkt_lock) spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 
 	slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, SLOT_NUM);
-	if (slt == (1 << SLOT_BITS))
+	// printk("slt id: %d\n", slt);
+	if (slt == SLOT_NUM)
 		return ino;
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count++;
@@ -468,9 +469,4 @@ void print2log(struct HashTable *hashtbl)
 	{
 		printk("%d %d\n", bkt, hashtbl->buckets[bkt].valid_slot_count);
 	}
-}
-
-void resize_dir(struct flatfs_sb_info *sb, int dir_id)
-{
-	init_file_ht(&(sb->hashtbl[S_DIR_NUM + dir_id]), 1);
 }

@@ -231,6 +231,8 @@ enum dir_type {
     large,
 };
 
+#define INVALID_DIR_ID TT_DIR_NUM
+
 /*****************************************************/
 
 /*****************************************************/
@@ -275,6 +277,7 @@ struct ffs_inode_info   // 内存文件系统特化inode
     struct inode vfs_inode;
     int valid;
     __u8 is_big_dir;
+    int dir_id2;        // large dir id
     unsigned long i_flags;
     loff_t size;
     struct ffs_name filename;
@@ -311,6 +314,8 @@ struct dir_entry {
     unsigned long dir_size;
     loff_t pos;
     enum dir_type dtype;
+    /* if dtype is large, this field refers to large dir id */
+    unsigned long dir_id2;
 };
 
 
@@ -330,28 +335,41 @@ struct dir_list {
 struct dir_tree {
     struct dir_entry de[TT_DIR_NUM];
     unsigned long dir_entry_num;
-    DECLARE_BITMAP(dir_id_bitmap, S_DIR_NUM);
+    DECLARE_BITMAP(sdir_id_bitmap, S_DIR_NUM);
+    DECLARE_BITMAP(ldir_id_bitmap, L_DIR_NUM);
 };
 
 
-static void init_dir_id_bitmap(unsigned long *dir_id_bitmap) {
-    bitmap_zero(dir_id_bitmap, S_DIR_NUM);
-    bitmap_set(dir_id_bitmap, 0, 1); //不使用
-    bitmap_set(dir_id_bitmap, 1, 1); //根结点inode为1
-    bitmap_set(dir_id_bitmap, 2, 1); //根结点inode为1
+static void init_dir_id_bitmap(struct dir_tree *dtree) {
+    bitmap_zero(dtree->sdir_id_bitmap, S_DIR_NUM);
+    bitmap_set(dtree->sdir_id_bitmap, 0, 1); //不使用
+    bitmap_set(dtree->sdir_id_bitmap, 1, 1); //根结点inode为1
+    bitmap_set(dtree->sdir_id_bitmap, 2, 1); //根结点inode为1
+    bitmap_zero(dtree->ldir_id_bitmap, L_DIR_NUM);
     // printk("bitmap: %lx\n", *dir_id_bitmap);
 }
 
-static unsigned long get_unused_dir_id(unsigned long *dir_id_bitmap) {
-    unsigned long dir_id;
-    dir_id = find_first_zero_bit(dir_id_bitmap, TT_DIR_NUM);
-    // printk("get unused id: %lu\n", dir_id);
-    if(dir_id == TT_DIR_NUM) {
-        return 0;
+
+static inline unsigned get_unused_dir_id(struct dir_tree *dtree, int tag) {
+    unsigned long *bitmap;
+    unsigned dir_id;
+    int border;
+
+    if (tag == large) {
+        bitmap = dtree->ldir_id_bitmap;
+        border = L_DIR_NUM;
+    }
+    else {
+        bitmap = dtree->sdir_id_bitmap;
+        border = S_DIR_NUM;
+    }
+    
+    dir_id = find_first_zero_bit(bitmap, border);
+    if(dir_id == border) {
+        return INVALID_DIR_ID;
     }
     /* 设置该ino为已经被使用 */
-    bitmap_set(dir_id_bitmap, dir_id, 1);
-    /* root的inode num设定为1， 那么其他目录的ino从2开始编号 */
+    bitmap_set(bitmap, dir_id, 1);
     return dir_id;
 }
 
@@ -443,3 +461,4 @@ void init_dir_tree(struct dir_tree **dtree);
 void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);
 void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino);
 int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);
+unsigned resize_dir(struct flatfs_sb_info *sb_i, int dir_id);

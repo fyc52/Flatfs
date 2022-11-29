@@ -9,6 +9,33 @@ lba_t ffs_get_meta_lba(struct inode *inode, int tag);
 
 struct ffs_inode_info* FFS_I(struct inode * inode);
 
+
+/**
+ * index: dir_tree id
+ */
+static inline unsigned index_to_dir_id(ffs_ino_t ino)
+{
+	struct ffs_ino fino;
+	fino.ino = ino;
+	return fino.dir_seg.dir;
+}
+
+static inline unsigned index_to_tag(ffs_ino_t ino)
+{
+	struct ffs_ino fino;
+	fino.ino = ino;
+	return fino.dir_seg.xtag;
+}
+
+static inline ffs_ino_t dir_id_to_index(unsigned dir_id, unsigned tag)
+{
+	struct ffs_ino fino;
+	fino.ino = 0;
+	fino.dir_seg.dir = dir_id;
+	fino.dir_seg.xtag = tag;
+	return fino.ino;
+}
+
 static inline unsigned inode_to_dir_id(ffs_ino_t ino)
 {
 	return ino;
@@ -41,7 +68,6 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 int read_big_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx);
 
 void print2log(struct HashTable *hashtbl);
-void resize_dir(struct flatfs_sb_info *sb, int dir_id);
 
 lba_t compose_lba_large_hash(int dir_id, int bucket_id, int slot_id, int block_id, int flag);
 lba_t compose_lba_small_hash(int dir_id, int bucket_id, int slot_id, int block_id, int flag);
