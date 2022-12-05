@@ -6,319 +6,646 @@
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
-#include "lba.h"
 #endif
+#include <linux/buffer_head.h>
+#include <linux/pagemap.h>
+#include <linux/swap.h>
+#include <linux/iversion.h>
+
+typedef struct hashfs_dir_entry_2 hashfs_dirent;
 
 
-/* 创建文件系统时调用，初始化目录树结构 */
-void init_dir_tree(struct dir_tree **dtree)
+void hashfs_error(struct super_block *sb, const char *function,
+		const char *fmt, ...)
 {
-    struct dir_entry *de;
-    int dir_id;
-    //printk(KERN_INFO "init_dir_tree 1\n");
+	struct va_format vaf;
+	va_list args;
 
-    *dtree = (struct dir_tree *)vmalloc(sizeof(struct dir_tree));
-    (*dtree)->dir_entry_num = 1;
-    for(dir_id = 0; dir_id < TT_DIR_NUM; dir_id++) {
-        de = &((*dtree)->de[dir_id]);
-        de->dir_id = dir_id;
-        de->dir_size = 0;
-        de->namelen = 0;
-        de->rec_len = 0;
-        de->dtype = small;
-        de->dir_name[0] = '\0';
-        de->subdirs = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
-        de->subdirs->head = NULL;
-        de->subdirs->tail = NULL;
-    } 
-    //printk(KERN_INFO "init_dir_tree 2\n");
-    init_dir_id_bitmap(*dtree);
-    //printk(KERN_INFO "init_dir_tree 3\n"); 
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	printk(KERN_CRIT "HASHFS-fs (%s): error: %s: %pV\n",
+	       sb->s_id, function, &vaf);
+
+	va_end(args);
 }
-
-void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
-{
-    sb_i->root = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
-    //printk(KERN_INFO "init_root_entry 1\n");
-    sb_i->root->dir_id = FLATFS_ROOT_INO;
-    // strcpy(root->dir_name, inode_to_name(ino));
-    memcpy(sb_i->root->dir_name, "/", strlen("/"));
-    sb_i->root->namelen = 1;
-    sb_i->root->rec_len = FFS_DIR_REC_LEN(sb_i->root->namelen);
-    //printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
-    //printk(KERN_INFO "init_root_entry 2\n");
-    sb_i->root->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
-    //printk(KERN_INFO "init_root_entry 3\n");
-    sb_i->root->subdirs->head = NULL;
-    sb_i->root->subdirs->tail = NULL;
-    sb_i->root->dir_size = i_size_read(ino);
-}
-
-/*  根据相关参数，创建一个新的目录项   */
-void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsigned long insert_dir_id) 
-{
-    //printk("insert_dir_id: %d\n", insert_dir_id);
-    struct dir_entry *dir = &(sb_i->dtree_root->de[parent_dir_id]);                            // 父目录entry
-    struct dir_entry *inserted_dir = &(sb_i->dtree_root->de[insert_dir_id]);                   // 插入目录的entry
-    struct dir_list_entry *dle = (struct dir_list_entry *)kzalloc(sizeof(struct dir_list_entry), GFP_KERNEL);
-    dle->de = inserted_dir;
-    dle->last = dle->next = NULL;
-    //printk("inserted insert_dir_id: %d, dir name: %s\n", insert_dir_id, inserted_dir->dir_name);
-
-    if(dir->dir_size == 0) {
-        dir->subdirs->head = dir->subdirs->tail = dle;
-
-    }
-    else {
-        dir->subdirs->tail->next = dle;
-        dle->last = dir->subdirs->tail;
-        dir->subdirs->tail = dle;
-    }
-    
-    dir->dir_size++;
-}
-
-unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
-{
-    struct dir_tree *dtree = sb_i->dtree_root;
-    unsigned long dir_id = get_unused_dir_id(dtree, small);
-    if(!dir_id) return dir_id;
-    struct dir_entry *de = &(dtree->de[dir_id]);
-
-    // de->subdirs = kmalloc(sizeof(struct dir_list), GFP_KERNEL);
-    // de->subdirs->head = de->subdirs->tail = NULL;
-    de->dir_size = 0;
-    de->namelen = my_strlen(dir_name);
-    de->rec_len = FFS_DIR_REC_LEN(de->namelen);
-    de->dtype = small;
-    if(de->namelen > 0) {
-        //printk("fill_one_dir_entry: %2s\n", dir_name);
-        memcpy(de->dir_name, dir_name, de->namelen);
-    }
-    sb_i->dtree_root->dir_entry_num++;
-    return dir_id;
-}
-
-/* 递归释放所有目录结点 */
-static inline void clear_dir_entry(struct dir_entry *dir)
-{
-    struct dir_list_entry *p;
-    struct dir_list_entry *dle;
-    int dir_num;
-    for(dle = dir->subdirs->head, dir_num = 0; dir_num < dir->dir_size && dle != NULL; dle = dle->next, dir_num ++) {
-        clear_dir_entry(dle->de);
-        p = dle;
-        kfree(p);
-    }
-    // dir->subdirs->head = dir->subdirs->tail = NULL;
-    dir->namelen = 0;
-    dir->dir_size = 0;
-    kfree(dir->subdirs);
-}
-
-void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino)
-{
-    struct dir_entry *parent_dir = &(sb_i->dtree_root->de[parent_ino]);
-    struct dir_entry *dir = &(sb_i->dtree_root->de[dir_ino]);
-    struct dir_list_entry *dle;
-    struct dir_list_entry *last, *next;
-    int start, pos;
-    int name_len = my_strlen(dir->dir_name);
-    int flag = 0;
-   // printk("remove_dir, dir name:%s, parent size:%d, parent_dir->subdirs->head:%d\n", dir->dir_name, parent_dir->dir_size, parent_dir->subdirs->head->de->dir_id);
-
-    for(dle = parent_dir->subdirs->head, start = 0; start < parent_dir->dir_size && dle != NULL; start ++) {
-        //printk("remove_dir, dir name:%s ,dir id:%d\n", dle->de->dir_name, dle->de->dir_id);
-        if(dir->dir_id != dle->de->dir_id) 
-        {
-            dle = dle->next;
-            continue;
-        }
-        flag = 1;
-        last = dle->last;
-        next = dle->next;  
-        //printk("remove_dir, dir next:%s ,dir id next:%d\n", next->de->dir_name, next->de->dir_id); 
-        
-        if(start == 0) {  
-            parent_dir->subdirs->head = next; 
-            //printk("remove_dir, head next:%s ,head next id:%d\n", dir->subdirs->head->de->dir_name, dir->subdirs->head->de->dir_id); 
-        } 
-        else {
-            if(last != NULL) last->next = next;
-        }
-
-        if(start == dir->dir_size - 1) {
-            parent_dir->subdirs->tail = last;
-        } 
-        else {
-            if(next != NULL) next->last = last;
-        }
-
-        parent_dir->dir_size --;
-        dle->last = NULL;
-        dle->next = NULL;
-        if(dle) 
-        {
-            kfree(dle);
-            dle = NULL;
-        }
-        break;
-    }
-
-    if(flag == 0) return ;
-    for(pos = 0; pos < name_len; pos ++)
-    {
-        dir->dir_name[pos] = 0;
-    }
-    dir->namelen = 0;
-    dir->subdirs->head = NULL;
-    dir->subdirs->tail = NULL;
-    //printk("remove_dir, free_file_ht\n");
-    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[dir->dir_id]->dtype);
-    //printk("remove_dir, free_file_ht ok\n");
-    if(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]){
-        free_file_ht(&(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]), sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]->dtype);
-        // bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
-        // sb_i->big_dir_num --;
-        //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
-    }
-    sb_i->dtree_root->dir_entry_num --;
-    bitmap_clear(sb_i->dtree_root->sdir_id_bitmap, dir->dir_id, 1);
-    if (dir->dtype == large) {
-        bitmap_clear(sb_i->dtree_root->ldir_id_bitmap, dir->dir_id2, 1);
-    }
-}
-
-void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)
-{
-    struct dir_entry *dir = &(sb_i->dtree_root->de[ino]);
-    struct dir_list_entry *dle;
-    const char *name = child->name;
-	int namelen = child->len;
-    int start = 0;
-
-    for(dle = dir->subdirs->head; start < dir->dir_size && dle != NULL; 1) {
-        if(namelen == dle->de->namelen && !memcmp(name, dle->de->dir_name, namelen)) {
-            start++;
-            dle = dle->next;
-            continue;
-        }
-        else {
-            struct dir_list_entry *pre = dle->last;
-            struct dir_list_entry *suf = dle->next;
-            if(dle == dir->subdirs->head) {  
-                dir->subdirs->head = suf; 
-            } else {
-                pre->next = suf;
-            }
-
-            if(dle == dir->subdirs->tail) {
-                dir->subdirs->tail = pre;
-            } else {
-                suf->last = pre;
-            }
-
-            clear_dir_entry(dle->de);
-            kfree(dle);
-            break;
-        }
-    }
-}
-
-static inline unsigned ffs_rec_len_from_dtree(__le16 dlen)
-{
-	return le16_to_cpu(dlen);
-}
-
-int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long dir_ino, struct dir_context *ctx)
-{
-    //printk("fyc_test, ls, dir_ino: %lu\n", dir_ino);
-
-    struct dir_entry *de = &(sb_i->dtree_root->de[dir_ino]);
-    struct dir_list_entry *dle = de->subdirs->head;
-    int pos = 0;
-    //printk("de->dir_size = %d, dir name = %s", de->dir_size, de->dir_name);
-    /* 先移动到ctx->pos指向的地方 */
-    if(ctx->pos == 0)
-    {
-        de->pos = 0;
-        goto first;
-    }
-    while (pos < de->dir_size && pos < de->pos && dle != NULL) {
-        pos ++;
-        dle = dle->next;
-    }
-first:
-    for (; pos < de->dir_size && dle != NULL; pos ++, dle = dle->next) {
-        unsigned char d_type = DT_DIR;
-        //("dle->de->dir_name: %s", dle->de->dir_name);
-        if (dle->de->rec_len == 0) {
-			return -EIO;
-		}
-        dir_emit(ctx, dle->de->dir_name, dle->de->namelen, le32_to_cpu(dle->de->dir_id), d_type);
-        __le16 dlen = 1;
-        //printk("ffs_rec_len_from_dtree(dlen): %u\n", ffs_rec_len_from_dtree(dlen));
-        /* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-        ctx->pos += ffs_rec_len_from_dtree(dlen);
-        de->pos += ffs_rec_len_from_dtree(dlen);
-    }
-
-    return pos;
-}
-
-/* 卸载文件系统时调用，释放整个目录树结构 */
-void dir_exit(struct flatfs_sb_info *sb_i)
-{
-    clear_dir_entry(sb_i->root);
-}
-
-
 
 /*
- * 通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
- * is_dir:若dentry是目录则返回1，是文件则返回0
-*/
-ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, struct qstr *child) 
+ * Tests against MAX_REC_LEN etc were put in place for 64k block
+ * sizes; if that is not possible on this arch, we can skip
+ * those tests and speed things up.
+ */
+static inline unsigned hashfs_rec_len_from_disk(__le16 dlen)
 {
-	struct dir_entry *dir = &(sb_i->dtree_root->de[parent_dir_id]);
-    struct dir_list_entry *dir_node;
-    const char *name = child->name;
-    ffs_ino_t ino = INVALID_INO;
-    int namelen = child->len;
-    int start;
-    //printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_dir_id, name, namelen);
-    for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
-        if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
-            ino = dir_id_to_inode(dir_node->de->dir_id);
-            break;
-        }
-    }
+	unsigned len = le16_to_cpu(dlen);
 
-    return ino;
+#if (PAGE_SIZE >= 65536)
+	if (len == HASHFS_MAX_REC_LEN)
+		return 1 << 16;
+#endif
+	return len;
 }
 
-
-/**
- * resize small dir to large
- * @return if resize is successful
-*/
-unsigned resize_dir(struct flatfs_sb_info *sb_i, int dir_id)
+static inline __le16 hashfs_rec_len_to_disk(unsigned len)
 {
-	struct dir_entry *dir = &(sb_i->dtree_root->de[dir_id]);
-    struct dir_tree *dtree = sb_i->dtree_root;
-    unsigned new_dir_id = get_unused_dir_id(dtree, large); /* large dir id */
-
-    if (new_dir_id == INVALID_DIR_ID) {
-        return INVALID_DIR_ID;
-    }
-    init_file_ht(&(sb_i->hashtbl[S_DIR_NUM + new_dir_id]), large);
-    dir->dtype = large;
-    dir->dir_id2 = new_dir_id;
-    return dir->dir_id2;
+#if (PAGE_SIZE >= 65536)
+	if (len == (1 << 16))
+		return cpu_to_le16(HASHFS_MAX_REC_LEN);
+	else
+		BUG_ON(len > (1 << 16));
+#endif
+	return cpu_to_le16(len);
 }
 
+/*
+ * hashfs uses block-sized chunks. Arguably, sector-sized ones would be
+ * more robust, but we have what we have
+ */
+static inline unsigned hashfs_chunk_size(struct inode *inode)
+{
+	return inode->i_sb->s_blocksize;
+}
+
+static inline void hashfs_put_page(struct page *page)
+{
+	kunmap(page);
+	put_page(page);
+}
+
+/*
+ * Return the offset into page `page_nr' of the last valid
+ * byte in that page, plus one.
+ */
+static unsigned
+hashfs_last_byte(struct inode *inode, unsigned long page_nr)
+{
+	unsigned last_byte = inode->i_size;
+
+	last_byte -= page_nr << PAGE_SHIFT;
+	if (last_byte > PAGE_SIZE)
+		last_byte = PAGE_SIZE;
+	return last_byte;
+}
+
+static int hashfs_commit_chunk(struct page *page, loff_t pos, unsigned len)
+{
+	struct address_space *mapping = page->mapping;
+	struct inode *dir = mapping->host;
+	int err = 0;
+
+	inode_inc_iversion(dir);
+	block_write_end(NULL, mapping, pos, len, len, page, NULL);
+
+	if (pos+len > dir->i_size) {
+		i_size_write(dir, pos+len);
+		mark_inode_dirty(dir);
+	}
+
+	if (IS_DIRSYNC(dir)) {
+		err = write_one_page(page);
+		if (!err)
+			err = sync_inode_metadata(dir, 1);
+	} else {
+		unlock_page(page);
+	}
+
+	return err;
+}
+
+static bool hashfs_check_page(struct page *page, int quiet)
+{
+	struct inode *dir = page->mapping->host;
+	struct super_block *sb = dir->i_sb;
+	unsigned chunk_size = hashfs_chunk_size(dir);
+	char *kaddr = page_address(page);
+	u32 max_inumber = MAX_INODE_NUM;
+	unsigned offs, rec_len;
+	unsigned limit = PAGE_SIZE;
+	hashfs_dirent *p;
+	char *error;
+
+	if ((dir->i_size >> PAGE_SHIFT) == page->index) {
+		limit = dir->i_size & ~PAGE_MASK;
+		if (limit & (chunk_size - 1))
+			goto Ebadsize;
+		if (!limit)
+			goto out;
+	}
+	for (offs = 0; offs <= limit - HASHFS_DIR_REC_LEN(1); offs += rec_len) {
+		p = (hashfs_dirent *)(kaddr + offs);
+		rec_len = hashfs_rec_len_from_disk(p->rec_len);
+
+		if (unlikely(rec_len < HASHFS_DIR_REC_LEN(1)))
+			goto Eshort;
+		if (unlikely(rec_len & 3))
+			goto Ealign;
+		if (unlikely(rec_len < HASHFS_DIR_REC_LEN(p->name_len)))
+			goto Enamelen;
+		if (unlikely(((offs + rec_len - 1) ^ offs) & ~(chunk_size-1)))
+			goto Espan;
+		if (unlikely(le32_to_cpu(p->inode) > max_inumber))
+			goto Einumber;
+	}
+	if (offs != limit)
+		goto Eend;
+out:
+	SetPageChecked(page);
+	return true;
+
+	/* Too bad, we had an error */
+
+Ebadsize:
+	if (!quiet)
+		hashfs_error(sb, __func__,
+			"size of directory #%lu is not a multiple "
+			"of chunk size", dir->i_ino);
+	goto fail;
+Eshort:
+	error = "rec_len is smaller than minimal";
+	goto bad_entry;
+Ealign:
+	error = "unaligned directory entry";
+	goto bad_entry;
+Enamelen:
+	error = "rec_len is too small for name_len";
+	goto bad_entry;
+Espan:
+	error = "directory entry across blocks";
+	goto bad_entry;
+Einumber:
+	error = "inode out of bounds";
+bad_entry:
+	if (!quiet)
+		hashfs_error(sb, __func__, "bad entry in directory #%lu: : %s - "
+			"offset=%lu, inode=%lu, rec_len=%d, name_len=%d",
+			dir->i_ino, error, (page->index<<PAGE_SHIFT)+offs,
+			(unsigned long) le32_to_cpu(p->inode),
+			rec_len, p->name_len);
+	goto fail;
+Eend:
+	if (!quiet) {
+		p = (hashfs_dirent *)(kaddr + offs);
+		hashfs_error(sb, "hashfs_check_page",
+			"entry in directory #%lu spans the page boundary"
+			"offset=%lu, inode=%lu",
+			dir->i_ino, (page->index<<PAGE_SHIFT)+offs,
+			(unsigned long) le32_to_cpu(p->inode));
+	}
+fail:
+	SetPageError(page);
+	return false;
+}
+
+static struct page * hashfs_get_page(struct inode *dir, unsigned long n,
+				   int quiet)
+{
+	struct address_space *mapping = dir->i_mapping;
+	struct page *page = read_mapping_page(mapping, n, NULL);
+	if (!IS_ERR(page)) {
+		kmap(page);
+		if (unlikely(!PageChecked(page))) {
+			if (PageError(page) || !hashfs_check_page(page, quiet))
+				goto fail;
+		}
+	}
+	return page;
+
+fail:
+	hashfs_put_page(page);
+	return ERR_PTR(-EIO);
+}
+
+/*
+ * NOTE! unlike strncmp, hashfs_match returns 1 for success, 0 for failure.
+ *
+ * len <= HASHFS_NAME_LEN and de != NULL are guaranteed by caller.
+ */
+static inline int hashfs_match (int len, const char * const name,
+					struct hashfs_dir_entry_2 * de)
+{
+	if (len != de->name_len)
+		return 0;
+	if (!de->inode)
+		return 0;
+	return !memcmp(name, de->name, len);
+}
+
+/*
+ * p is at least 6 bytes before the end of page
+ */
+static inline hashfs_dirent *hashfs_next_entry(hashfs_dirent *p)
+{
+	return (hashfs_dirent *)((char *)p +
+			hashfs_rec_len_from_disk(p->rec_len));
+}
+
+static inline unsigned 
+hashfs_validate_entry(char *base, unsigned offset, unsigned mask)
+{
+	hashfs_dirent *de = (hashfs_dirent*)(base + offset);
+	hashfs_dirent *p = (hashfs_dirent*)(base + (offset&mask));
+	while ((char*)p < (char*)de) {
+		if (p->rec_len == 0)
+			break;
+		p = hashfs_next_entry(p);
+	}
+	return (char *)p - base;
+}
+
+static int
+hashfs_readdir(struct file *file, struct dir_context *ctx)
+{
+	loff_t pos = ctx->pos;
+	struct inode *inode = file_inode(file);
+	struct super_block *sb = inode->i_sb;
+	unsigned int offset = pos & ~PAGE_MASK;
+	unsigned long n = pos >> PAGE_SHIFT;
+	unsigned long npages = dir_pages(inode);
+	unsigned chunk_mask = ~(hashfs_chunk_size(inode)-1);
+	bool need_revalidate = !inode_eq_iversion(inode, file->f_version);
+
+	if (pos > inode->i_size - HASHFS_DIR_REC_LEN(1))
+		return 0;
 
 
+	for ( ; n < npages; n++, offset = 0) {
+		char *kaddr, *limit;
+		hashfs_dirent *de;
+		struct page *page = hashfs_get_page(inode, n, 0);
 
-///////                //////
+		if (IS_ERR(page)) {
+			hashfs_error(sb, __func__,
+				   "bad page in #%lu",
+				   inode->i_ino);
+			ctx->pos += PAGE_SIZE - offset;
+			return PTR_ERR(page);
+		}
+		kaddr = page_address(page);
+		if (unlikely(need_revalidate)) {
+			if (offset) {
+				offset = hashfs_validate_entry(kaddr, offset, chunk_mask);
+				ctx->pos = (n<<PAGE_SHIFT) + offset;
+			}
+			file->f_version = inode_query_iversion(inode);
+			need_revalidate = false;
+		}
+		de = (hashfs_dirent *)(kaddr+offset);
+		limit = kaddr + hashfs_last_byte(inode, n) - HASHFS_DIR_REC_LEN(1);
+		for ( ;(char*)de <= limit; de = hashfs_next_entry(de)) {
+			if (de->rec_len == 0) {
+				hashfs_error(sb, __func__,
+					"zero-length directory entry");
+				hashfs_put_page(page);
+				return -EIO;
+			}
+			if (de->inode) {
+				unsigned char d_type = DT_UNKNOWN;
 
+
+				if (!dir_emit(ctx, de->name, de->name_len,
+						le32_to_cpu(de->inode),
+						d_type)) {
+					hashfs_put_page(page);
+					return 0;
+				}
+			}
+			ctx->pos += hashfs_rec_len_from_disk(de->rec_len);
+		}
+		hashfs_put_page(page);
+	}
+	return 0;
+}
+
+/*
+ *	hashfs_find_entry()
+ *
+ * finds an entry in the specified directory with the wanted name. It
+ * returns the page in which the entry was found (as a parameter - res_page),
+ * and the entry itself. Page is returned mapped and unlocked.
+ * Entry is guaranteed to be valid.
+ */
+struct hashfs_dir_entry_2 *hashfs_find_entry (struct inode *dir,
+			const struct qstr *child, struct page **res_page)
+{
+	const char *name = child->name;
+	int namelen = child->len;
+	unsigned reclen = HASHFS_DIR_REC_LEN(namelen);
+	unsigned long start, n;
+	unsigned long npages = dir_pages(dir);
+	struct page *page = NULL;
+	struct ffs_inode_info *ei = FFS_I(dir);
+	hashfs_dirent * de;
+	int dir_has_error = 0;
+
+	if (npages == 0)
+		goto out;
+
+	/* OFFSET_CACHE */
+	*res_page = NULL;
+
+	start = ei->i_dir_start_lookup;
+	if (start >= npages)
+		start = 0;
+	n = start;
+	do {
+		char *kaddr;
+		page = hashfs_get_page(dir, n, dir_has_error);
+		if (!IS_ERR(page)) {
+			kaddr = page_address(page);
+			de = (hashfs_dirent *) kaddr;
+			kaddr += hashfs_last_byte(dir, n) - reclen;
+			while ((char *) de <= kaddr) {
+				if (de->rec_len == 0) {
+					hashfs_error(dir->i_sb, __func__,
+						"zero-length directory entry");
+					hashfs_put_page(page);
+					goto out;
+				}
+				if (hashfs_match (namelen, name, de))
+					goto found;
+				de = hashfs_next_entry(de);
+			}
+			hashfs_put_page(page);
+		} else
+			dir_has_error = 1;
+
+		if (++n >= npages)
+			n = 0;
+		/* next page is past the blocks we've got */
+		if (unlikely(n > (dir->i_blocks >> (PAGE_SHIFT - 9)))) {
+			hashfs_error(dir->i_sb, __func__,
+				"dir %lu size %lld exceeds block count %llu",
+				dir->i_ino, dir->i_size,
+				(unsigned long long)dir->i_blocks);
+			goto out;
+		}
+	} while (n != start);
+out:
+	return NULL;
+
+found:
+	*res_page = page;
+	ei->i_dir_start_lookup = n;
+	return de;
+}
+
+ino_t ffs_inode_by_name(struct inode *dir, const struct qstr *child)
+{
+	ino_t res = 0;
+	struct hashfs_dir_entry_2 *de;
+	struct page *page;
+	
+	de = hashfs_find_entry (dir, child, &page);
+	if (de) {
+		res = le32_to_cpu(de->inode);
+		hashfs_put_page(page);
+	}
+	return res;
+}
+
+static int hashfs_prepare_chunk(struct page *page, loff_t pos, unsigned len)
+{
+	return __block_write_begin(page, pos, len, ffs_get_block_prep);
+}
+
+/*
+ *	Parent is locked.
+ */
+int hashfs_add_link (struct dentry *dentry, struct inode *inode)
+{
+	struct inode *dir = d_inode(dentry->d_parent);
+	const char *name = dentry->d_name.name;
+	int namelen = dentry->d_name.len;
+	unsigned chunk_size = hashfs_chunk_size(dir);
+	unsigned reclen = HASHFS_DIR_REC_LEN(namelen);
+	unsigned short rec_len, name_len;
+	struct page *page = NULL;
+	hashfs_dirent * de;
+	unsigned long npages = dir_pages(dir);
+	unsigned long n;
+	char *kaddr;
+	loff_t pos;
+	int err;
+
+	/*
+	 * We take care of directory expansion in the same loop.
+	 * This code plays outside i_size, so it locks the page
+	 * to protect that region.
+	 */
+	for (n = 0; n <= npages; n++) {
+		char *dir_end;
+
+		page = hashfs_get_page(dir, n, 0);
+		err = PTR_ERR(page);
+		if (IS_ERR(page))
+			goto out;
+		lock_page(page);
+		kaddr = page_address(page);
+		dir_end = kaddr + hashfs_last_byte(dir, n);
+		de = (hashfs_dirent *)kaddr;
+		kaddr += PAGE_SIZE - reclen;
+		while ((char *)de <= kaddr) {
+			if ((char *)de == dir_end) {
+				/* We hit i_size */
+				name_len = 0;
+				rec_len = chunk_size;
+				de->rec_len = hashfs_rec_len_to_disk(chunk_size);
+				de->inode = 0;
+				goto got_it;
+			}
+			if (de->rec_len == 0) {
+				hashfs_error(dir->i_sb, __func__,
+					"zero-length directory entry");
+				err = -EIO;
+				goto out_unlock;
+			}
+			err = -EEXIST;
+			if (hashfs_match (namelen, name, de))
+				goto out_unlock;
+			name_len = HASHFS_DIR_REC_LEN(de->name_len);
+			rec_len = hashfs_rec_len_from_disk(de->rec_len);
+			if (!de->inode && rec_len >= reclen)
+				goto got_it;
+			if (rec_len >= name_len + reclen)
+				goto got_it;
+			de = (hashfs_dirent *) ((char *) de + rec_len);
+		}
+		unlock_page(page);
+		hashfs_put_page(page);
+	}
+	BUG();
+	return -EINVAL;
+
+got_it:
+	pos = page_offset(page) +
+		(char*)de - (char*)page_address(page);
+	err = hashfs_prepare_chunk(page, pos, rec_len);
+	if (err)
+		goto out_unlock;
+	if (de->inode) {
+		hashfs_dirent *de1 = (hashfs_dirent *) ((char *) de + name_len);
+		de1->rec_len = hashfs_rec_len_to_disk(rec_len - name_len);
+		de->rec_len = hashfs_rec_len_to_disk(name_len);
+		de = de1;
+	}
+	de->name_len = namelen;
+	memcpy(de->name, name, namelen);
+	de->inode = cpu_to_le32(inode->i_ino);
+	err = hashfs_commit_chunk(page, pos, rec_len);
+	dir->i_mtime = dir->i_ctime = current_time(dir);
+	dir->i_flags &= ~HASHFS_BTREE_FL;
+	mark_inode_dirty(dir);
+	/* OFFSET_CACHE */
+out_put:
+	hashfs_put_page(page);
+out:
+	return err;
+out_unlock:
+	unlock_page(page);
+	goto out_put;
+}
+
+/*
+ * hashfs_delete_entry deletes a directory entry by merging it with the
+ * previous entry. Page is up-to-date. Releases the page.
+ */
+int hashfs_delete_entry (struct hashfs_dir_entry_2 * dir, struct page * page )
+{
+	struct inode *inode = page->mapping->host;
+	char *kaddr = page_address(page);
+	unsigned from = ((char*)dir - kaddr) & ~(hashfs_chunk_size(inode)-1);
+	unsigned to = ((char *)dir - kaddr) +
+				hashfs_rec_len_from_disk(dir->rec_len);
+	loff_t pos;
+	hashfs_dirent * pde = NULL;
+	hashfs_dirent * de = (hashfs_dirent *) (kaddr + from);
+	int err;
+
+	while ((char*)de < (char*)dir) {
+		if (de->rec_len == 0) {
+			hashfs_error(inode->i_sb, __func__,
+				"zero-length directory entry");
+			err = -EIO;
+			goto out;
+		}
+		pde = de;
+		de = hashfs_next_entry(de);
+	}
+	if (pde)
+		from = (char*)pde - (char*)page_address(page);
+	pos = page_offset(page) + from;
+	lock_page(page);
+	err = hashfs_prepare_chunk(page, pos, to - from);
+	BUG_ON(err);
+	if (pde)
+		pde->rec_len = hashfs_rec_len_to_disk(to - from);
+	dir->inode = 0;
+	err = hashfs_commit_chunk(page, pos, to - from);
+	inode->i_ctime = inode->i_mtime = current_time(inode);
+	inode->i_flags &= ~HASHFS_BTREE_FL;
+	mark_inode_dirty(inode);
+out:
+	hashfs_put_page(page);
+	return err;
+}
+
+/*
+ * Set the first fragment of directory.
+ */
+int hashfs_make_empty(struct inode *inode, struct inode *parent)
+{
+	struct page *page = grab_cache_page(inode->i_mapping, 0);
+	unsigned chunk_size = hashfs_chunk_size(inode);
+	struct hashfs_dir_entry_2 * de;
+	int err;
+	void *kaddr;
+
+	if (!page)
+		return -ENOMEM;
+
+	err = hashfs_prepare_chunk(page, 0, chunk_size);
+	if (err) {
+		unlock_page(page);
+		goto fail;
+	}
+	kaddr = kmap_atomic(page);
+	memset(kaddr, 0, chunk_size);
+	de = (struct hashfs_dir_entry_2 *)kaddr;
+	de->name_len = 1;
+	de->rec_len = hashfs_rec_len_to_disk(HASHFS_DIR_REC_LEN(1));
+	memcpy (de->name, ".\0\0", 4);
+	de->inode = cpu_to_le32(inode->i_ino);
+
+	de = (struct hashfs_dir_entry_2 *)(kaddr + HASHFS_DIR_REC_LEN(1));
+	de->name_len = 2;
+	de->rec_len = hashfs_rec_len_to_disk(chunk_size - HASHFS_DIR_REC_LEN(1));
+	de->inode = cpu_to_le32(parent->i_ino);
+	memcpy (de->name, "..\0", 4);
+	kunmap_atomic(kaddr);
+	err = hashfs_commit_chunk(page, 0, chunk_size);
+fail:
+	put_page(page);
+	return err;
+}
+
+/*
+ * routine to check that the specified directory is empty (for rmdir)
+ */
+int hashfs_empty_dir (struct inode * inode)
+{
+	struct page *page = NULL;
+	unsigned long i, npages = dir_pages(inode);
+	int dir_has_error = 0;
+
+	for (i = 0; i < npages; i++) {
+		char *kaddr;
+		hashfs_dirent * de;
+		page = hashfs_get_page(inode, i, dir_has_error);
+
+		if (IS_ERR(page)) {
+			dir_has_error = 1;
+			continue;
+		}
+
+		kaddr = page_address(page);
+		de = (hashfs_dirent *)kaddr;
+		kaddr += hashfs_last_byte(inode, i) - HASHFS_DIR_REC_LEN(1);
+
+		while ((char *)de <= kaddr) {
+			if (de->rec_len == 0) {
+				hashfs_error(inode->i_sb, __func__,
+					"zero-length directory entry");
+				printk("kaddr=%p, de=%p\n", kaddr, de);
+				goto not_empty;
+			}
+			if (de->inode != 0) {
+				/* check for . and .. */
+				if (de->name[0] != '.')
+					goto not_empty;
+				if (de->name_len > 2)
+					goto not_empty;
+				if (de->name_len < 2) {
+					if (de->inode !=
+					    cpu_to_le32(inode->i_ino))
+						goto not_empty;
+				} else if (de->name[1] != '.')
+					goto not_empty;
+			}
+			de = hashfs_next_entry(de);
+		}
+		hashfs_put_page(page);
+	}
+	return 1;
+
+not_empty:
+	hashfs_put_page(page);
+	return 0;
+}
+
+struct file_operations ffs_dir_operations = {
+	.read			= generic_read_dir,
+	.iterate		= hashfs_readdir,
+	.iterate_shared = hashfs_readdir,
+};

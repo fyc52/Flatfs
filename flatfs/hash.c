@@ -99,3 +99,38 @@ set:
     brelse(bh);
 	return data_block;
 }
+
+
+void hashfs_remove_inode(struct inode *inode)
+{
+    struct super_block *sb = inode->i_sb;
+    sector_t iblock = 0;
+    sector_t tt_blocks = inode->i_blocks;
+    __u64 hash_key;
+    unsigned long value;
+    unsigned meta_block, meta_offset;
+    unsigned long data_block;
+    struct buffer_head * bh = NULL;
+    __u64 *meta_entry;
+
+linear_detection:
+    hash_key = (inode->i_ino<<32) | iblock;
+    value = BKDRHash(hash_key, ~(FFS_BLOCK_SIZE - 1));
+    meta_block = value >> (FFS_BLOCK_SIZE_BITS - hashfs_meta_size_bits);
+    meta_offset = (value << hashfs_meta_size_bits) & (FFS_BLOCK_SIZE - 1);
+    if (meta_offset == 0) {    
+        if(!bh) {
+            brelse(bh);
+            mark_buffer_dirty(bh); 
+        }
+        bh = sb_bread(sb, meta_block);
+    }
+
+    if (!bh || iblock >= tt_blocks) {
+        return;
+    }
+    meta_entry = (__u64 *)(bh->b_data + meta_offset);
+    *meta_entry = 0;
+    iblock++;   
+    goto linear_detection;
+}

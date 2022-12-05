@@ -35,7 +35,6 @@
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
-#include "lba.h"
 #endif
 
 
@@ -49,7 +48,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	//printk("pblk: %lld\n", pblk);
 
 	/* todo: if pblk is a new block or update */
-	if(iblock >= FFS_I(inode)->size) {
+	if(iblock >= inode->i_blocks) {
 		new = true;
 	}
 	/* todo: if pblk is out of field */
@@ -75,8 +74,8 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 
 	/* update ffs_inode size */
 	loff_t end = pos + len;
-	if (end >= FFS_I(mapping->host)->size) {
-		FFS_I(mapping->host)->size = end;
+	if (end >= mapping->host->i_blocks) {
+		mapping->host->i_blocks = end;
 	}
 	
 	return ret;
@@ -154,35 +153,4 @@ struct file_operations ffs_file_file_ops = {
 //	.mmap           = generic_file_mmap,
 	.fsync			= ffs_fsync,
 	.llseek         = generic_file_llseek,
-};
-
-static int ffs_readdir(struct file *file, struct dir_context *ctx){
-	//printk(KERN_INFO "flatfs read dir");
-	loff_t pos;/*文件的偏移*/
-	struct inode *ino = file_inode(file);
-	struct super_block *sb = ino->i_sb;
-	struct ffs_inode_info *dfi = FFS_I(ino);
-	struct flatfs_sb_info *ffs_sb = sb->s_fs_info;
-	unsigned long dir_ino = dfi->dir_id;
-
-	if(!ctx->pos)
-	{
-		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
-		if(dfi->is_big_dir) ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id2]->pos = 0;
-	}
-	read_dir_dirs(ffs_sb, dir_ino, ctx);
-	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
-	//printk("readdir, dfi->is_big_dir:%d, dfi->big_dir_id:%d\n", dfi->is_big_dir, dfi->big_dir_id);
-	if(dfi->is_big_dir) read_dir_files(ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id2], ino, dir_ino, ctx);
-	//printk("%d %d %d\n", ctx->pos, ffs_sb->hashtbl[dfi->dir_id]->pos, ffs_sb->big_dir_hashtbl[dfi->big_dir_id]->pos);
-
-	return 0;
-}
-
-struct file_operations ffs_dir_operations = {
-	.read			= generic_read_dir,
-	.iterate		= ffs_readdir,//ls
-	.iterate_shared = ffs_readdir,
-	//.fsync		= lightfs_fsync,
-	//.release		= lightfs_dir_release,
 };
