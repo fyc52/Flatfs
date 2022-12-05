@@ -160,10 +160,10 @@ static inline char * inode_to_name(struct inode * ino)
 
 
 /* hash.c */
-#define hashfs_data_start (1UL<<18)
-#define max_block_num (1UL<<25)
-#define hashfs_meta_size 8
-#define hashfs_meta_size_bits 3
+#define HASHFS_DATA_START (1UL<<18)
+#define MAX_BLOCK_NUM (1UL<<25)
+#define HASHFS_META_SIZE 8
+#define HASHFS_META_SIZE_BITS 3
 #define INVALID_LBA 0
 
 extern sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock);

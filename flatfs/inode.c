@@ -163,6 +163,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	inode_inc_link_count(dir);
 
 	inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, &dentry->d_name);
+	inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
 	err = PTR_ERR(inode);
 	if (IS_ERR(inode))
 		goto out_dir;

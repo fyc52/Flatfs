@@ -21,14 +21,14 @@ static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
 sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
 {
     __u64 hash_key = (ino<<32) | iblock;
-    unsigned long value = BKDRHash(hash_key, ~(FFS_BLOCK_SIZE - 1));
+    unsigned long value = BKDRHash(hash_key, ~(MAX_BLOCK_NUM - 1));
     unsigned meta_block, meta_offset;
     unsigned long data_block;
     struct buffer_head * bh = NULL;
     __u64 *meta_entry;
 
-    meta_block = value >> (FFS_BLOCK_SIZE_BITS - hashfs_meta_size_bits);
-    meta_offset = (value << hashfs_meta_size_bits) & (FFS_BLOCK_SIZE - 1);
+    meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
+    meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     bh = sb_bread(sb, meta_block);
 
 linear_detection:
@@ -40,8 +40,8 @@ linear_detection:
         goto got;
     }
     else {
-        value++;
-        meta_offset += hashfs_meta_size;
+        value = ((value >= MAX_BLOCK_NUM) ? 0 : (value + 1));
+        meta_offset += HASHFS_META_SIZE;
         if (meta_offset == PAGE_SIZE) {
             meta_offset = 0;
             meta_block++;
@@ -52,7 +52,7 @@ linear_detection:
     }   
 
 got:
-    data_block = hashfs_data_start + value;
+    data_block = HASHFS_DATA_START + value;
     brelse(bh);
 	return data_block;
 }
@@ -61,16 +61,17 @@ got:
 sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock)
 {
     struct super_block *sb = inode->i_sb;
-    __u64 hash_key = (inode->i_ino<<32)|iblock;
-    unsigned long value = BKDRHash(hash_key, ~(FFS_BLOCK_SIZE - 1));
+    __u64 hash_key = (inode->i_ino<<32) | iblock;
+    unsigned long value = BKDRHash(hash_key, ~(MAX_BLOCK_NUM - 1));
     unsigned meta_block, meta_offset;
     unsigned long data_block;
     struct buffer_head * bh = NULL;
     __u64 *meta_entry;
 
-    meta_block = value >> (FFS_BLOCK_SIZE_BITS - hashfs_meta_size_bits);
-    meta_offset = (value << hashfs_meta_size_bits) & (FFS_BLOCK_SIZE - 1);
+    meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
+    meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     bh = sb_bread(sb, meta_block);
+    printk("value = %ld\n", value);
 
 linear_detection:
     if (!bh) {
@@ -78,11 +79,12 @@ linear_detection:
     }
     meta_entry = (__u64 *)(bh->b_data + meta_offset);
     if (*meta_entry == 0) {
+        printk("set value = %ld\n", value);
         goto set;
     }
     else {
-        value++;
-        meta_offset += hashfs_meta_size;
+        value = ((value >= MAX_BLOCK_NUM) ? 0 : (value + 1));
+        meta_offset += HASHFS_META_SIZE;
         if (meta_offset == PAGE_SIZE) {
             meta_offset = 0;
             meta_block++;
@@ -94,7 +96,7 @@ linear_detection:
 
 set:
     *meta_entry = hash_key;
-    data_block = hashfs_data_start + value;
+    data_block = HASHFS_DATA_START + value;
     mark_buffer_dirty(bh);
     brelse(bh);
 	return data_block;
@@ -115,11 +117,11 @@ void hashfs_remove_inode(struct inode *inode)
 
 linear_detection:
     hash_key = (inode->i_ino<<32) | iblock;
-    value = BKDRHash(hash_key, ~(FFS_BLOCK_SIZE - 1));
-    meta_block = value >> (FFS_BLOCK_SIZE_BITS - hashfs_meta_size_bits);
-    meta_offset = (value << hashfs_meta_size_bits) & (FFS_BLOCK_SIZE - 1);
-    if (meta_offset == 0) {    
-        if(!bh) {
+    value = BKDRHash(hash_key, ~(MAX_BLOCK_NUM - 1));
+    meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
+    meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
+    if (meta_offset == 0 || !bh) {    
+        if(bh) {
             brelse(bh);
             mark_buffer_dirty(bh); 
         }

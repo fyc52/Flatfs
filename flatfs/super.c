@@ -147,7 +147,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	{
 		ei = FLAT_I(inode);
 		
-		pblk = hashfs_get_data_lba(sb, root_ino, 0);
+		pblk = hashfs_set_data_lba(inode, 0);
 		bh = sb_bread(sb, pblk >> FFS_BLOCK_SIZE_BITS);
 		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
 		// raw_inode = (struct ffs_inode *) (bh->b_data);
