@@ -13,11 +13,6 @@
 #include <linux/bitmap.h>
 #include <linux/types.h>
 
-#ifndef _TEST_H_
-#define _TEST_H_
-#include "cuckoo_hash.h"
-#endif
-
 /* trash */
 
 #define FLATFS_ROOT_INO 0x00000002UL
@@ -397,6 +392,8 @@ struct HashTable {
     enum dir_type dtype;
 };
 
+#define MAX_INODE_NUM (1U << 20)
+
 /* 
     ffs在内存superblock,
     一般会包含信息和数据结构，kevin的db就是在这里实现的
@@ -407,18 +404,25 @@ struct flatfs_sb_info
     struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
     struct HashTable *hashtbl[TT_DIR_NUM];
-};
-
-/* disk super block */ 
-struct dir_tree_meta
-{ 
-    /* fill vaild dir id */ 
-	int dir_parent[1 << MAX_DIR_BITS];
-    __u16 vaild_dir_num;
+    DECLARE_BITMAP(ino_bitmap, MAX_INODE_NUM);
 
 };
 
-extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
+static inline unsigned get_unused_ino(struct flatfs_sb_info *sbi) {
+
+    unsigned ino = find_first_zero_bit(sbi->ino_bitmap, MAX_INODE_NUM);
+    if(ino == MAX_INODE_NUM) {
+        return MAX_INODE_NUM;
+    }
+    bitmap_set(sbi->ino_bitmap, ino, 1);
+    return ino;
+}
+
+static inline void free_ino(struct flatfs_sb_info *sbi, unsigned ino) {
+    bitmap_clear(sbi->ino_bitmap, ino, 1);
+}
+
+
 ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child);
 
 
@@ -462,3 +466,35 @@ void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino);
 void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino);
 int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long ino, struct dir_context *ctx);
 unsigned resize_dir(struct flatfs_sb_info *sb_i, int dir_id);
+
+
+/* hash.c */
+#define hashfs_data_start (1UL<<18)
+#define max_block_num (1UL<<25)
+#define hashfs_meta_size 8
+#define hashfs_meta_size_bits 3
+#define INVALID_LBA 0
+
+extern sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock);
+extern sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock);
+
+
+/* dir.c */
+#define HASHFS_DIR_PAD		 	4
+#define HASHFS_DIR_ROUND 			(HASHFS_DIR_PAD - 1)
+#define HASHFS_DIR_REC_LEN(name_len)	(((name_len) + 8 + HASHFS_DIR_ROUND) & \
+					 ~HASHFS_DIR_ROUND)
+
+/*
+ * The new version of the directory entry.  Since HASHFS structures are
+ * stored in intel byte order, and the name_len field could never be
+ * bigger than 255 chars, it's safe to reclaim the extra byte for the
+ * file_type field.
+ */
+struct hashfs_dir_entry_2 {
+	__le32	inode;			/* Inode number */
+	__le16	rec_len;		/* Directory entry length */
+	__u8	name_len;		/* Name length */
+	__u8	file_type;
+	char	name[];			/* File name, up to HASHFS_NAME_LEN */
+};

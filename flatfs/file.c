@@ -44,8 +44,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
 	int ret = 0;
- 	sector_t pblk = ffs_get_data_lba(inode, iblock, FFS_I(inode)->is_big_dir);
-	pblk = pblk >> FFS_BLOCK_SIZE_BITS;
+ 	sector_t pblk = hashfs_get_data_lba(inode->i_sb, inode->i_ino, iblock + 1);
 	bool new = false, boundary = false;
 	//printk("pblk: %lld\n", pblk);
 

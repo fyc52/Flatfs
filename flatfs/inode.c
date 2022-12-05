@@ -15,7 +15,6 @@ extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
 extern struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev);
 struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_root);
-extern unsigned long calculate_slba(struct inode* dir, struct dentry* dentry);
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
 extern struct file_operations ffs_file_file_ops;

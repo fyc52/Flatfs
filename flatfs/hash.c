@@ -1,158 +1,101 @@
-#ifndef _TEST_H_
-#define _TEST_H_
-#include "hash.h"
-#endif
+#include <linux/buffer_head.h>
+#include "flatfs_d.h"
 
-#define NUMBER64_1 11400714785074694791ULL
-#define NUMBER64_2 14029467366897019727ULL
-#define NUMBER64_3 1609587929392839161ULL
-#define NUMBER64_4 9650029242287828579ULL
-#define NUMBER64_5 2870177450012600261ULL
-
-#define hash_get64bits(x) hash_read64_align(x, align)
-#define hash_get32bits(x) hash_read32_align(x, align)
-#define shifting_hash(x, r) ((x << r) | (x >> (64 - r)))
-#define TO64(x) (((U64_INT *)(x))->v)
-#define TO32(x) (((U32_INT *)(x))->v)
-
-typedef struct U64_INT
+// BKDR Hash Function
+static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
 {
-    unsigned long v;
-} U64_INT;
+	unsigned long seed = 131;
+	unsigned long hash = 0;
+    int count = 0;
+    char *str = (char *)&hash_key;
 
-typedef struct U32_INT
-{
-    unsigned int v;
-} U32_INT;
+	while (count < 8) {
+		hash = hash * seed + (*str++);
+        count ++;
+	}
 
-unsigned long hash_read64_align(const void *ptr, unsigned int align)
-{
-    if (align == 0)
-    {
-        return TO64(ptr);
-    }
-    return *(unsigned long *)ptr;
+	return (hash & mask);
 }
 
-unsigned int hash_read32_align(const void *ptr, unsigned int align)
+
+sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
 {
-    if (align == 0)
-    {
-        return TO32(ptr);
+    __u64 hash_key = (ino<<32) | iblock;
+    unsigned long value = BKDRHash(hash_key, ~(FFS_BLOCK_SIZE - 1));
+    unsigned meta_block, meta_offset;
+    unsigned long data_block;
+    struct buffer_head * bh = NULL;
+    __u64 *meta_entry;
+
+    meta_block = value >> (FFS_BLOCK_SIZE_BITS - hashfs_meta_size_bits);
+    meta_offset = (value << hashfs_meta_size_bits) & (FFS_BLOCK_SIZE - 1);
+    bh = sb_bread(sb, meta_block);
+
+linear_detection:
+    if (!bh) {
+        return INVALID_LBA;
     }
-    return *(unsigned int *)ptr;
+    meta_entry = (__u64 *)(bh->b_data + meta_offset);
+    if (*meta_entry == hash_key) {
+        goto got;
+    }
+    else {
+        value++;
+        meta_offset += hashfs_meta_size;
+        if (meta_offset == PAGE_SIZE) {
+            meta_offset = 0;
+            meta_block++;
+            brelse(bh);
+            bh = sb_bread(sb, meta_block);
+        }
+        goto linear_detection;
+    }   
+
+got:
+    data_block = hashfs_data_start + value;
+    brelse(bh);
+	return data_block;
 }
 
-/*
-Function: string_key_hash_computation() 
-        A hash function for string keys
-*/
-unsigned long string_key_hash_computation(const void *data, unsigned long length, unsigned long seed, unsigned int align)
+
+sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock)
 {
-    const unsigned char *p = (const unsigned char *)data;
-    const unsigned char *end = p + length;
-    unsigned long hash;
+    struct super_block *sb = inode->i_sb;
+    __u64 hash_key = (inode->i_ino<<32)|iblock;
+    unsigned long value = BKDRHash(hash_key, ~(FFS_BLOCK_SIZE - 1));
+    unsigned meta_block, meta_offset;
+    unsigned long data_block;
+    struct buffer_head * bh = NULL;
+    __u64 *meta_entry;
 
-    if (length >= 32)
-    {
-        const unsigned char *const limitation = end - 32;
-        unsigned long v1 = seed + NUMBER64_1 + NUMBER64_2;
-        unsigned long v2 = seed + NUMBER64_2;
-        unsigned long v3 = seed + 0;
-        unsigned long v4 = seed - NUMBER64_1;
+    meta_block = value >> (FFS_BLOCK_SIZE_BITS - hashfs_meta_size_bits);
+    meta_offset = (value << hashfs_meta_size_bits) & (FFS_BLOCK_SIZE - 1);
+    bh = sb_bread(sb, meta_block);
 
-        do
-        {
-            v1 += hash_get64bits(p) * NUMBER64_2;
-            p += 8;
-            v1 = shifting_hash(v1, 31);
-            v1 *= NUMBER64_1;
-            v2 += hash_get64bits(p) * NUMBER64_2;
-            p += 8;
-            v2 = shifting_hash(v2, 31);
-            v2 *= NUMBER64_1;
-            v3 += hash_get64bits(p) * NUMBER64_2;
-            p += 8;
-            v3 = shifting_hash(v3, 31);
-            v3 *= NUMBER64_1;
-            v4 += hash_get64bits(p) * NUMBER64_2;
-            p += 8;
-            v4 = shifting_hash(v4, 31);
-            v4 *= NUMBER64_1;
-        } while (p <= limitation);
-
-        hash = shifting_hash(v1, 1) + shifting_hash(v2, 7) + shifting_hash(v3, 12) + shifting_hash(v4, 18);
-
-        v1 *= NUMBER64_2;
-        v1 = shifting_hash(v1, 31);
-        v1 *= NUMBER64_1;
-        hash ^= v1;
-        hash = hash * NUMBER64_1 + NUMBER64_4;
-
-        v2 *= NUMBER64_2;
-        v2 = shifting_hash(v2, 31);
-        v2 *= NUMBER64_1;
-        hash ^= v2;
-        hash = hash * NUMBER64_1 + NUMBER64_4;
-
-        v3 *= NUMBER64_2;
-        v3 = shifting_hash(v3, 31);
-        v3 *= NUMBER64_1;
-        hash ^= v3;
-        hash = hash * NUMBER64_1 + NUMBER64_4;
-
-        v4 *= NUMBER64_2;
-        v4 = shifting_hash(v4, 31);
-        v4 *= NUMBER64_1;
-        hash ^= v4;
-        hash = hash * NUMBER64_1 + NUMBER64_4;
+linear_detection:
+    if (!bh) {
+        return INVALID_LBA;
     }
-    else
-    {
-        hash = seed + NUMBER64_5;
+    meta_entry = (__u64 *)(bh->b_data + meta_offset);
+    if (*meta_entry == 0) {
+        goto set;
     }
+    else {
+        value++;
+        meta_offset += hashfs_meta_size;
+        if (meta_offset == PAGE_SIZE) {
+            meta_offset = 0;
+            meta_block++;
+            brelse(bh);
+            bh = sb_bread(sb, meta_block);
+        }
+        goto linear_detection;
+    }   
 
-    hash += (unsigned long)length;
-
-    while (p + 8 <= end)
-    {
-        unsigned long k1 = hash_get64bits(p);
-        k1 *= NUMBER64_2;
-        k1 = shifting_hash(k1, 31);
-        k1 *= NUMBER64_1;
-        hash ^= k1;
-        hash = shifting_hash(hash, 27) * NUMBER64_1 + NUMBER64_4;
-        p += 8;
-    }
-
-    if (p + 4 <= end)
-    {
-        hash ^= (unsigned long)(hash_get32bits(p)) * NUMBER64_1;
-        hash = shifting_hash(hash, 23) * NUMBER64_2 + NUMBER64_3;
-        p += 4;
-    }
-
-    while (p < end)
-    {
-        hash ^= (*p) * NUMBER64_5;
-        hash = shifting_hash(hash, 11) * NUMBER64_1;
-        p++;
-    }
-
-    hash ^= hash >> 33;
-    hash *= NUMBER64_2;
-    hash ^= hash >> 29;
-    hash *= NUMBER64_3;
-    hash ^= hash >> 32;
-
-    return hash;
-}
-
-unsigned long hash(const void *data, unsigned long length, unsigned long seed)
-{
-    if ((((unsigned long)data) & 7) == 0)
-    {
-        return string_key_hash_computation(data, length, seed, 1);
-    }
-    return string_key_hash_computation(data, length, seed, 0);
+set:
+    *meta_entry = hash_key;
+    data_block = hashfs_data_start + value;
+    mark_buffer_dirty(bh);
+    brelse(bh);
+	return data_block;
 }
