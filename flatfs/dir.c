@@ -647,6 +647,18 @@ not_empty:
 	return 0;
 }
 
+int hashfs_add_nondir(struct dentry *dentry, struct inode *inode)
+{
+	int err = hashfs_add_link(dentry, inode);
+	if (!err) {
+		d_instantiate_new(dentry, inode);
+		return 0;
+	}
+	inode_dec_link_count(inode);
+	discard_new_inode(inode);
+	return err;
+}
+
 struct file_operations ffs_dir_operations = {
 	.read			= generic_read_dir,
 	.iterate		= hashfs_readdir,

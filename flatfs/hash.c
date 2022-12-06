@@ -14,6 +14,7 @@ static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
         count ++;
 	}
 
+    printk("key: %lx, hash: %lx\n", hash_key, (hash & mask));
 	return (hash & mask);
 }
 
@@ -21,7 +22,7 @@ static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
 sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
 {
     __u64 hash_key = (ino<<32) | iblock;
-    unsigned long value = BKDRHash(hash_key, ~(MAX_BLOCK_NUM - 1));
+    unsigned long value = BKDRHash(hash_key, (MAX_BLOCK_NUM - 1));
     unsigned meta_block, meta_offset;
     unsigned long data_block;
     struct buffer_head * bh = NULL;
@@ -62,7 +63,7 @@ sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock)
 {
     struct super_block *sb = inode->i_sb;
     __u64 hash_key = (inode->i_ino<<32) | iblock;
-    unsigned long value = BKDRHash(hash_key, ~(MAX_BLOCK_NUM - 1));
+    unsigned long value = BKDRHash(hash_key, (MAX_BLOCK_NUM - 1));
     unsigned meta_block, meta_offset;
     unsigned long data_block;
     struct buffer_head * bh = NULL;
@@ -117,7 +118,7 @@ void hashfs_remove_inode(struct inode *inode)
 
 linear_detection:
     hash_key = (inode->i_ino<<32) | iblock;
-    value = BKDRHash(hash_key, ~(MAX_BLOCK_NUM - 1));
+    value = BKDRHash(hash_key, (MAX_BLOCK_NUM - 1));
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     if (meta_offset == 0 || !bh) {    
@@ -128,7 +129,7 @@ linear_detection:
         bh = sb_bread(sb, meta_block);
     }
 
-    if (!bh || iblock >= tt_blocks) {
+    if (!bh || iblock > tt_blocks) {
         return;
     }
     meta_entry = (__u64 *)(bh->b_data + meta_offset);

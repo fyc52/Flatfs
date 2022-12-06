@@ -132,22 +132,21 @@ ffs_lookup(struct inode * dir, struct dentry *dentry, unsigned int flags)
 static int
 ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 {
-	struct inode * inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, dev);//分配VFS inode
-	int error = -ENOSPC;
-	struct flatfs_sb_info *sbi = dir->i_sb->s_fs_info; 
-	// int mknod_is_dir = mode & S_IFDIR;
+	struct inode * inode;
+	int err;
 
-	inode->i_ino = get_unused_ino(sbi);
+	err = dquot_initialize(dir);
+	if (err)
+		return err;
 
-	//printk(KERN_INFO "flatfs: mknod ino=%lu\n",inode->i_ino);
-	if (inode) {
-		insert_inode_locked(inode);//将inode添加到inode hash表中，并标记为I_NEW
-		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
-		if(inode) unlock_new_inode(inode);
-		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
-		return 0;
+	inode = flatfs_new_inode (dir->i_sb, mode, &dentry->d_name);
+	err = PTR_ERR(inode);
+	if (!IS_ERR(inode)) {
+		init_special_inode(inode, inode->i_mode, dev);
+		mark_inode_dirty(inode);
+		err = hashfs_add_nondir(dentry, inode);
 	}
-	return error;
+	return err;
 }
 
 
@@ -163,7 +162,6 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	inode_inc_link_count(dir);
 
 	inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, &dentry->d_name);
-	inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
 	err = PTR_ERR(inode);
 	if (IS_ERR(inode))
 		goto out_dir;
@@ -236,16 +234,12 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 
 static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
-	//printk(KERN_INFO "flatfs create");
+	printk(KERN_INFO "flatfs create\n");
 	// printk(KERN_ALERT "--------------[create] dump_stack start----------------");
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");
 	int err;
 	err = ffs_mknod(dir, dentry, mode | S_IFREG, 0);
-	if(err == -1)
-	{
-		printk("Create failed, hash crash!");
-	}
 	return err;
 }
 

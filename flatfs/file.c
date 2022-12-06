@@ -43,14 +43,17 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
 	int ret = 0;
- 	sector_t pblk = hashfs_get_data_lba(inode->i_sb, inode->i_ino, iblock + 1);
+ 	sector_t pblk;
 	bool new = false, boundary = false;
-	//printk("pblk: %lld\n", pblk);
 
-	/* todo: if pblk is a new block or update */
 	if(iblock >= inode->i_blocks) {
 		new = true;
+		pblk = hashfs_set_data_lba(inode, iblock + 1);
 	}
+	else {
+		pblk = hashfs_get_data_lba(inode->i_sb, inode->i_ino, iblock + 1);
+	}
+
 	/* todo: if pblk is out of field */
 
 	map_bh(bh, inode->i_sb, pblk);//核心
@@ -73,10 +76,10 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
 
 	/* update ffs_inode size */
-	loff_t end = pos + len;
-	if (end >= mapping->host->i_blocks) {
-		mapping->host->i_blocks = end;
-	}
+	// loff_t end = pos + len;
+	// if (end >= mapping->host->i_blocks) {
+	// 	mapping->host->i_blocks = end;
+	// }
 	
 	return ret;
 }

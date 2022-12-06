@@ -75,6 +75,7 @@ static void flatfs_put_super(struct super_block *sb)
 
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
+	printk("ffs_dirty_inode\n");
 	struct buffer_head *ibh = NULL;
 	struct super_block *sb = inode->i_sb;
 	struct ffs_inode* raw_inode;
@@ -84,8 +85,10 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct block_device *bdev = sb->s_bdev;
 	struct ffs_inode_page *raw_inode_page;
 
-	pblk = hashfs_get_data_lba(sb, inode->i_ino, 0) >> FFS_BLOCK_SIZE_BITS;
+	pblk = hashfs_get_data_lba(sb, inode->i_ino, 0);
+	printk("ffs_dirty_inode, pblk = %lld\n", pblk);
 	ibh = sb_bread(sb, pblk);
+	// wait_on_buffer(ibh);
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return -ENOMEM;
@@ -148,7 +151,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 		ei = FLAT_I(inode);
 		
 		pblk = hashfs_set_data_lba(inode, 0);
-		bh = sb_bread(sb, pblk >> FFS_BLOCK_SIZE_BITS);
+		bh = sb_bread(sb, pblk);
 		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
 		// raw_inode = (struct ffs_inode *) (bh->b_data);
 		
@@ -205,7 +208,7 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
 		inode->i_size = 0;													//文件的大小（byte）
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
-		//printk(KERN_INFO "about to set inode ops\n");
+		printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
 		// inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
 		switch (mode & S_IFMT)
@@ -214,7 +217,7 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 			init_special_inode(inode, mode, dev); //为字符设备或者块设备文件创建一个Inode（在文件系统层）.
 			break;
 		case S_IFREG: /* regular 普通文件*/
-			//printk(KERN_INFO "file inode\n");
+			printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
 			inode->i_mapping->a_ops = &ffs_aops;
@@ -231,6 +234,9 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 			// inode_nohighmem(inode);
 			// break;
 		}
+		inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
+		hashfs_set_data_lba(inode, 0);
+		mark_inode_dirty(inode);
 	}
 	
 	return inode;

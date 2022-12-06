@@ -160,10 +160,12 @@ static inline char * inode_to_name(struct inode * ino)
 
 
 /* hash.c */
-#define HASHFS_DATA_START (1UL<<18)
-#define MAX_BLOCK_NUM (1UL<<25)
-#define HASHFS_META_SIZE 8
+#define MAX_BLOCK_NUM_BITS 24
 #define HASHFS_META_SIZE_BITS 3
+
+#define HASHFS_DATA_START (1UL << (HASHFS_META_SIZE_BITS + MAX_BLOCK_NUM_BITS - FFS_BLOCK_SIZE_BITS))
+#define MAX_BLOCK_NUM (1UL << MAX_BLOCK_NUM_BITS)
+#define HASHFS_META_SIZE (1UL << HASHFS_META_SIZE_BITS)
 #define INVALID_LBA 0
 
 extern sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock);
@@ -210,6 +212,7 @@ struct hashfs_dir_entry_2 {
 extern ino_t ffs_inode_by_name(struct inode *dir, const struct qstr *child);
 extern int hashfs_make_empty(struct inode *inode, struct inode *parent);
 extern int hashfs_add_link (struct dentry *dentry, struct inode *inode);
+extern int hashfs_add_nondir(struct dentry *dentry, struct inode *inode);
 extern int hashfs_empty_dir (struct inode * inode);
 
 /* file.c */
