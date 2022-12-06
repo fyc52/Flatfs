@@ -112,7 +112,6 @@ void hashfs_remove_inode(struct inode *inode)
     __u64 hash_key;
     unsigned long value;
     unsigned meta_block, meta_offset;
-    unsigned long data_block;
     struct buffer_head * bh = NULL;
     __u64 *meta_entry;
 
@@ -123,17 +122,18 @@ linear_detection:
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     if (meta_offset == 0 || !bh) {    
         if(bh) {
-            brelse(bh);
             mark_buffer_dirty(bh); 
+            brelse(bh);
+            printk("bh brelse ok\n");
         }
         bh = sb_bread(sb, meta_block);
     }
-
+    printk("ttblocks: %ld\n", tt_blocks);
+    iblock++; 
     if (!bh || iblock > tt_blocks) {
         return;
     }
     meta_entry = (__u64 *)(bh->b_data + meta_offset);
     *meta_entry = 0;
-    iblock++;   
     goto linear_detection;
 }

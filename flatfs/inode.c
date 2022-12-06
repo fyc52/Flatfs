@@ -205,7 +205,6 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	fi->filename.name_len = 0;
 	inode->i_ctime = dir->i_ctime;
 
-	mark_inode_dirty(inode);
 	inode_dec_link_count(inode);
 	if (inode->i_nlink == 0) {
 		free_ino(FFS_SB(inode->i_sb), inode->i_ino);
