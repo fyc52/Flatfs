@@ -194,23 +194,31 @@ out_dir:
 
 static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 {
-	struct inode *inode = dentry->d_inode;
-	struct ffs_inode_info* fi = FFS_I(inode);
-	int start;
+	struct inode * inode = d_inode(dentry);
+	struct hashfs_dir_entry_2 * de;
+	struct page * page;
+	int err;
 
-	hashfs_remove_inode(inode);
-	for(start = 0; start < fi->filename.name_len; start ++) {
-		fi->filename.name[start] = 0;
+	err = dquot_initialize(dir);
+	if (err)
+		goto out;
+
+	de = hashfs_find_entry (dir, &dentry->d_name, &page);
+	if (!de) {
+		err = -ENOENT;
+		goto out;
 	}
-	fi->filename.name_len = 0;
+
+	/* 处理目录项文件 */
+	err = hashfs_delete_entry (de, page);
+	if (err)
+		goto out;
+
 	inode->i_ctime = dir->i_ctime;
-
 	inode_dec_link_count(inode);
-	if (inode->i_nlink == 0) {
-		free_ino(FFS_SB(inode->i_sb), inode->i_ino);
-	}
-
-	return 0;
+	err = 0;
+out:
+	return err;
 }
 
 static int ffs_rmdir(struct inode *dir, struct dentry *dentry)

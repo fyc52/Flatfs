@@ -214,6 +214,9 @@ extern int hashfs_make_empty(struct inode *inode, struct inode *parent);
 extern int hashfs_add_link (struct dentry *dentry, struct inode *inode);
 extern int hashfs_add_nondir(struct dentry *dentry, struct inode *inode);
 extern int hashfs_empty_dir (struct inode * inode);
+extern int hashfs_delete_entry (struct hashfs_dir_entry_2 * dir, struct page * page);
+extern struct hashfs_dir_entry_2 *hashfs_find_entry (struct inode *dir,
+			const struct qstr *child, struct page **res_page);
 
 /* file.c */
 extern int ffs_get_block_prep(struct inode *inode, sector_t iblock, struct buffer_head *bh, int create);
