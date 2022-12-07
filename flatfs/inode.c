@@ -12,7 +12,7 @@
 
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
-extern struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev);
+extern struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, char * filename);
 struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_root);
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
@@ -136,14 +136,16 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct inode * inode;
 	int err;
 
-	err = dquot_initialize(dir);
-	if (err)
-		return err;
+	//err = dquot_initialize(dir);
+	//if (err)
+		//return err;
 
-	inode = flatfs_new_inode (dir->i_sb, mode, &dentry->d_name);
+	inode = flatfs_new_inode (dir->i_sb, mode, dev, dentry->d_name.name);
 	err = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
-		// init_special_inode(inode, inode->i_mode, dev);
+		//init_special_inode(inode, inode->i_mode, dev);
+		//printk("mknod before mark inode dirty\n");
+		insert_inode_locked(inode);
 		mark_inode_dirty(inode);
 		err = hashfs_add_nondir(dentry, inode);
 	}
@@ -162,7 +164,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 
 	inode_inc_link_count(dir);
 
-	inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, &dentry->d_name);
+	inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, 0, dentry->d_name.name);
 	err = PTR_ERR(inode);
 	if (IS_ERR(inode))
 		goto out_dir;
@@ -177,7 +179,8 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	err = hashfs_add_link(dentry, inode);
 	if (err)
 		goto out_fail;
-
+		
+	insert_inode_locked(inode);
 	/* 对目录项建立dentry快速缓存 */
 	d_instantiate_new(dentry, inode);
 out:
@@ -247,6 +250,7 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bo
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");
 	int err;
+	//printk("dentry->name:%s\n", dentry->d_name.name);
 	err = ffs_mknod(dir, dentry, mode | S_IFREG, 0);
 	return err;
 }

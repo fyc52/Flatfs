@@ -72,6 +72,7 @@ struct ffs_inode_info   // 内存文件系统特化inode
     unsigned long i_flags;
     struct ffs_name filename;
     __u32	i_dir_start_lookup; 
+	__u32 i_version;
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 };
 
@@ -100,8 +101,8 @@ static inline struct ffs_inode_info *FFS_I(struct inode *inode)
 */
 struct flatfs_sb_info
 {
-	struct dir_entry *root;
-    struct dir_tree  *dtree_root;
+	// struct dir_entry *root;
+    // struct dir_tree  *dtree_root;
     char   name[MAX_FILE_TYPE_NAME];
     DECLARE_BITMAP(ino_bitmap, MAX_INODE_NUM);
 };

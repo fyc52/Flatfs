@@ -86,7 +86,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_page *raw_inode_page;
 
 	pblk = hashfs_get_data_lba(sb, inode->i_ino, 0);
-	//printk("ffs_dirty_inode, pblk = %lld\n", pblk);
+	//printk("ffs_dirty_inode, pblk = %lld, filename = %s\n", pblk, fi->filename.name);
 	ibh = sb_bread(sb, pblk);
 	// wait_on_buffer(ibh);
  	if (unlikely(!ibh)){
@@ -149,7 +149,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	
 	if (inode)
 	{
-		ei = FLAT_I(inode);
+		ei = FFS_I(inode);
 		
 		pblk = hashfs_set_data_lba(inode, 0);
 		bh = sb_bread(sb, pblk);
@@ -196,10 +196,11 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	return inode;
 }
 
-struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int is_root)
+struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, char * filename)
 {
 	struct inode *inode;
 	inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
+	struct ffs_inode_info * fi;
 	
 	if (inode)
 	{
@@ -208,6 +209,7 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 		inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
 		inode->i_size = 0;													//文件的大小（byte）
+		inode->i_blocks = 0;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
 		//printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
@@ -236,6 +238,11 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 			// break;
 		}
 		inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
+		fi = FFS_I(inode);
+		strcpy(fi->filename.name, filename);
+		fi->filename.name_len = my_strlen(filename);
+		//printk("new inode：%s\n", fi->filename.name);
+		//inode->i_state &= I_NEW;
 		hashfs_set_data_lba(inode, 0);
 		mark_inode_dirty(inode);
 	}
@@ -415,4 +422,4 @@ static void __exit exit_flatfs_fs(void)
 
 module_init(init_flatfs_fs); //宏：模块加载, 调用init_flatfs_fs
 module_exit(exit_flatfs_fs);
-MODULE_LICENSE("GPL");
+ MODULE_LICENSE ("GPL v2"); 

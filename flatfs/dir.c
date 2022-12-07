@@ -651,9 +651,11 @@ int hashfs_add_nondir(struct dentry *dentry, struct inode *inode)
 {
 	int err = hashfs_add_link(dentry, inode);
 	if (!err) {
+		//printk("add dentry\n");
 		d_instantiate_new(dentry, inode);
 		return 0;
 	}
+	printk("add dentry error\n");
 	inode_dec_link_count(inode);
 	discard_new_inode(inode);
 	return err;
