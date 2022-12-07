@@ -269,7 +269,7 @@ hashfs_readdir(struct file *file, struct dir_context *ctx)
 	if (pos > inode->i_size - HASHFS_DIR_REC_LEN(1))
 		return 0;
 
-	printk("readdir: %lu\n", npages);
+	//printk("readdir: %lu\n", npages);
 
 	for ( ; n < npages; n++, offset = 0) {
 		char *kaddr, *limit;
@@ -309,7 +309,7 @@ hashfs_readdir(struct file *file, struct dir_context *ctx)
 						le32_to_cpu(de->inode),
 						d_type)) {
 					hashfs_put_page(page);
-					printk("de->name: %s\n", de->name);
+					//printk("de->name: %s\n", de->name);
 					return 0;
 				}
 			}
@@ -494,7 +494,7 @@ got_it:
 	}
 	de->name_len = namelen;
 	memcpy(de->name, name, namelen);
-	printk("mkdir: %s, %d\n", de->name, de->name_len);
+	//printk("mkdir: %s, %d\n", de->name, de->name_len);
 	de->inode = cpu_to_le32(inode->i_ino);
 	err = hashfs_commit_chunk(page, pos, rec_len);
 	dir->i_mtime = dir->i_ctime = current_time(dir);

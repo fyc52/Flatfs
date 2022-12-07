@@ -46,9 +46,10 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
  	sector_t pblk;
 	bool new = false, boundary = false;
 
-	if(iblock >= inode->i_blocks) {
+	if(iblock >= (inode->i_blocks >> (FFS_BLOCK_SIZE_BITS - 9))) {
 		new = true;
 		pblk = hashfs_set_data_lba(inode, iblock + 1);
+		inode->i_blocks = iblock << (FFS_BLOCK_SIZE_BITS - 9);
 	}
 	else {
 		pblk = hashfs_get_data_lba(inode->i_sb, inode->i_ino, iblock + 1);

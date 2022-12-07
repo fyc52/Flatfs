@@ -79,7 +79,8 @@ struct inode *hashfs_iget (struct super_block *sb, struct inode * dir, unsigned 
 	}
 
 	// 用盘内inode赋值inode操作
-	inode->i_size = raw_inode->i_size;											
+	inode->i_size = raw_inode->i_size;	
+	inode->i_blocks = raw_inode->i_blocks;										
 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 	// inode->i_uid  = (uid_t) le16_to_cpu(raw_inode->i_uid);
 	// inode->i_gid  = (gid_t) le16_to_cpu(raw_inode->i_gid);
@@ -142,7 +143,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	inode = flatfs_new_inode (dir->i_sb, mode, &dentry->d_name);
 	err = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
-		init_special_inode(inode, inode->i_mode, dev);
+		// init_special_inode(inode, inode->i_mode, dev);
 		mark_inode_dirty(inode);
 		err = hashfs_add_nondir(dentry, inode);
 	}
@@ -241,7 +242,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 
 static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
-	printk(KERN_INFO "flatfs create\n");
+	//printk(KERN_INFO "flatfs create\n");
 	// printk(KERN_ALERT "--------------[create] dump_stack start----------------");
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");

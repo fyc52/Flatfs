@@ -75,7 +75,7 @@ static void flatfs_put_super(struct super_block *sb)
 
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
-	printk("ffs_dirty_inode\n");
+	//printk("ffs_dirty_inode\n");
 	struct buffer_head *ibh = NULL;
 	struct super_block *sb = inode->i_sb;
 	struct ffs_inode* raw_inode;
@@ -86,7 +86,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode_page *raw_inode_page;
 
 	pblk = hashfs_get_data_lba(sb, inode->i_ino, 0);
-	printk("ffs_dirty_inode, pblk = %lld\n", pblk);
+	//printk("ffs_dirty_inode, pblk = %lld\n", pblk);
 	ibh = sb_bread(sb, pblk);
 	// wait_on_buffer(ibh);
  	if (unlikely(!ibh)){
@@ -103,6 +103,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	}
 	raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	raw_inode->i_size = inode->i_size;
+	raw_inode->i_blocks = inode->i_blocks;
 	raw_inode->filename.name_len = fi->filename.name_len;
 	memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
 
@@ -208,7 +209,7 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 		inode->i_gid = current_fsgid();											/* Low 16 bits of Group Id */
 		inode->i_size = 0;													//文件的大小（byte）
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode); //访问、修改、发生改变的时间
-		printk(KERN_INFO "about to set inode ops\n");
+		//printk(KERN_INFO "about to set inode ops\n");
 		inode->i_mapping->a_ops = &ffs_aops; // page cache操作
 		// inode->i_mapping->backing_dev_info = &ffs_backing_dev_info;
 		switch (mode & S_IFMT)
@@ -217,7 +218,7 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, int 
 			init_special_inode(inode, mode, dev); //为字符设备或者块设备文件创建一个Inode（在文件系统层）.
 			break;
 		case S_IFREG: /* regular 普通文件*/
-			printk(KERN_INFO "file inode\n");
+			//printk(KERN_INFO "file inode\n");
 			inode->i_op = &ffs_file_inode_ops;
 			inode->i_fop = &ffs_file_file_ops;
 			inode->i_mapping->a_ops = &ffs_aops;
