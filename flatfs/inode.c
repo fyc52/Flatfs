@@ -12,7 +12,7 @@
 
 extern struct dentry_operations ffs_dentry_ops;
 extern struct dentry_operations ffs_ci_dentry_ops;
-extern struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, char * filename);
+extern struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev);
 struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_root);
 extern struct inode_operations ffs_dir_inode_ops;
 extern struct inode_operations ffs_file_inode_ops;
@@ -140,7 +140,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	//if (err)
 		//return err;
 
-	inode = flatfs_new_inode (dir->i_sb, mode, dev, dentry->d_name.name);
+	inode = flatfs_new_inode (dir->i_sb, mode, dev);
 	err = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
 		//init_special_inode(inode, inode->i_mode, dev);
@@ -149,6 +149,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		mark_inode_dirty(inode);
 		err = hashfs_add_nondir(dentry, inode);
 	}
+	//if(inode) unlock_new_inode(inode);
 	return err;
 }
 
@@ -164,7 +165,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 
 	inode_inc_link_count(dir);
 
-	inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, 0, dentry->d_name.name);
+	inode = flatfs_new_inode(dir->i_sb, S_IFDIR | mode, 0);
 	err = PTR_ERR(inode);
 	if (IS_ERR(inode))
 		goto out_dir;
@@ -183,6 +184,7 @@ static int ffs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 	insert_inode_locked(inode);
 	/* 对目录项建立dentry快速缓存 */
 	d_instantiate_new(dentry, inode);
+	//if(inode) unlock_new_inode(inode);
 out:
 	return err;
 

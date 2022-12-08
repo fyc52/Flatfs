@@ -104,8 +104,8 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	raw_inode->i_size = inode->i_size;
 	raw_inode->i_blocks = inode->i_blocks;
-	raw_inode->filename.name_len = fi->filename.name_len;
-	memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
+	// raw_inode->filename.name_len = fi->filename.name_len;
+	// memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
 
 out:
 	if (!buffer_uptodate(ibh))
@@ -196,11 +196,10 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	return inode;
 }
 
-struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, char * filename)
+struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev)
 {
 	struct inode *inode;
 	inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
-	struct ffs_inode_info * fi;
 	
 	if (inode)
 	{
@@ -238,10 +237,6 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev, char
 			// break;
 		}
 		inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
-		fi = FFS_I(inode);
-		strcpy(fi->filename.name, filename);
-		fi->filename.name_len = my_strlen(filename);
-		//printk("new inode：%s\n", fi->filename.name);
 		//inode->i_state &= I_NEW;
 		hashfs_set_data_lba(inode, 0);
 		mark_inode_dirty(inode);
