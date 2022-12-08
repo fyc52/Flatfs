@@ -4,7 +4,6 @@
 #include <linux/buffer_head.h>
 #include <linux/blk_types.h>
 #include <linux/namei.h>
-#include <linux/delay.h> 
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -252,7 +251,6 @@ re_mknod:
 			if(ffs_ino.ino == INVALID_INO) 
 			{
 				printk("mknod, hash crash\n");
-				mdelay(100000);
 				dfi->dir_id2 = resize_dir(ffs_sb, dir_id);
 				if (dfi->dir_id2 == INVALID_DIR_ID) {
 					return -1;
