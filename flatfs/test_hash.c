@@ -12,7 +12,7 @@
 #include "hash.h"
 #endif
 
-#define file_num 1000000 + 10
+#define file_num 4000000 + 10
 #define MIN_FILE_BUCKET_BITS 21
 
 
@@ -49,9 +49,10 @@ int main()
         unsigned int hashcode = BKDRHash(filename);
 	    unsigned long bucket_id = (unsigned long)hashcode & ((1LU << (MIN_FILE_BUCKET_BITS)) - 1LU);
         ht.valid_slot_count[bucket_id] ++;
-        //printf("%s\n", filename);
+        if(ht.valid_slot_count[bucket_id] == 8)
+            printf("%s\n", filename);
     }
-
+    return 0;
     for(int i = 0; i < (1 << MIN_FILE_BUCKET_BITS); i ++)
     {
         char buf[100];
