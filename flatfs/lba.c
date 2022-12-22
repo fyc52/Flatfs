@@ -167,7 +167,7 @@ lba_t compose_lba_small_hash(int dir_id, int bucket_id, int slot_id, int block_i
 		if (slot_id != -1) {
 			lba.s_meta_seg.dir = dir_id;
 			lba.s_meta_seg.bkt = bucket_id;
-			lba.s_meta_seg.slot = slot_id;
+			// lba.s_meta_seg.slot = slot_id;
 			// lba.lba += FILE_META_LBA_BASE;
 		}
 		else{
@@ -199,7 +199,7 @@ lba_t compose_lba_large_hash(int dir_id, int bucket_id, int slot_id, int block_i
 		if (slot_id != -1) {
 			lba.l_meta_seg.dir = dir_id;
 			lba.l_meta_seg.bkt = bucket_id;
-			lba.l_meta_seg.slot = slot_id;
+			// lba.l_meta_seg.slot = slot_id;
 			// lba.lba += FILE_META_LBA_BASE;
 		}
 		else{

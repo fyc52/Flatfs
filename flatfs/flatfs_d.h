@@ -168,7 +168,7 @@ struct lba {
         /* meta data lba in extend(large) dir mode */
         struct {
             uint64_t off  : FFS_BLOCK_SIZE_BITS;
-            uint64_t slot : SLOT_BITS;
+            // uint64_t slot : SLOT_BITS;
             uint64_t bkt  : S_BUCKET_BITS;
             uint64_t dir  : S_DIR_BITS;
             uint64_t rsv1 : TOTAL_LBA_BITS - S_DIR_BITS - S_BUCKET_BITS - SLOT_BITS - FFS_BLOCK_SIZE_BITS;
@@ -178,7 +178,7 @@ struct lba {
 
         struct {
             uint64_t off  : FFS_BLOCK_SIZE_BITS;
-            uint64_t slot : SLOT_BITS;
+            // uint64_t slot : SLOT_BITS;
             uint64_t bkt  : L_BUCKET_BITS;
             uint64_t dir  : L_DIR_BITS;
             uint64_t rsv1 : TOTAL_LBA_BITS - L_DIR_BITS - L_BUCKET_BITS - SLOT_BITS - FFS_BLOCK_SIZE_BITS;
