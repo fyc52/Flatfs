@@ -244,10 +244,8 @@ int read_dir_dirs(struct flatfs_sb_info *sb_i, unsigned long dir_ino, struct dir
         de->pos = 0;
         goto first;
     }
-    while (pos < de->dir_size && pos < de->pos && dle != NULL) {
-        pos ++;
-        dle = dle->next;
-    }
+    
+    return 0;
 first:
     for (; pos < de->dir_size && dle != NULL; pos ++, dle = dle->next) {
         unsigned char d_type = DT_DIR;

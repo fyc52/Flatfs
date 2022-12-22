@@ -289,6 +289,7 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 		goto first;
 	}
 
+	return 0;
 	for (bkt = 0; bkt < bucket_num; bkt++)
 	{
 		for (slt = 0; slt < (1 << SLOT_BITS); slt++)
