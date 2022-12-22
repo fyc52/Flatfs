@@ -1,6 +1,10 @@
 #include <linux/buffer_head.h>
 #include "flatfs_d.h"
 
+static int get_num;
+static int linear_detection_num;
+static int get_page_num;
+
 // BKDR Hash Function
 static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
 {
@@ -18,7 +22,6 @@ static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
 	return (hash & mask);
 }
 
-
 sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
 {
     __u64 hash_key = (ino << 32) | iblock;
@@ -30,9 +33,12 @@ sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
 
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
+    get_num ++;
     bh = sb_bread(sb, meta_block);
+    get_page_num++;
 
 linear_detection:
+    linear_detection_num ++;
     if (!bh) {
         return INVALID_LBA;
     }
@@ -48,6 +54,7 @@ linear_detection:
             meta_block++;
             brelse(bh);
             bh = sb_bread(sb, meta_block);
+            get_page_num ++;
         }
         goto linear_detection;
     }   
@@ -149,5 +156,9 @@ linear_detection:
     *meta_entry = 0;
     if (iblock <= tt_blocks)
         goto delete_next;
-    
+}
+
+void print_hash_info(void)
+{
+    printk("get_num:%d, linear_detection_num:%d, get_page_num:%d\n", get_num, linear_detection_num, get_page_num);
 }

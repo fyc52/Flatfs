@@ -172,6 +172,7 @@ static inline char * inode_to_name(struct inode * ino)
 extern sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock);
 extern sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock);
 extern void hashfs_remove_inode(struct inode *inode);
+extern void print_hash_info(void);
 
 
 /* dir.c */

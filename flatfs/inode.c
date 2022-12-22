@@ -139,7 +139,6 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	//err = dquot_initialize(dir);
 	//if (err)
 		//return err;
-
 	inode = flatfs_new_inode (dir->i_sb, mode, dev);
 	err = PTR_ERR(inode);
 	if (!IS_ERR(inode)) {
@@ -150,6 +149,10 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		err = hashfs_add_nondir(dentry, inode);
 	}
 	//if(inode) unlock_new_inode(inode);
+
+	//fyc hash test break point
+	if(!strcmp("fyc", dentry->d_name.name))
+		print_hash_info();
 	return err;
 }
 
@@ -219,7 +222,6 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	err = hashfs_delete_entry (de, page);
 	if (err)
 		goto out;
-
 	inode->i_ctime = dir->i_ctime;
 	inode_dec_link_count(inode);
 	err = 0;
@@ -235,6 +237,7 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	if (hashfs_empty_dir(inode)) {
 		err = ffs_unlink(dir, dentry);
 		if (!err) {
+			hashfs_remove_inode(inode);
 			inode->i_size = 0;
 			inode_dec_link_count(inode);
 			inode_dec_link_count(dir);
