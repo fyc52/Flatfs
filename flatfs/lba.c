@@ -33,11 +33,13 @@ void init_file_ht(struct HashTable **file_ht, int tag)
 	if (tag == 0) {
 		//printk("init_file_ht small\n");
 		bkt_num = S_BUCKET_NUM;
+		(*file_ht)->total_slot_count = 0;
 		(*file_ht)->dtype = small;
 		(*file_ht)->buckets = (struct bucket *)kzalloc(sizeof(struct bucket) * bkt_num, GFP_KERNEL);
 	}
 	else {	
 		bkt_num = L_BUCKET_NUM;
+		(*file_ht)->total_slot_count = 0;
 		(*file_ht)->dtype = large;
 		(*file_ht)->buckets = (struct bucket *)vmalloc(sizeof(struct bucket) * bkt_num);
 	}
@@ -109,6 +111,7 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_d
 		return ino;
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count++;
+	file_ht->total_slot_count++;
 	
 	switch (file_ht->dtype) {
 		case small:
@@ -142,6 +145,7 @@ int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
 	}
 
 	file_ht->buckets[bucket_id].valid_slot_count--;
+	file_ht->total_slot_count--;
 	bitmap_clear(file_ht->buckets[bucket_id].slot_bitmap, slot_id, 1);
 	// printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
 	return 1;

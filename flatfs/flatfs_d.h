@@ -394,6 +394,7 @@ struct bucket {
 struct HashTable {
     struct bucket *buckets;
     loff_t pos;
+	__u32 total_slot_count;
     enum dir_type dtype;
 };
 
