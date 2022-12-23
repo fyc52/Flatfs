@@ -2,8 +2,11 @@
 #include "flatfs_d.h"
 
 static int get_num;
-static int linear_detection_num;
-static int get_page_num;
+static int get_linear_detection_num[10000 + 10];
+static int get_page_num[10000 + 10];
+static int set_num;
+static int set_linear_detection_num[10000 + 10];
+static int set_page_num[10000 + 10];
 
 // BKDR Hash Function
 static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
@@ -35,10 +38,10 @@ sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     get_num ++;
     bh = sb_bread(sb, meta_block);
-    get_page_num++;
+    get_page_num[get_num / 1000]++;
 
 linear_detection:
-    linear_detection_num ++;
+    get_linear_detection_num[get_num / 1000] ++;
     if (!bh) {
         return INVALID_LBA;
     }
@@ -54,7 +57,7 @@ linear_detection:
             meta_block++;
             brelse(bh);
             bh = sb_bread(sb, meta_block);
-            get_page_num ++;
+            get_page_num[get_num / 1000]++;
         }
         goto linear_detection;
     }   
@@ -79,9 +82,12 @@ sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock)
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     bh = sb_bread(sb, meta_block);
+    set_page_num[set_num / 1000] ++;
+    set_num ++;
     //printk("value = %ld\n", value);
 
 linear_detection:
+    set_linear_detection_num[set_num / 1000] ++;
     if (!bh) {
         return INVALID_LBA;
     }
@@ -98,6 +104,7 @@ linear_detection:
             meta_block++;
             brelse(bh);
             bh = sb_bread(sb, meta_block);
+            set_page_num[set_num / 1000] ++;
         }
         goto linear_detection;
     }   
@@ -160,5 +167,22 @@ linear_detection:
 
 void print_hash_info(void)
 {
-    printk("get_num:%d, linear_detection_num:%d, get_page_num:%d\n", get_num, linear_detection_num, get_page_num);
+    int i;
+    printk("get_1000  get_linear_detection_num  get_page_num\n");
+    for(i = 0; i < 10000; i ++)
+    {
+        if(get_linear_detection_num[i] > 0)
+        {
+            printk("%d %d %d\n", i, get_linear_detection_num[i], get_page_num[i]);
+        }
+    }
+
+    printk("set_1000  set_linear_detection_num  set_page_num\n");
+    for(i = 0; i < 10000; i ++)
+    {
+        if(set_linear_detection_num[i] > 0)
+        {
+            printk("%d %d %d\n", i, set_linear_detection_num[i], set_page_num[i]);
+        }
+    }
 }

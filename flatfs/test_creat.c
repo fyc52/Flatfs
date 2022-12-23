@@ -18,7 +18,7 @@ int main()
         strcpy(filename, path);
         sprintf(filename + strlen(path), "%d", i);
         //printf("%s\n", filename);
-        fd=creat(filename,O_RDWR);
+        fd = creat(filename,O_RDWR);
         close(fd);
     }
     return 0;
