@@ -299,6 +299,21 @@ FFS_SB(struct super_block *sb)
 	return sb->s_fs_info; //文件系统特殊信息
 }
 
+
+/* ls alias lba space */
+#define DIR_NAME_LEN (24)
+#define DIRENT_NUM   (128)
+
+struct ffs_dirent {
+    __u8 namelen;
+    char name[DIR_NAME_LEN];
+};
+
+struct direntPage {
+    struct ffs_dirent dirents[DIRENT_NUM];
+};
+
+
 /** dir tree **/
 struct dir_entry {
     /* 目录的ino */

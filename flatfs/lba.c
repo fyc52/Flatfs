@@ -239,6 +239,20 @@ lba_t compose_lba(int dir_id, int bucket_id, int slot_id, int block_id, int flag
 }
 
 /**
+ * for ls, alias lba space
+*/
+lba_t compose_alias_lba(int dir_id, int off)
+{
+	struct lba lba;
+	lba.lba = 0;
+	lba.s_meta_seg.dir = dir_id;
+	lba.s_meta_seg.bkt = off;
+	/* dir=1 is alias space */
+	lba.s_seg.dir = 1;
+	return lba.lba;
+}
+
+/**
  * 文件数据lba
  */
 lba_t ffs_get_data_lba(struct inode *inode, lba_t iblock, int tag)
@@ -279,6 +293,12 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 	struct ffs_inode_page *raw_inode_page;
 	int bucket_num;
 	lba_t pblk;
+
+	int entry_pos;
+	int page_entry_pos;
+	unsigned char d_type = FT_UNKNOWN;
+	struct direntPage *dirent_page;
+
 	if(fi->is_big_dir){
 		bucket_num = L_BUCKET_NUM;
 	}
@@ -331,41 +351,63 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 	// printk("bkt:%d, slt:%d\n", bkt, slt);
 
 first:
-	for (bkt++; bkt < bucket_num; bkt++)
+	/**
+	 * my code
+	*/
+	entry_pos = 0;
+	while (entry_pos < hashtbl->total_slot_count)
 	{
-		int flag = 0;
-		for (slt = 0; slt < (1 << SLOT_BITS); slt++)
-		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
-			{
-				flag = 1;
-				break;
-			}
-		}
-		if (flag == 0)
-			continue;
-		ino = compose_lba(fi->dir_id, bkt, 0, 0, 0, hashtbl->dtype);
+		ino = compose_alias_lba(fi->dir_id, entry_pos / DIRENT_NUM);
 		ibh = sb_bread(sb, ino >> FFS_BLOCK_SIZE_BITS);
-		raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
-		// printk("ino:%ld", ino);
-		for (slt = 0; slt < (1 << SLOT_BITS); slt++)
+		dirent_page = (struct direntPage *) (ibh->b_data);
+		
+		for (page_entry_pos = 0; page_entry_pos < DIRENT_NUM; page_entry_pos++)
 		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
-			{
-				/* 开始传 */
-				unsigned char d_type = FT_UNKNOWN;
-
-				ino = compose_lba(fi->dir_id, bkt, slt, 0, 0, hashtbl->dtype);
-				raw_inode = &(raw_inode_page->inode[slt]);
-				// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
-				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
-				__le16 dlen = 1;
-				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-				ctx->pos += le16_to_cpu(dlen);
-				hashtbl->pos += le16_to_cpu(dlen);
-			}
+			if (entry_pos >= hashtbl->total_slot_count) break;
+			dir_emit(ctx, dirent_page->dirents[page_entry_pos].name, dirent_page->dirents[page_entry_pos].namelen, le32_to_cpu(ino), d_type);
+			__le16 dlen = 1;
+			ctx->pos += le16_to_cpu(dlen);
+			entry_pos++;
 		}
 	}
+	
+	/* */
+
+	// for (bkt++; bkt < bucket_num; bkt++)
+	// {
+	// 	int flag = 0;
+	// 	for (slt = 0; slt < (1 << SLOT_BITS); slt++)
+	// 	{
+	// 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
+	// 		{
+	// 			flag = 1;
+	// 			break;
+	// 		}
+	// 	}
+	// 	if (flag == 0)
+	// 		continue;
+	// 	ino = compose_lba(fi->dir_id, bkt, 0, 0, 0, hashtbl->dtype);
+	// 	ibh = sb_bread(sb, ino >> FFS_BLOCK_SIZE_BITS);
+	// 	raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
+	// 	// printk("ino:%ld", ino);
+	// 	for (slt = 0; slt < (1 << SLOT_BITS); slt++)
+	// 	{
+	// 		if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
+	// 		{
+	// 			/* 开始传 */
+	// 			unsigned char d_type = FT_UNKNOWN;
+
+	// 			ino = compose_lba(fi->dir_id, bkt, slt, 0, 0, hashtbl->dtype);
+	// 			raw_inode = &(raw_inode_page->inode[slt]);
+	// 			// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
+	// 			dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
+	// 			__le16 dlen = 1;
+	// 			/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
+	// 			ctx->pos += le16_to_cpu(dlen);
+	// 			hashtbl->pos += le16_to_cpu(dlen);
+	// 		}
+	// 	}
+	// }
 	brelse(ibh);
 	return 0;
 }
