@@ -307,8 +307,8 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long
 		bucket_num = S_BUCKET_NUM;
 	}
 
-	printk("ctx->pos:%d\n", ctx->pos);
-	printk("hash->pos:%d\n", hashtbl->pos);
+	// printk("ctx->pos:%d\n", ctx->pos);
+	// printk("hash->pos:%d\n", hashtbl->pos);
 	if (hashtbl->pos == 0)
 	{
 		bkt = -1;
@@ -358,7 +358,7 @@ first:
 	 * my code
 	*/
 	entry_pos = 0;
-	printk("total slot count: %d", hashtbl->total_slot_count);
+	// printk("total slot count: %d", hashtbl->total_slot_count);
 	while (entry_pos < hashtbl->total_slot_count)
 	{
 		ino = compose_alias_lba(fi->dir_id, entry_pos / DIRENT_NUM);
@@ -368,8 +368,8 @@ first:
 		for (page_entry_pos = 0; page_entry_pos < DIRENT_NUM; page_entry_pos++)
 		{
 			if (entry_pos >= hashtbl->total_slot_count) break;
-			printk("namelen: %d", dirent_page->dirents[page_entry_pos].namelen);
-			printk("name: %s", dirent_page->dirents[page_entry_pos].name);
+			// printk("namelen: %d", dirent_page->dirents[page_entry_pos].namelen);
+			// printk("name: %s", dirent_page->dirents[page_entry_pos].name);
 			dir_emit(ctx, dirent_page->dirents[page_entry_pos].name, dirent_page->dirents[page_entry_pos].namelen, le32_to_cpu(ino), d_type);
 			__le16 dlen = 1;
 			ctx->pos += le16_to_cpu(dlen);

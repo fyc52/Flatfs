@@ -128,7 +128,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		else {
 			raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
 			raw_inode = &(raw_inode_page->inode[fi->slot_id]);
-			printk("slot num :%d\n", raw_inode_page->header.valid_slot_num);
+			// printk("slot num :%d\n", raw_inode_page->header.valid_slot_num);
 			if (!test_bit(fi->slot_id, raw_inode_page->header.slot_bitmap)) {
 				raw_inode_page->header.valid_slot_num++;
 			}
