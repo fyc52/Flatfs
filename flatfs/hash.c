@@ -37,12 +37,12 @@ sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     bh = sb_bread(sb, meta_block);
-    int get_pages = 0;
-    int get_meta_times = 0;
-    get_pages ++;
+    // int get_pages = 0;
+    // int get_meta_times = 0;
+    // get_pages ++;
 
 linear_detection:
-    get_meta_times ++;
+    //get_meta_times ++;
     if (!bh) {
         return INVALID_LBA;
     }
@@ -58,15 +58,15 @@ linear_detection:
             meta_block++;
             brelse(bh);
             bh = sb_bread(sb, meta_block);
-            get_pages ++;
+            //get_pages ++;
         }
         goto linear_detection;
     }   
 
 got:
-    get_linear_detection_num[get_num / 3000] += get_meta_times;
-    get_page_num[get_num / 3000] += get_pages;
-    get_num ++;
+    // get_linear_detection_num[get_num / 3000] += get_meta_times;
+    // get_page_num[get_num / 3000] += get_pages;
+    // get_num ++;
     data_block = HASHFS_DATA_START + value;
     brelse(bh);
 	return data_block;
@@ -86,13 +86,13 @@ sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock)
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     bh = sb_bread(sb, meta_block);
-    int set_pages = 0;
-    int set_meta_times = 0;
-    set_pages ++;
+    // int set_pages = 0;
+    // int set_meta_times = 0;
+    // set_pages ++;
     //printk("value = %ld\n", value);
 
 linear_detection:
-    set_meta_times ++;
+   // set_meta_times ++;
     if (!bh) {
         return INVALID_LBA;
     }
@@ -109,15 +109,15 @@ linear_detection:
             meta_block++;
             brelse(bh);
             bh = sb_bread(sb, meta_block);
-            set_pages ++;
+            //set_pages ++;
         }
         goto linear_detection;
     }   
 
 set:
-    set_page_num[set_num / 3000] += set_pages;
-    set_linear_detection_num[set_num / 3000] += set_meta_times;
-    set_num ++;
+    // set_page_num[set_num / 3000] += set_pages;
+    // set_linear_detection_num[set_num / 3000] += set_meta_times;
+    // set_num ++;
     *meta_entry = hash_key;
     data_block = HASHFS_DATA_START + value;
     mark_buffer_dirty(bh);
