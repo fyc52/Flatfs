@@ -218,6 +218,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct bucket *bucket;
 	int mknod_is_dir = mode & S_IFDIR;
 	struct ffs_ino ffs_ino;
+	//unsigned long flags;
 	// dump_stack();
 	// 为新inode分配ino#
 	if(mknod_is_dir) {
@@ -299,7 +300,8 @@ re_mknod:
 		insert_inode_locked(inode);//将inode添加到inode hash表中，并标记为I_NEW
 		mark_inode_dirty(inode);	//为ffs_inode分配缓冲区，标记缓冲区为脏，并标记inode为脏
 		if(inode) unlock_new_inode(inode);
-		//if(mknod_is_dir == 0 && bucket->bkt_lock) spin_unlock(&(bucket->bkt_lock));
+		//if(mknod_is_dir == 0) spin_unlock_irqsave(&bucket->bkt_lock, flags);
+		//spin_unlock(&(bucket->bkt_lock));
 		d_instantiate(dentry, inode);//将dentry和新创建的inode进行关联
 		
 		// ffs_add_entry(dir);//写父目录

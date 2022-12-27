@@ -89,6 +89,7 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_d
 	unsigned long bucket_id;
 	__u8 slt;
 	struct ffs_ino ino;
+	unsigned long flags;
 	ino.ino = INVALID_INO;
 
 	switch (file_ht->dtype) {
@@ -103,12 +104,16 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_d
 	bucket_id = (unsigned long)hashcode & mask;
 
 	/* lock for multiple create file, unlock after mark inode dirty */
-	//if(bucket->bkt_lock) spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
+	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	//spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
 
 	slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, SLOT_NUM);
 	// printk("slt id: %d\n", slt);
 	if (slt == SLOT_NUM)
+	{
+		spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 		return ino;
+	}
 	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
 	file_ht->buckets[bucket_id].valid_slot_count++;
 	file_ht->total_slot_count++;
@@ -126,21 +131,26 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_d
 			ino.l_file_seg.dir = parent_dir;
 			ino.l_file_seg.xtag = 1;
 			break;
-		default: return ino;
+		default: 
+			spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+			return ino;
 	}
-
+	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	return ino;
 }
 
 int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
 {
+	unsigned long flags;
 	int bkt_num = ((file_ht->dtype == small) ? S_BUCKET_NUM : L_BUCKET_NUM);
 	if (bucket_id == -1 || bucket_id > bkt_num || slot_id > SLOT_NUM)
 		return 0;
 	// printk("start to delete file\n");
 	//if(bucket->bkt_lock) spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
+	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	if (!test_bit(slot_id, file_ht->buckets[bucket_id].slot_bitmap))
 	{
+		spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 		return 0;
 	}
 
@@ -148,6 +158,7 @@ int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
 	file_ht->total_slot_count--;
 	bitmap_clear(file_ht->buckets[bucket_id].slot_bitmap, slot_id, 1);
 	// printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
+	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	return 1;
 }
 
