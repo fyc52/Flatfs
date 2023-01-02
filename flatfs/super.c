@@ -396,6 +396,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 
 	mark_inode_dirty(inode);
 	if(inode) unlock_new_inode(inode);
+	brelse(bh);
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
 	return 0;
 }

@@ -83,6 +83,11 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 	return ret;
 }
 
+static sector_t ffs_bmap(struct address_space *mapping, sector_t block)
+{
+	return generic_block_bmap(mapping, block, ffs_get_block_prep);
+}
+
 // int ffs_writepages(struct address_space *mapping,
 // 		       struct writeback_control *wbc)
 // {
@@ -137,6 +142,7 @@ struct address_space_operations ffs_aops = {// page cache访问接口,未自定�
 	.readpage	     = ffs_readpage,
 	.write_begin	 = ffs_write_begin,
 	.write_end	     = generic_write_end,
+	.bmap            = ffs_bmap,
 	.set_page_dirty	 = __set_page_dirty_nobuffers,
 	.writepages      = ffs_writepages,
 	.writepage       = ffs_writepage,
@@ -152,7 +158,7 @@ static unsigned long flatfs_mmu_get_unmapped_area(struct file *file,
 struct file_operations ffs_file_file_ops = {
 	.read_iter		= generic_file_read_iter,
 	.write_iter		= generic_file_write_iter,
-//	.mmap           = generic_file_mmap,
+	.mmap           = generic_file_mmap,
 	.fsync			= ffs_fsync,
 	.llseek         = generic_file_llseek,
 };
