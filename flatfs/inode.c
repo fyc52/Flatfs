@@ -332,7 +332,7 @@ static int ffs_rename (struct inode * old_dir, struct dentry * old_dentry,
 			struct inode * new_dir,	struct dentry * new_dentry,
 			unsigned int flags)
 {
-
+	return 0;
 }
 
 
