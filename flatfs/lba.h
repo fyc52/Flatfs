@@ -65,7 +65,7 @@ struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct 
 
 /* iterator read */
 int read_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx);
-int read_big_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx);
+int read_optimize_dir_files(struct HashTable *hashtbl, struct inode *inode, unsigned long ino, struct dir_context *ctx);
 
 void print2log(struct HashTable *hashtbl);
 
