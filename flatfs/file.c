@@ -45,13 +45,16 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	int ret = 0;
  	sector_t pblk;
 	bool new = false, boundary = false;
+	//printk("ffs_get_block_prep, iblock = %lld, inode->i_blocks = %lld\n", iblock, inode->i_blocks);
 
-	if(iblock >= (inode->i_blocks >> (FFS_BLOCK_SIZE_BITS - 9))) {
+	if(iblock > (inode->i_blocks >> (FFS_BLOCK_SIZE_BITS - 9)) || iblock == 0) {
 		new = true;
-		pblk = hashfs_set_data_lba(inode, iblock + 1);
+		//printk("iblock >= inode->i_blocks\n");
 		inode->i_blocks = iblock << (FFS_BLOCK_SIZE_BITS - 9);
+		pblk = hashfs_set_data_lba(inode, iblock + 1);
 	}
 	else {
+		//printk("iblock < inode->i_blocks\n");
 		pblk = hashfs_get_data_lba(inode->i_sb, inode->i_ino, iblock + 1);
 	}
 

@@ -47,7 +47,7 @@ linear_detection:
         return INVALID_LBA;
     }
     meta_entry = (__u64 *)(bh->b_data + meta_offset);
-    if (*meta_entry == hash_key) {
+    if (*meta_entry == hash_key || *meta_entry == 0) {
         goto got;
     }
     else {
@@ -98,7 +98,7 @@ linear_detection:
     }
     meta_entry = (__u64 *)(bh->b_data + meta_offset);
     if (*meta_entry == 0) {
-        //printk("set value = %ld\n", value);
+       // printk("set value = %ld\n", value);
         goto set;
     }
     else {
@@ -122,6 +122,7 @@ set:
     data_block = HASHFS_DATA_START + value;
     mark_buffer_dirty(bh);
     brelse(bh);
+    //"ino:%ld, iblock:%lld, inode->i_blocks:%lld\n", inode->i_ino, iblock, inode->i_blocks);
 	return data_block;
 }
 
@@ -131,6 +132,8 @@ void hashfs_remove_inode(struct inode *inode)
     struct super_block *sb = inode->i_sb;
     sector_t iblock = 0;
     sector_t tt_blocks = inode->i_blocks >> (FFS_BLOCK_SIZE_BITS - 9);
+    tt_blocks ++;
+    //printk("hashfs_remove_inode, tt_blocks:%lld\n", tt_blocks);
     __u64 hash_key;
     unsigned long value;
     unsigned meta_block, meta_offset;
@@ -138,24 +141,25 @@ void hashfs_remove_inode(struct inode *inode)
     __u64 *meta_entry;
 
 delete_next:
+    //"iblock = %lld\n", iblock);
     hash_key = (inode->i_ino<<32) | iblock;
     value = BKDRHash(hash_key, (MAX_BLOCK_NUM - 1));
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
-    if (meta_offset == 0 || !bh) {    
-        if(bh) {
-            mark_buffer_dirty(bh); 
-            brelse(bh);
-           // printk("bh brelse ok\n");
-        }
-        bh = sb_bread(sb, meta_block);
-        if (!bh)
-            return;
+    //printk("value = %ld\n", value); 
+    if(bh) {
+        mark_buffer_dirty(bh); 
+        brelse(bh);
+        //printk("bh brelse ok\n");
     }
-
+    bh = sb_bread(sb, meta_block);
+    if (!bh)
+        return;
+    //printk("sb_bread ok\n");
 linear_detection:
     meta_entry = (__u64 *)(bh->b_data + meta_offset);
     if (*meta_entry != hash_key) {
+        if(*meta_entry == 0) goto meta_entry_0;
         value = ((value >= MAX_BLOCK_NUM) ? 0 : (value + 1));
         meta_offset += HASHFS_META_SIZE;
         if (meta_offset == PAGE_SIZE) {
@@ -166,7 +170,8 @@ linear_detection:
         }
         goto linear_detection;
     }
-        
+meta_entry_0:
+   // printk("remove value = %ld\n", value);
     iblock++;
     *meta_entry = 0;
     if (iblock <= tt_blocks)

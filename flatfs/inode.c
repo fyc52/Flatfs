@@ -148,6 +148,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		mark_inode_dirty(inode);
 		err = hashfs_add_nondir(dentry, inode);
 	}
+	
 	//if(inode) unlock_new_inode(inode);
 
 	//fyc hash test break point
@@ -222,10 +223,13 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	err = hashfs_delete_entry (de, page);
 	if (err)
 		goto out;
+	free_ino(FFS_SB(inode->i_sb), inode->i_ino);
+	hashfs_remove_inode(inode);
 	inode->i_ctime = dir->i_ctime;
 	inode_dec_link_count(inode);
 	err = 0;
 out:
+	//printk("unlink:remove_inode OK\n");
 	return err;
 }
 
@@ -237,7 +241,6 @@ static int ffs_rmdir(struct inode *dir, struct dentry *dentry)
 	if (hashfs_empty_dir(inode)) {
 		err = ffs_unlink(dir, dentry);
 		if (!err) {
-			hashfs_remove_inode(inode);
 			inode->i_size = 0;
 			inode_dec_link_count(inode);
 			inode_dec_link_count(dir);

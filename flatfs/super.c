@@ -239,7 +239,7 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev)
 		inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
 		//inode->i_state &= I_NEW;
 		hashfs_set_data_lba(inode, 0);
-		mark_inode_dirty(inode);
+		//mark_inode_dirty(inode);
 	}
 	
 	return inode;
