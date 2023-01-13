@@ -51,8 +51,15 @@ linear_detection:
         goto got;
     }
     else {
-        value = ((value >= MAX_BLOCK_NUM) ? 0 : (value + 1));
-        meta_offset += HASHFS_META_SIZE;
+        value += 1;
+        if (value >= MAX_BLOCK_NUM) {
+            value = 0;
+            meta_block = -1;
+            meta_offset = PAGE_SIZE;
+        }
+        else {
+            meta_offset += HASHFS_META_SIZE;
+        }
         if (meta_offset == PAGE_SIZE) {
             meta_offset = 0;
             meta_block++;
@@ -102,8 +109,15 @@ linear_detection:
         goto set;
     }
     else {
-        value = ((value >= MAX_BLOCK_NUM) ? 0 : (value + 1));
-        meta_offset += HASHFS_META_SIZE;
+        value += 1;
+        if (value >= MAX_BLOCK_NUM) {
+            value = 0;
+            meta_block = -1;
+            meta_offset = PAGE_SIZE;
+        }
+        else {
+            meta_offset += HASHFS_META_SIZE;
+        }
         if (meta_offset == PAGE_SIZE) {
             meta_offset = 0;
             meta_block++;
@@ -160,8 +174,15 @@ linear_detection:
     meta_entry = (__u64 *)(bh->b_data + meta_offset);
     if (*meta_entry != hash_key) {
         if(*meta_entry == 0) goto meta_entry_0;
-        value = ((value >= MAX_BLOCK_NUM) ? 0 : (value + 1));
-        meta_offset += HASHFS_META_SIZE;
+        value += 1;
+        if (value >= MAX_BLOCK_NUM) {
+            value = 0;
+            meta_block = -1;
+            meta_offset = PAGE_SIZE;
+        }
+        else {
+            meta_offset += HASHFS_META_SIZE;
+        }
         if (meta_offset == PAGE_SIZE) {
             meta_offset = 0;
             meta_block++;
