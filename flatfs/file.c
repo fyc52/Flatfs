@@ -171,7 +171,7 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	struct ffs_inode_info *dfi = FFS_I(ino);
 	struct flatfs_sb_info *ffs_sb = sb->s_fs_info;
 	unsigned long dir_ino = dfi->dir_id;
-	if(!L_BUCKET_BITS)
+	if(!L_Dir_Test)
 	{
 		if(!ctx->pos)
 		{

@@ -18,7 +18,7 @@
 #include "cuckoo_hash.h"
 #endif
 
-#define L_Dir_Test 0
+#define L_Dir_Test 1
 /* trash */
 
 #define FLATFS_ROOT_INO 0x00000002UL
