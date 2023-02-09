@@ -173,19 +173,28 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     dir->namelen = 0;
     dir->subdirs->head = NULL;
     dir->subdirs->tail = NULL;
-    //printk("remove_dir, free_file_ht\n");
-    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[dir->dir_id]->dtype);
-    //printk("remove_dir, free_file_ht ok\n");
-    if(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]){
-        free_file_ht(&(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]), sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]->dtype);
-        // bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
-        // sb_i->big_dir_num --;
-        //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
+    if(!L_Dir_Test)
+    {
+        //printk("remove_dir, free_file_ht\n");
+        if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[dir->dir_id]->dtype);
+        //printk("remove_dir, free_file_ht ok\n");
+        if(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]){
+            free_file_ht(&(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]), sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]->dtype);
+            // bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
+            // sb_i->big_dir_num --;
+            //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
+        }
+        sb_i->dtree_root->dir_entry_num --;
+        bitmap_clear(sb_i->dtree_root->sdir_id_bitmap, dir->dir_id, 1);
+        if (dir->dtype == large) {
+            bitmap_clear(sb_i->dtree_root->ldir_id_bitmap, dir->dir_id2, 1);
+        }
     }
-    sb_i->dtree_root->dir_entry_num --;
-    bitmap_clear(sb_i->dtree_root->sdir_id_bitmap, dir->dir_id, 1);
-    if (dir->dtype == large) {
-        bitmap_clear(sb_i->dtree_root->ldir_id_bitmap, dir->dir_id2, 1);
+    else
+    {
+        if(sb_i->hashtbl[S_DIR_NUM + dir->dir_id]) free_file_ht(&(sb_i->hashtbl[S_DIR_NUM + dir->dir_id]), sb_i->hashtbl[S_DIR_NUM + dir->dir_id]->dtype);
+        sb_i->dtree_root->dir_entry_num --;
+        bitmap_clear(sb_i->dtree_root->sdir_id_bitmap, dir->dir_id, 1);
     }
 }
 

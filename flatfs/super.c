@@ -372,7 +372,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	//cuckoo_insert(cuckoo, (unsigned char *)&(inode->i_ino), (unsigned char *)&dir_size);
 
 	/* 创建hash表 */
-	init_file_ht(&(ffs_sb->hashtbl[FLATFS_ROOT_INO]), 0);
+	init_file_ht(&(ffs_sb->hashtbl[S_DIR_NUM * L_Dir_Test + FLATFS_ROOT_INO]), L_Dir_Test);
 	if(ffs_sb->hashtbl[FLATFS_ROOT_INO] != NULL)
 	{
 		printk("fill_super:Create hashtable OK\n");

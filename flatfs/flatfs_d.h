@@ -18,6 +18,7 @@
 #include "cuckoo_hash.h"
 #endif
 
+#define L_Dir_Test 0
 /* trash */
 
 #define FLATFS_ROOT_INO 0x00000002UL
@@ -123,7 +124,7 @@ typedef __u32 ffs_ino_t;
 #define L_DIR_BITS    (6)
 
 /* 
-    bit gap between small dir nad large dir,
+    bit gap between small dir and large dir,
     for large dir add 0 in lower bits
 */
 #define SL_DIR_DIFF   (S_DIR_BITS - L_DIR_BITS)
