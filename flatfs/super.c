@@ -192,7 +192,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 			// break;
 		}
 	}
-	if(bh) (bh);
+	if(bh) brelse(bh);
 	return inode;
 }
 
