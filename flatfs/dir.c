@@ -1,8 +1,5 @@
-
-// #include <malloc.h>
 #include <linux/string.h>
 #include <linux/module.h>
-// #include <assert.h>
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -25,7 +22,6 @@ void init_dir_tree(struct dir_tree **dtree)
         de->dir_size = 0;
         de->namelen = 0;
         de->rec_len = 0;
-        de->dtype = small;
         de->dir_name[0] = '\0';
         de->subdirs = kmalloc(sizeof(struct dir_list_entry), GFP_NOIO);
         de->subdirs->head = NULL;
@@ -81,7 +77,7 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsign
 unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
 {
     struct dir_tree *dtree = sb_i->dtree_root;
-    unsigned long dir_id = get_unused_dir_id(dtree, small);
+    unsigned long dir_id = get_unused_dir_id(dtree);
     if(!dir_id) return dir_id;
     struct dir_entry *de = &(dtree->de[dir_id]);
 
@@ -90,30 +86,12 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
     de->dir_size = 0;
     de->namelen = my_strlen(dir_name);
     de->rec_len = FFS_DIR_REC_LEN(de->namelen);
-    de->dtype = small;
     if(de->namelen > 0) {
         //printk("fill_one_dir_entry: %2s\n", dir_name);
         memcpy(de->dir_name, dir_name, de->namelen);
     }
     sb_i->dtree_root->dir_entry_num++;
     return dir_id;
-}
-
-/* 递归释放所有目录结点 */
-static inline void clear_dir_entry(struct dir_entry *dir)
-{
-    struct dir_list_entry *p;
-    struct dir_list_entry *dle;
-    int dir_num;
-    for(dle = dir->subdirs->head, dir_num = 0; dir_num < dir->dir_size && dle != NULL; dle = dle->next, dir_num ++) {
-        clear_dir_entry(dle->de);
-        p = dle;
-        kfree(p);
-    }
-    // dir->subdirs->head = dir->subdirs->tail = NULL;
-    dir->namelen = 0;
-    dir->dir_size = 0;
-    kfree(dir->subdirs);
 }
 
 void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned long dir_ino)
@@ -154,7 +132,6 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
             if(next != NULL) next->last = last;
         }
 
-        parent_dir->dir_size --;
         dle->last = NULL;
         dle->next = NULL;
         if(dle) 
@@ -166,6 +143,7 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     }
 
     if(flag == 0) return ;
+    parent_dir->dir_size --;
     for(pos = 0; pos < name_len; pos ++)
     {
         dir->dir_name[pos] = 0;
@@ -174,56 +152,12 @@ void remove_dir(struct flatfs_sb_info *sb_i, unsigned long parent_ino, unsigned 
     dir->subdirs->head = NULL;
     dir->subdirs->tail = NULL;
     //printk("remove_dir, free_file_ht\n");
-    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]), sb_i->hashtbl[dir->dir_id]->dtype);
+    if(sb_i->hashtbl[dir->dir_id]) free_file_ht(&(sb_i->hashtbl[dir->dir_id]));
     //printk("remove_dir, free_file_ht ok\n");
-    if(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]){
-        free_file_ht(&(sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]), sb_i->hashtbl[S_DIR_NUM + dir->dir_id2]->dtype);
-        // bitmap_clear(sb_i->big_dir_bitmap, big_dir_id, 1);
-        // sb_i->big_dir_num --;
-        //printk("clear_big_dir pos:%d, sb->big_dir_num:%d\n", big_dir_id, sb_i->big_dir_num);
-    }
     sb_i->dtree_root->dir_entry_num --;
-    bitmap_clear(sb_i->dtree_root->sdir_id_bitmap, dir->dir_id, 1);
-    if (dir->dtype == large) {
-        bitmap_clear(sb_i->dtree_root->ldir_id_bitmap, dir->dir_id2, 1);
-    }
+    bitmap_clear(sb_i->dtree_root->dir_id_bitmap, dir->dir_id, 1);
 }
 
-void delete_dir(struct flatfs_sb_info *sb_i, unsigned long ino, struct qstr *child)
-{
-    struct dir_entry *dir = &(sb_i->dtree_root->de[ino]);
-    struct dir_list_entry *dle;
-    const char *name = child->name;
-	int namelen = child->len;
-    int start = 0;
-
-    for(dle = dir->subdirs->head; start < dir->dir_size && dle != NULL; 1) {
-        if(namelen == dle->de->namelen && !memcmp(name, dle->de->dir_name, namelen)) {
-            start++;
-            dle = dle->next;
-            continue;
-        }
-        else {
-            struct dir_list_entry *pre = dle->last;
-            struct dir_list_entry *suf = dle->next;
-            if(dle == dir->subdirs->head) {  
-                dir->subdirs->head = suf; 
-            } else {
-                pre->next = suf;
-            }
-
-            if(dle == dir->subdirs->tail) {
-                dir->subdirs->tail = pre;
-            } else {
-                suf->last = pre;
-            }
-
-            clear_dir_entry(dle->de);
-            kfree(dle);
-            break;
-        }
-    }
-}
 
 static inline unsigned ffs_rec_len_from_dtree(__le16 dlen)
 {
@@ -260,17 +194,27 @@ first:
         ctx->pos += ffs_rec_len_from_dtree(dlen);
         de->pos += ffs_rec_len_from_dtree(dlen);
     }
-
     return pos;
 }
 
 /* 卸载文件系统时调用，释放整个目录树结构 */
 void dir_exit(struct flatfs_sb_info *sb_i)
 {
-    clear_dir_entry(sb_i->root);
+    struct dir_entry *root_dir = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
+    struct dir_list_entry *dle;
+    struct dir_entry *de;
+    int start, dir_id;
+
+    for(dle = root_dir->subdirs->head, start = 0; start < root_dir->dir_size && dle != NULL; start ++) 
+        remove_dir(sb_i, FLATFS_ROOT_INO, dle->de->dir_id);
+    root_dir->dir_size = 0;
+    for(dir_id = 0; dir_id < TT_DIR_NUM; dir_id++) {
+        de = &(sb_i->dtree_root->de[dir_id]);
+        kfree(de->subdirs);
+        de->subdirs->head = NULL;
+        de->subdirs->tail = NULL;
+    } 
 }
-
-
 
 /*
  * 通过查询dir-idx计算出目标目录或文件的ino,如果是目录且存在，则直接返回dentry对应的ino; 如果是文件，则返回文件所在目录dir的ino
@@ -284,34 +228,13 @@ ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
     ffs_ino_t ino = INVALID_INO;
     int namelen = child->len;
     int start;
-    //printk("fyc_test fsname: %s, parent_ino = %ld, name = %s, namelen = %d", sb_i->name, parent_dir_id, name, namelen);
+
     for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
         if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
-            ino = dir_id_to_inode(dir_node->de->dir_id);
+            ino = compose_ino(dir_node->de->dir_id, -1, -1, 0);
             break;
         }
     }
-
     return ino;
-}
-
-
-/**
- * resize small dir to large
- * @return if resize is successful
-*/
-unsigned resize_dir(struct flatfs_sb_info *sb_i, int dir_id)
-{
-	struct dir_entry *dir = &(sb_i->dtree_root->de[dir_id]);
-    struct dir_tree *dtree = sb_i->dtree_root;
-    unsigned new_dir_id = get_unused_dir_id(dtree, large); /* large dir id */
-
-    if (new_dir_id == INVALID_DIR_ID) {
-        return INVALID_DIR_ID;
-    }
-    init_file_ht(&(sb_i->hashtbl[S_DIR_NUM + new_dir_id]), large);
-    dir->dtype = large;
-    dir->dir_id2 = new_dir_id;
-    return dir->dir_id2;
 }
 

@@ -38,20 +38,20 @@
 #include "lba.h"
 #endif
 
-
-
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
 	int ret = 0;
- 	sector_t pblk = ffs_get_data_lba(inode, iblock, FFS_I(inode)->is_big_dir);
-	pblk = pblk >> FFS_BLOCK_SIZE_BITS;
+ 	lba_t pblk = ffs_get_data_lba(inode, iblock);
 	bool new = false, boundary = false;
 	//printk("pblk: %lld\n", pblk);
 
 	/* todo: if pblk is a new block or update */
-	if(iblock >= FFS_I(inode)->size) {
+	if((iblock << FFS_BLOCK_SIZE_BITS) > FFS_I(inode)->size) {
 		new = true;
+	}
+	if(iblock > FILE_BLOCK_SIZE) {
+		boundary = true;
 	}
 	/* todo: if pblk is out of field */
 
@@ -69,7 +69,6 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
                  struct page **pagep, void **fsdata)
 {	
 	int ret;
-	//todo : 可以在这里实现inode-inlined data
 	//("write begin\n");
 
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
@@ -88,9 +87,6 @@ static sector_t ffs_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping, block, ffs_get_block_prep);
 }
 
-// int ffs_writepages(struct address_space *mapping,
-// 		       struct writeback_control *wbc)
-// {
 static int ffs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	//printk(KERN_INFO "writepage\n");
@@ -175,13 +171,9 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	if(!ctx->pos)
 	{
 		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
-		if(dfi->is_big_dir) ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id2]->pos = 0;
 	}
 	read_dir_dirs(ffs_sb, dir_ino, ctx);
 	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
-	//printk("readdir, dfi->is_big_dir:%d, dfi->big_dir_id:%d\n", dfi->is_big_dir, dfi->big_dir_id);
-	if(dfi->is_big_dir) read_dir_files(ffs_sb->hashtbl[S_DIR_NUM + dfi->dir_id2], ino, dir_ino, ctx);
-	//printk("%d %d %d\n", ctx->pos, ffs_sb->hashtbl[dfi->dir_id]->pos, ffs_sb->big_dir_hashtbl[dfi->big_dir_id]->pos);
 
 	return 0;
 }
@@ -190,6 +182,6 @@ struct file_operations ffs_dir_operations = {
 	.read			= generic_read_dir,
 	.iterate		= ffs_readdir,//ls
 	.iterate_shared = ffs_readdir,
-	//.fsync		= lightfs_fsync,
+	//.fsync			= ffs_fsync,
 	//.release		= lightfs_dir_release,
 };
