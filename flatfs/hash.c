@@ -7,6 +7,8 @@ static int get_page_num[10000 + 10];
 static int set_num;
 static int set_linear_detection_num[10000 + 10];
 static int set_page_num[10000 + 10];
+extern s64 atomic64_cmpxchg(atomic64_t *v, s64 o, s64 n);
+extern s64 atomic64_read(const atomic64_t *v);
 
 // BKDR Hash Function
 static inline unsigned long BKDRHash(unsigned long hash_key, unsigned long mask)
@@ -32,7 +34,7 @@ sector_t hashfs_get_data_lba(struct super_block *sb, ino_t ino, sector_t iblock)
     unsigned meta_block, meta_offset;
     unsigned long data_block;
     struct buffer_head * bh = NULL;
-    __u64 *meta_entry;
+    atomic64_t *meta_entry;
 
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
@@ -46,8 +48,9 @@ linear_detection:
     if (!bh) {
         return INVALID_LBA;
     }
-    meta_entry = (__u64 *)(bh->b_data + meta_offset);
-    if (*meta_entry == hash_key || *meta_entry == 0) {
+    meta_entry = (atomic64_t *)(bh->b_data + meta_offset);
+    s64 meta_entry_ctx = atomic64_read(meta_entry);
+    if (meta_entry_ctx == hash_key || meta_entry_ctx == 0) {
         goto got;
     }
     else {
@@ -88,11 +91,12 @@ sector_t hashfs_set_data_lba(struct inode *inode, sector_t iblock)
     unsigned meta_block, meta_offset;
     unsigned long data_block;
     struct buffer_head * bh = NULL;
-    __u64 *meta_entry;
+    atomic64_t *meta_entry;
 
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
     meta_offset = (value << HASHFS_META_SIZE_BITS) & (FFS_BLOCK_SIZE - 1);
     bh = sb_bread(sb, meta_block);
+    //printk("ino:%ld, iblock:%lld, inode->i_blocks:%lld\n", inode->i_ino, iblock, inode->i_blocks);
     // int set_pages = 0;
     // int set_meta_times = 0;
     // set_pages ++;
@@ -103,9 +107,9 @@ linear_detection:
     if (!bh) {
         return INVALID_LBA;
     }
-    meta_entry = (__u64 *)(bh->b_data + meta_offset);
-    if (*meta_entry == 0) {
-       // printk("set value = %ld\n", value);
+    meta_entry = (atomic64_t *)(bh->b_data + meta_offset);
+    if (atomic64_cmpxchg(meta_entry, 0, hash_key) == 0) {
+        //printk("set value = %ld\n", value);
         goto set;
     }
     else {
@@ -132,11 +136,9 @@ set:
     // set_page_num[set_num / 3000] += set_pages;
     // set_linear_detection_num[set_num / 3000] += set_meta_times;
     // set_num ++;
-    *meta_entry = hash_key;
     data_block = HASHFS_DATA_START + value;
     mark_buffer_dirty(bh);
     brelse(bh);
-    //"ino:%ld, iblock:%lld, inode->i_blocks:%lld\n", inode->i_ino, iblock, inode->i_blocks);
 	return data_block;
 }
 
@@ -145,17 +147,18 @@ void hashfs_remove_inode(struct inode *inode)
 {
     struct super_block *sb = inode->i_sb;
     sector_t iblock = 0;
-    sector_t tt_blocks = inode->i_blocks >> (FFS_BLOCK_SIZE_BITS - 9);
-    tt_blocks ++;
-    //printk("hashfs_remove_inode, tt_blocks:%lld\n", tt_blocks);
+    sector_t tt_blocks = (inode->i_blocks >> (FFS_BLOCK_SIZE_BITS - 9));
+    if(inode->i_blocks % (1 << (FFS_BLOCK_SIZE_BITS - 9))) tt_blocks ++;
+    //printk("________________hashfs_remove_inode, tt_blocks:%lld\n", tt_blocks);
     __u64 hash_key;
     unsigned long value;
     unsigned meta_block, meta_offset;
     struct buffer_head * bh = NULL;
-    __u64 *meta_entry;
+    atomic64_t *meta_entry;
+    int page_num;
 
 delete_next:
-    //"iblock = %lld\n", iblock);
+    //printk("iblock = %lld\n", iblock);
     hash_key = (inode->i_ino<<32) | iblock;
     value = BKDRHash(hash_key, (MAX_BLOCK_NUM - 1));
     meta_block = value >> (FFS_BLOCK_SIZE_BITS - HASHFS_META_SIZE_BITS);
@@ -171,9 +174,9 @@ delete_next:
         return;
     //printk("sb_bread ok\n");
 linear_detection:
-    meta_entry = (__u64 *)(bh->b_data + meta_offset);
-    if (*meta_entry != hash_key) {
-        if(*meta_entry == 0) goto meta_entry_0;
+    //printk("linear_detection value = %ld\n", value);
+    meta_entry = (atomic64_t *)(bh->b_data + meta_offset);
+    if (atomic64_read(meta_entry) != hash_key) {
         value += 1;
         if (value >= MAX_BLOCK_NUM) {
             value = 0;
@@ -191,12 +194,12 @@ linear_detection:
         }
         goto linear_detection;
     }
-meta_entry_0:
-   // printk("remove value = %ld\n", value);
+    //printk("remove value = %ld\n", value);
+    atomic64_set(meta_entry, 0);
     iblock++;
-    *meta_entry = 0;
     if (iblock <= tt_blocks)
         goto delete_next;
+    //printk("Remove Done ____________________\n");
 }
 
 void print_hash_info(void)
