@@ -39,11 +39,11 @@ typedef __u32 ffs_ino_t;
 #define FFS_MAX_FILENAME_LEN 100
 
 /* LBA分配设置 */
-#define LBA_TT_BITS 62
+#define LBA_TT_BITS 63
 
 #define DIR_BITS 9
 
-#define FILE_BUCKET_BITS 20
+#define FILE_BUCKET_BITS 21
 #define FILE_BUCKET_NUM (1 << FILE_BUCKET_BITS)
 #define FILE_SLOT_BITS 3
 #define FILE_SLOT_NUM  (1 << FILE_SLOT_BITS)
