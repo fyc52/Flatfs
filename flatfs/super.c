@@ -57,6 +57,8 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct block_device *bdev = sb->s_bdev;
 	struct inode *bdev_inode = bdev->bd_inode;
 	struct ffs_inode_page *raw_inode_page;
+	struct ffs_ino ffs_ino;
+	ffs_ino.ino = inode->i_ino;
 	if (bdev_inode == NULL) 
 	{
 		printk("bdev_inode error\n");
@@ -66,10 +68,10 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 
 	if (fi) 
 	{	
-		if(fi->slot_id == -1)
-			pblk = compose_dir_lba(fi->dir_id);
+		if(fi->inode_type == DIR_INODE)
+			pblk = compose_dir_lba(ffs_ino.dir_seg.dir);
 		else
-			pblk = compose_file_lba(fi->dir_id, fi->bucket_id, 0, 0, 0);
+			pblk = compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, 0, 0, 0);
 	}
 	//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
@@ -87,27 +89,27 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 			printk("file name len error\n");
 			goto out;
 		}
-		if(fi->slot_id == -1)
+		if(fi->inode_type == DIR_INODE)
 			raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 		else 
 		{
 			raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
-			raw_inode = &(raw_inode_page->inode[fi->slot_id]);
+			raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
 			// printk("slot num :%d\n", raw_inode_page->header.valid_slot_num);
-			if (!test_bit(fi->slot_id, raw_inode_page->header.slot_bitmap)) {
+			if (!test_bit(ffs_ino.file_seg.slot, raw_inode_page->header.slot_bitmap)) {
 				raw_inode_page->header.valid_slot_num++;
 			}
-			bitmap_set(raw_inode_page->header.slot_bitmap, fi->slot_id, 1);
+			bitmap_set(raw_inode_page->header.slot_bitmap, ffs_ino.file_seg.slot, 1);
 		}
 	}
-	else if(fi->slot_id != -1) 
+	else if(fi->inode_type == FILE_INODE) 
 	{
 		raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
-		raw_inode = &(raw_inode_page->inode[fi->slot_id]);
-		if (test_bit(fi->slot_id, raw_inode_page->header.slot_bitmap)) {
+		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		if (test_bit(ffs_ino.file_seg.slot, raw_inode_page->header.slot_bitmap)) {
 			raw_inode_page->header.valid_slot_num--;
 		}
-		bitmap_clear(raw_inode_page->header.slot_bitmap, fi->slot_id, 1);
+		bitmap_clear(raw_inode_page->header.slot_bitmap, ffs_ino.file_seg.slot, 1);
 	}
 	else {
 		goto out;
@@ -165,6 +167,7 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev)
 	struct buffer_head * bh = NULL;
 	// struct ffs_inode *raw_inode;
 	struct inode *inode;
+	struct ffs_ino ffs_ino;
 	// sector_t pblk;
 	
 	unsigned long root_ino = FLATFS_ROOT_INO;
@@ -172,14 +175,13 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev)
 	
 	if (inode)
 	{
+		ffs_ino.ino = root_ino;
 		ei = FFS_I(inode);
 		ei->valid = 1;
-		ei->bucket_id = -1;
-		ei->dir_id = FLATFS_ROOT_INO;
-		ei->slot_id = 0;
+		ei->inode_type = DIR_INODE;
 		
-		lba_t pblk = compose_ino(ei->dir_id, ei->bucket_id, ei->slot_id, 0);
-		bh = sb_bread(sb, pblk >> FFS_BLOCK_SIZE_BITS);
+		lba_t pblk = compose_ino(ffs_ino.dir_seg.dir, -1, -1, 0);
+		bh = sb_bread(sb, pblk);
 		
 		memcpy(ei->filename.name, "/", strlen("/"));
 		ei->filename.name_len = my_strlen("/");

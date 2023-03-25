@@ -185,8 +185,9 @@ ffs_ino_t compose_ino(int dir_id, int bucket_id, int slot_id, int flag)
  */
 lba_t ffs_get_data_lba(struct inode *inode, lba_t iblock)
 {
-	struct ffs_inode_info *fi = FFS_I(inode);
-	return compose_file_lba(fi->dir_id, fi->bucket_id, fi->slot_id, iblock, 1);
+	struct ffs_ino ffs_ino;
+	ffs_ino.ino = inode->i_ino;
+	return compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot, iblock, 1);
 }
 
 /**
@@ -206,11 +207,12 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 	struct super_block *sb = inode->i_sb;
 	struct buffer_head *ibh = NULL;
 	struct ffs_inode *raw_inode;
-	struct ffs_inode_info *fi = FFS_I(inode);
+	struct ffs_ino ffs_ino;
 	struct ffs_inode_page *raw_inode_page;
 	int bucket_num;
 	lba_t pblk;
 	bucket_num = TT_BUCKET_NUM;
+	ffs_ino.ino = inode->i_ino;
 
 	if (hashtbl->pos == 0)
 	{
@@ -231,7 +233,7 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 			break;
 	}
 
-	pblk = compose_file_lba(fi->dir_id, bkt, 0, 0, 0);
+	pblk = compose_file_lba(ffs_ino.dir_seg.dir, bkt, 0, 0, 0);
 
 	ibh = sb_bread(sb, pblk);
 	raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
@@ -242,7 +244,7 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 			/* 开始传 */
 			unsigned char d_type = FT_UNKNOWN;
 
-			ino = compose_ino(fi->dir_id, bkt, slt, 1);
+			ino = compose_ino(ffs_ino.dir_seg.dir, bkt, slt, 1);
 			raw_inode = &(raw_inode_page->inode[slt]);
 			// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
 			dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
@@ -269,7 +271,7 @@ first:
 		}
 		if (flag == 0)
 			continue;
-		pblk = compose_file_lba(fi->dir_id, bkt, 0, 0, 0);
+		pblk = compose_file_lba(ffs_ino.dir_seg.dir, bkt, 0, 0, 0);
 		ibh = sb_bread(sb, pblk);
 		raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
 		// printk("ino:%ld", ino);
@@ -280,7 +282,7 @@ first:
 				/* 开始传 */
 				unsigned char d_type = FT_UNKNOWN;
 
-				ino = compose_ino(fi->dir_id, bkt, slt, 1);
+				ino = compose_ino(ffs_ino.dir_seg.dir, bkt, slt, 1);
 				raw_inode = &(raw_inode_page->inode[slt]);
 				// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
 				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
@@ -304,11 +306,12 @@ static inline ffs_ino_t get_file_ino
 	unsigned long bucket_id;
 	int slt;
 	struct super_block *sb = inode->i_sb;
-	struct ffs_inode_info *fi = FFS_I(inode);
 	lba_t pblk;
 	int flag = 0;
 	struct ffs_inode_page *raw_inode_page; /* 8 slots composed bukcet */
 	struct ffs_ino ino;
+	struct ffs_ino dir_ino;
+	dir_ino.ino = inode->i_ino;
 	ino.ino = INVALID_INO;
 	unsigned long mask;
 
@@ -326,7 +329,7 @@ static inline ffs_ino_t get_file_ino
 	if (flag == 0) {
 		return INVALID_INO;
 	}
-	pblk = compose_file_lba(fi->dir_id, bucket_id, 0, 0, 0);
+	pblk = compose_file_lba(dir_ino.dir_seg.dir, bucket_id, 0, 0, 0);
 	//printk("get_file_ino, pblk:%d\n", pblk);
 	(*bh) = sb_bread(sb, pblk);
 	if (unlikely(!(*bh))) {
@@ -348,7 +351,7 @@ static inline ffs_ino_t get_file_ino
 
 	ino.file_seg.slot = slt;
 	ino.file_seg.bkt = bucket_id;
-	ino.file_seg.dir = fi->dir_id;	
+	ino.file_seg.dir = dir_ino.dir_seg.dir;	
 	return ino.ino;
 }
 

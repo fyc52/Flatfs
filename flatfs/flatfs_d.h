@@ -125,6 +125,11 @@ struct ffs_inode_page_header
     __u32 reserved[13];
 };
 
+enum {
+    FILE_INODE = 0,
+    DIR_INODE = 1
+};
+
 struct ffs_inode         // 磁盘inode
 {					  
 	int valid;
@@ -140,13 +145,11 @@ struct ffs_inode_page   // 磁盘inode_page
 
 struct ffs_inode_info   // 内存文件系统特化inode
 {					   
-    int dir_id;         // 文件: 表示父目录的id；目录：表示当前目录的id
-    int bucket_id;      // -1表示目录
-    int slot_id;
     struct inode vfs_inode;
     int valid;
-    //unsigned long i_flags;
+    int inode_type;
     loff_t size;
+    //unsigned long i_flags;
     struct ffs_name filename;
 };
 

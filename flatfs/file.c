@@ -164,16 +164,16 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	loff_t pos;/*文件的偏移*/
 	struct inode *ino = file_inode(file);
 	struct super_block *sb = ino->i_sb;
-	struct ffs_inode_info *dfi = FFS_I(ino);
+	struct ffs_ino ffs_ino;
 	struct flatfs_sb_info *ffs_sb = sb->s_fs_info;
-	unsigned long dir_ino = dfi->dir_id;
+	ffs_ino.ino = ino->i_ino;
 
 	if(!ctx->pos)
 	{
-		ffs_sb->hashtbl[dfi->dir_id]->pos = 0;
+		ffs_sb->hashtbl[ffs_ino.dir_seg.dir]->pos = 0;
 	}
-	read_dir_dirs(ffs_sb, dir_ino, ctx);
-	read_dir_files(ffs_sb->hashtbl[dfi->dir_id], ino, dir_ino, ctx);
+	read_dir_dirs(ffs_sb, ffs_ino.ino, ctx);
+	read_dir_files(ffs_sb->hashtbl[ffs_ino.dir_seg.dir], ino, ffs_ino.ino, ctx);
 
 	return 0;
 }
