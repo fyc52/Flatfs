@@ -14,7 +14,7 @@
 #include <linux/types.h>
 
 typedef __u64 lba_t;
-typedef __u32 ffs_ino_t;
+typedef __u64 ffs_ino_t;
 
 #define FLATFS_ROOT_INO 0x00000002UL
 
@@ -101,12 +101,12 @@ struct ffs_ino {
             uint64_t slot : FILE_SLOT_BITS;
             uint64_t bkt  : FILE_BUCKET_BITS;
             uint64_t dir  : DIR_BITS;
-            uint64_t rsv  : 32;
+            uint64_t rsv  : 64 - FILE_SLOT_BITS - FILE_BUCKET_BITS - DIR_BITS;
         } file_seg;
 
         struct {
             uint64_t dir  : DIR_BITS;
-            uint64_t rsv  : 45;
+            uint64_t rsv  : 64 - DIR_BITS;
         } dir_seg;
 
         ffs_ino_t ino;

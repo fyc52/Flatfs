@@ -139,6 +139,7 @@ lba_t compose_file_lba(int dir_id, int bucket_id, int slot_id, int block_id, int
 
 	if (flag == 0) {
 		lba.file_meta_seg.dir = dir_id;
+		printk("finode, dir_id: %d\n", dir_id);
 		lba.file_meta_seg.bkt = bucket_id;
 	}
 	else {
@@ -247,7 +248,7 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 			ino = compose_ino(ffs_ino.dir_seg.dir, bkt, slt, 1);
 			raw_inode = &(raw_inode_page->inode[slt]);
 			// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, fi->filename.name);
-			dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
+			dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le64_to_cpu(ino), d_type);
 			__le16 dlen = 1;
 			/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
 			ctx->pos += le16_to_cpu(dlen);
@@ -285,7 +286,7 @@ first:
 				ino = compose_ino(ffs_ino.dir_seg.dir, bkt, slt, 1);
 				raw_inode = &(raw_inode_page->inode[slt]);
 				// printk("ino:%lx, dir_id:%x, bucket_id:%x, slot_id:%x, filename:%s\n", ino, dir_id, bkt, slt, raw_inode->filename.name);
-				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le32_to_cpu(ino), d_type);
+				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le64_to_cpu(ino), d_type);
 				__le16 dlen = 1;
 				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
 				ctx->pos += le16_to_cpu(dlen);
