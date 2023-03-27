@@ -115,14 +115,13 @@ bad_inode:
 static struct dentry *
 ffs_lookup(struct inode * dir, struct dentry *dentry, unsigned int flags)
 {
-	struct inode * inode;
+	struct inode *inode = NULL;
 	ino_t ino;
-	
+	return d_splice_alias(inode, dentry);
 	if (dentry->d_name.len > FFS_MAX_FILENAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
 	ino = hashfs_inode_by_name(dir, &dentry->d_name);
-	inode = NULL;
 	if (ino) {
 		inode = hashfs_iget(dir->i_sb, dir, ino);
 		if (inode == ERR_PTR(-ESTALE)) {
@@ -139,7 +138,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct inode * inode;
 	int err;
 
-	//err = dquot_initialize(dir);
+	err = dquot_initialize(dir);
 	//if (err)
 		//return err;
 	inode = flatfs_new_inode (dir->i_sb, mode, dev);
@@ -152,7 +151,6 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		err = hashfs_add_nondir(dentry, inode);
 	}
 	
-	//if(inode) unlock_new_inode(inode);
 
 	//fyc hash test break point
 	if(!strcmp("fyc", dentry->d_name.name))
