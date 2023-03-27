@@ -66,19 +66,18 @@ struct ffs_inode         // 磁盘inode
 };
 
 
-struct ffs_inode_info   // 内存文件系统特化inode
+struct hashfs_inode_info   // 内存文件系统特化inode
 {					   
     struct inode vfs_inode;
     unsigned long i_flags;
-    struct ffs_name filename;
-    __u32	i_dir_start_lookup; 
+    __u32 i_dir_start_lookup; 
 	__u32 i_version;
 	//spinlock_t i_raw_lock;/* protects updates to the raw inode */
 };
 
-static inline struct ffs_inode_info *FLAT_I(struct inode *inode)
+static inline struct hashfs_inode_info *FLAT_I(struct inode *inode)
 {
-	return container_of(inode, struct ffs_inode_info, vfs_inode);
+	return container_of(inode, struct hashfs_inode_info, vfs_inode);
 }
 
 static inline struct flatfs_sb_info *
@@ -87,13 +86,13 @@ FFS_SB(struct super_block *sb)
 	return sb->s_fs_info; //文件系统特殊信息
 }
 
-static inline struct ffs_inode_info *FFS_I(struct inode *inode)
+static inline struct hashfs_inode_info *HASHFS_I(struct inode *inode)
 {
-	return container_of(inode, struct ffs_inode_info, vfs_inode);
+	return container_of(inode, struct hashfs_inode_info, vfs_inode);
 }
 
 
-#define MAX_INODE_NUM (1U << 20)
+#define MAX_INODE_NUM (1U << 24)
 
 /* 
     ffs在内存superblock,
@@ -161,7 +160,7 @@ static inline char * inode_to_name(struct inode * ino)
 
 
 /* hash.c */
-#define MAX_BLOCK_NUM_BITS 24
+#define MAX_BLOCK_NUM_BITS 25
 #define HASHFS_META_SIZE_BITS 3
 
 #define HASHFS_DATA_START (1UL << (HASHFS_META_SIZE_BITS + MAX_BLOCK_NUM_BITS - FFS_BLOCK_SIZE_BITS))
@@ -211,7 +210,7 @@ struct hashfs_dir_entry_2 {
 #define HASHFS_RESERVED_FL		FS_RESERVED_FL	/* reserved for hashfs lib */
 
 /* dir.c */
-extern ino_t ffs_inode_by_name(struct inode *dir, const struct qstr *child);
+extern ino_t hashfs_inode_by_name(struct inode *dir, const struct qstr *child);
 extern int hashfs_make_empty(struct inode *inode, struct inode *parent);
 extern int hashfs_add_link (struct dentry *dentry, struct inode *inode);
 extern int hashfs_add_nondir(struct dentry *dentry, struct inode *inode);

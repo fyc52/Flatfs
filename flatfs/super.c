@@ -45,7 +45,7 @@ extern void lock_buffer(struct buffer_head *bh);
 extern void brelse(struct buffer_head *bh);
 extern void set_buffer_uptodate(struct buffer_head *bh);
 // extern struct buffer_head *sb_getblk(struct super_block *sb, sector_t block);
-extern struct ffs_inode_info* FFS_I(struct inode * inode);
+extern struct hashfs_inode_info* HASHFS_I(struct inode * inode);
 extern struct dentry *d_make_root(struct inode *root_inode);
 
 
@@ -81,7 +81,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct ffs_inode* raw_inode;
 	sector_t pblk;
 
-	struct ffs_inode_info *fi = FFS_I(inode);
+	struct hashfs_inode_info *fi = HASHFS_I(inode);
 	struct block_device *bdev = sb->s_bdev;
 	struct ffs_inode_page *raw_inode_page;
 
@@ -97,10 +97,6 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 
 	//actual write inode in buffer cache
 	//fill bh
-	if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) {
-		printk("file name len error\n");
-		goto out;
-	}
 	raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	raw_inode->i_size = inode->i_size;
 	raw_inode->i_blocks = inode->i_blocks;
@@ -118,7 +114,7 @@ out:
 
 static struct inode *ffs_alloc_inode(struct super_block *sb)
 {
-	struct ffs_inode_info *fi;
+	struct hashfs_inode_info *fi;
 	fi = kmem_cache_alloc(ffs_inode_cachep, GFP_KERNEL);
 	if (!fi)
 		return NULL;
@@ -138,7 +134,7 @@ struct super_operations flatfs_super_ops = {
 
 struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_root)
 {
-	struct ffs_inode_info *ei;
+	struct hashfs_inode_info *ei;
 	struct buffer_head * bh = NULL;
 	// struct ffs_inode *raw_inode;
 	struct inode *inode;
@@ -149,15 +145,13 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 	
 	if (inode)
 	{
-		ei = FFS_I(inode);
-		
+		ei = HASHFS_I(inode);
+		ei->i_dir_start_lookup = 0;
 		pblk = hashfs_set_data_lba(inode, 0);
 		bh = sb_bread(sb, pblk);
 		//printk("iget bh OK!, bh_block = %lld", bh->b_blocknr);
 		// raw_inode = (struct ffs_inode *) (bh->b_data);
 		
-		memcpy(ei->filename.name, "/", strlen("/"));
-		ei->filename.name_len = my_strlen("/");
 
 		inode->i_sb = sb;
 		inode->i_mode = mode;													//访问权限,https://zhuanlan.zhihu.com/p/78724124
@@ -199,8 +193,8 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev, int is_ro
 struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev)
 {
 	struct inode *inode;
+	struct hashfs_inode_info *ei;
 	inode = new_inode(sb); // https://blog.csdn.net/weixin_43836778/article/details/90236819
-	
 	if (inode)
 	{
 		inode->i_sb = sb;
@@ -237,8 +231,11 @@ struct inode *flatfs_new_inode(struct super_block *sb, int mode, dev_t dev)
 			// break;
 		}
 		inode->i_ino = get_unused_ino(FFS_SB(inode->i_sb));
-		//inode->i_state &= I_NEW;
+		inode->i_state |= I_NEW;
+		inode->i_state |= I_CREATING;
 		hashfs_set_data_lba(inode, 0);
+		ei = HASHFS_I(inode);
+		ei->i_dir_start_lookup = 0;
 		//mark_inode_dirty(inode);
 	}
 	
@@ -367,14 +364,14 @@ static struct file_system_type flatfs_fs_type = {
 
 static void init_once(void *foo)
 {
-	struct ffs_inode_info *fi = (struct ffs_inode_info *) foo;
+	struct hashfs_inode_info *fi = (struct hashfs_inode_info *) foo;
 	inode_init_once(&fi->vfs_inode);
 }
 
 static int __init init_inodecache(void)
 {
 	ffs_inode_cachep = kmem_cache_create("ffs_inode_cache",
-					     sizeof(struct ffs_inode_info),
+					     sizeof(struct hashfs_inode_info),
 					     0, (SLAB_RECLAIM_ACCOUNT|
 						SLAB_MEM_SPREAD|SLAB_ACCOUNT),
 					     init_once);
@@ -417,4 +414,4 @@ static void __exit exit_flatfs_fs(void)
 
 module_init(init_flatfs_fs); //宏：模块加载, 调用init_flatfs_fs
 module_exit(exit_flatfs_fs);
- MODULE_LICENSE ("GPL v2"); 
+MODULE_LICENSE ("GPL v2"); 

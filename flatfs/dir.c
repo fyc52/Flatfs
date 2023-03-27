@@ -337,7 +337,7 @@ struct hashfs_dir_entry_2 *hashfs_find_entry (struct inode *dir,
 	unsigned long start, n;
 	unsigned long npages = dir_pages(dir);
 	struct page *page = NULL;
-	struct ffs_inode_info *ei = FFS_I(dir);
+	struct hashfs_inode_info *ei = HASHFS_I(dir);
 	hashfs_dirent * de;
 	int dir_has_error = 0;
 
@@ -393,7 +393,19 @@ found:
 	return de;
 }
 
-ino_t ffs_inode_by_name(struct inode *dir, const struct qstr *child)
+struct hashfs_dir_entry_2 * hashfs_dotdot (struct inode *dir, struct page **p)
+{
+	struct page *page = hashfs_get_page(dir, 0, 0);
+	hashfs_dirent *de = NULL;
+
+	if (!IS_ERR(page)) {
+		de = hashfs_next_entry((hashfs_dirent *) page_address(page));
+		*p = page;
+	}
+	return de;
+}
+
+ino_t hashfs_inode_by_name(struct inode *dir, const struct qstr *child)
 {
 	ino_t res = 0;
 	struct hashfs_dir_entry_2 *de;
@@ -662,6 +674,7 @@ int hashfs_add_nondir(struct dentry *dentry, struct inode *inode)
 }
 
 struct file_operations ffs_dir_operations = {
+	.llseek		= generic_file_llseek,
 	.read			= generic_read_dir,
 	.iterate		= hashfs_readdir,
 	.iterate_shared = hashfs_readdir,

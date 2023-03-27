@@ -28,7 +28,7 @@ extern void ll_rw_block(int, int, int, struct buffer_head * bh[]);
 extern void wait_on_buffer(struct buffer_head *bh);
 extern struct buffer_head * sb_bread_unmovable(struct super_block *sb, sector_t block);
 extern unsigned int BKDRHash(char *str);
-extern struct ffs_inode_info* FFS_I(struct inode * inode);
+extern struct hashfs_inode_info* HASHFS_I(struct inode * inode);
 extern int blkdev_issue_discard(struct block_device *bdev, sector_t sector,
 		sector_t nr_sects, gfp_t gfp_mask, unsigned long flags);
 extern int dquot_initialize(struct inode *inode);
@@ -60,6 +60,7 @@ Eio:
 
 struct inode *hashfs_iget (struct super_block *sb, struct inode * dir, unsigned long ino)
 {
+	struct hashfs_inode_info *ei;
 	struct buffer_head * bh = NULL;
 	struct ffs_inode *raw_inode;
 	struct inode *inode;
@@ -72,6 +73,8 @@ struct inode *hashfs_iget (struct super_block *sb, struct inode * dir, unsigned 
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
+	ei = HASHFS_I(inode);
+	
 	raw_inode = hashfs_get_inode(inode->i_sb, ino, &bh);
 	if (IS_ERR(raw_inode)) {
 		ret = PTR_ERR(raw_inode);
@@ -118,7 +121,7 @@ ffs_lookup(struct inode * dir, struct dentry *dentry, unsigned int flags)
 	if (dentry->d_name.len > FFS_MAX_FILENAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
-	ino = ffs_inode_by_name(dir, &dentry->d_name);
+	ino = hashfs_inode_by_name(dir, &dentry->d_name);
 	inode = NULL;
 	if (ino) {
 		inode = hashfs_iget(dir->i_sb, dir, ino);
@@ -257,7 +260,7 @@ static int ffs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bo
 	// printk(KERN_ALERT "--------------[create] dump_stack start----------------");
 	// dump_stack();
 	// printk(KERN_ALERT "--------------[create] dump_stack end----------------");
-	int err;
+	int err = 0;
 	//printk("dentry->name:%s\n", dentry->d_name.name);
 	err = ffs_mknod(dir, dentry, mode | S_IFREG, 0);
 	return err;
