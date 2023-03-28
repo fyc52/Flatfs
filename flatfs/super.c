@@ -366,7 +366,7 @@ static struct dentry *flatfs_mount(struct file_system_type *fs_type,
 static void flatfs_kill_sb(struct super_block *sb)
 {
 	printk(KERN_INFO "kill_sb of flatfs\n");
-	dir_exit(sb->s_fs_info);
+	//dir_exit(sb->s_fs_info);
 	sync_filesystem(sb);
 	kill_block_super(sb);
 	printk(KERN_INFO "kill_sb of flatfs OK\n");

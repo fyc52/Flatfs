@@ -139,7 +139,7 @@ lba_t compose_file_lba(int dir_id, int bucket_id, int slot_id, int block_id, int
 
 	if (flag == 0) {
 		lba.file_meta_seg.dir = dir_id;
-		printk("finode, dir_id: %d\n", dir_id);
+		//printk("finode, dir_id: %d\n", dir_id);
 		lba.file_meta_seg.bkt = bucket_id;
 	}
 	else {

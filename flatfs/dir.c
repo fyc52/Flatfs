@@ -203,11 +203,11 @@ void dir_exit(struct flatfs_sb_info *sb_i)
     struct dir_entry *root_dir = &(sb_i->dtree_root->de[FLATFS_ROOT_INO]);
     struct dir_list_entry *dle;
     struct dir_entry *de;
-    int start, dir_id;
+    int dir_id;
 
-    for(dle = root_dir->subdirs->head, start = 0; start < root_dir->dir_size && dle != NULL; start ++) 
+    for(dle = root_dir->subdirs->head; dle != NULL; dle = dle->next) 
         remove_dir(sb_i, FLATFS_ROOT_INO, dle->de->dir_id);
-    root_dir->dir_size = 0;
+
     for(dir_id = 0; dir_id < TT_DIR_NUM; dir_id++) {
         de = &(sb_i->dtree_root->de[dir_id]);
         kfree(de->subdirs);
