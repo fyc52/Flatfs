@@ -14,7 +14,7 @@ int main()
  int fd;  
  for(int i = 0; i < file_num; i ++)
     {
-        char filename[100];
+        char filename[1000];
         strcpy(filename, path);
         sprintf(filename + strlen(path), "%d", i);
         //printf("%s\n", filename);

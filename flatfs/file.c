@@ -167,10 +167,17 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 	struct ffs_ino ffs_ino;
 	struct flatfs_sb_info *ffs_sb = sb->s_fs_info;
 	ffs_ino.ino = ino->i_ino;
+	int bkt, slt;
 
 	if(!ctx->pos)
 	{
-		ffs_sb->hashtbl[ffs_ino.dir_seg.dir]->pos = 0;
+		for(bkt = 0; bkt < TT_BUCKET_NUM; bkt ++) 
+		{
+			for(slt = 0; slt < FILE_SLOT_NUM; slt ++)
+			{
+				bitmap_set(ffs_sb->hashtbl[ffs_ino.dir_seg.dir]->buckets[bkt].ls_slot_bitmap, slt, 1);
+			}
+		}
 	}
 	read_dir_dirs(ffs_sb, ffs_ino.ino, ctx);
 	read_dir_files(ffs_sb->hashtbl[ffs_ino.dir_seg.dir], ino, ffs_ino.ino, ctx);

@@ -30,7 +30,6 @@ void init_file_ht(struct HashTable **file_ht)
 	(*file_ht) = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);	
 	(*file_ht)->total_slot_count = 0;
 	(*file_ht)->buckets = (struct bucket *)vmalloc(sizeof(struct bucket) * FILE_BUCKET_NUM);
-	(*file_ht)->pos = 0;
 	
 	for (bkt = 0; bkt < FILE_BUCKET_NUM; bkt++)
 	{
@@ -214,20 +213,13 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 	lba_t pblk;
 	bucket_num = TT_BUCKET_NUM;
 	ffs_ino.ino = ino;
-
-	if (hashtbl->pos != 0) {
-		return 0;
-	}
-	else {
-		hashtbl->pos ++;
-	}
 	
 	for (bkt = 0; bkt < bucket_num; bkt++)
 	{
 		int flag = 0;
 		for (slt = 0; slt < FILE_SLOT_NUM; slt++)
 		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
+			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap) && test_bit(slt, hashtbl->buckets[bkt].ls_slot_bitmap))
 			{
 				flag = 1;
 				break;
@@ -240,7 +232,7 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 		// printk("ino:%ld", ino);
 		for (slt = 0; slt < FILE_SLOT_NUM; slt++)
 		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap))
+			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap) && test_bit(slt, hashtbl->buckets[bkt].ls_slot_bitmap))
 			{
 				/* 开始传 */
 				unsigned char d_type = FT_UNKNOWN;
@@ -248,9 +240,13 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 				ino = compose_ino(ffs_ino.dir_seg.dir, bkt, slt, 1);
 				raw_inode = &(raw_inode_page->inode[slt]);
 				//printk("bucket_id:%x, slot_id:%x, filename:%s\n", bkt, slt, raw_inode->filename.name);
-				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le64_to_cpu(ino), d_type);
+				if(dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le64_to_cpu(ino), d_type))
+				{
+					bitmap_clear(hashtbl->buckets[bkt].ls_slot_bitmap, slt, 1);
+					ctx->pos ++;
+					//printk("bkt:%d, slt:%d\n", bkt, slt);
+				}
 				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-				ctx->pos ++;
 			}
 		}
 		if(ibh) brelse(ibh);

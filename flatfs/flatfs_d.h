@@ -244,13 +244,13 @@ struct slot {
 
 struct bucket {
     DECLARE_BITMAP(slot_bitmap, SLOT_NUM);
+    DECLARE_BITMAP(ls_slot_bitmap, SLOT_NUM);
     __u8 valid_slot_count;
     spinlock_t bkt_lock;
 };
 
 struct HashTable {
     struct bucket *buckets;
-    loff_t pos;
 	__u32 total_slot_count;
 };
 
