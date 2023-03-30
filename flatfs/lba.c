@@ -211,13 +211,15 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 	struct ffs_ino ffs_ino;
 	struct ffs_inode_page *raw_inode_page;
 	int bucket_num;
-	int tt_num = 0;
 	lba_t pblk;
 	bucket_num = TT_BUCKET_NUM;
 	ffs_ino.ino = ino;
 
 	if (hashtbl->pos != 0) {
 		return 0;
+	}
+	else {
+		hashtbl->pos ++;
 	}
 	
 	for (bkt = 0; bkt < bucket_num; bkt++)
@@ -245,18 +247,15 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 
 				ino = compose_ino(ffs_ino.dir_seg.dir, bkt, slt, 1);
 				raw_inode = &(raw_inode_page->inode[slt]);
-				tt_num ++;
-				printk("bucket_id:%x, slot_id:%x, filename:%s\n", bkt, slt, raw_inode->filename.name);
+				//printk("bucket_id:%x, slot_id:%x, filename:%s\n", bkt, slt, raw_inode->filename.name);
 				dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le64_to_cpu(ino), d_type);
-				__le16 dlen = 1;
 				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
-				ctx->pos += le16_to_cpu(dlen);
-				hashtbl->pos += le16_to_cpu(dlen);
+				ctx->pos ++;
 			}
 		}
 		if(ibh) brelse(ibh);
 	}
-	printk("tt num:%d\n", tt_num);
+	
 	return 0;
 }
 

@@ -263,6 +263,7 @@ struct inode *flatfs_get_inode(struct super_block *sb, int mode, dev_t dev)
 			break;
 		}
 	}
+	inode->i_state |= I_NEW;
 	
 	return inode;
 }
