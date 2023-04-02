@@ -29,7 +29,7 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	struct ffs_ino ffs_ino;
 
 	if (dentry->d_name.len > FFS_MAX_FILENAME_LEN)
-		return NULL;
+		goto out2;
 	
 	//printk(KERN_INFO "flatfs: flatfs_dir_inode_by_name\n");
 	ino = flatfs_dir_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name);

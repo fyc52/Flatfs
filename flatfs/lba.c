@@ -48,14 +48,15 @@ void free_file_ht(struct HashTable **file_ht)
 }
 
 // BKDR Hash Function
-unsigned int BKDRHash(char *str)
+unsigned int BKDRHash(char *str, int len)
 {
 	unsigned int seed = 4397;
 	unsigned int hash = 0;
 
-	while (*str)
+	while (len > 0)
 	{
 		hash = hash * seed + (*str++);
+		len--;
 	}
 
 	return (hash & 0x7FFFFFFF);
@@ -65,9 +66,9 @@ unsigned int BKDRHash(char *str)
  * insert into file_hash
  * return file_seg
  */
-static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_dir, char *filename)
+static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_dir, struct qstr *filename)
 {
-	unsigned long hashcode = BKDRHash(filename);
+	unsigned long hashcode = BKDRHash(filename->name, filename->len);
 	unsigned long mask;
 	unsigned long bucket_id;
 	__u8 slt;
@@ -195,8 +196,13 @@ lba_t ffs_get_data_lba(struct inode *inode, lba_t iblock)
  */
 struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child)
 {
-	char *name = (char *)(child->name);
-	struct ffs_ino ino = insert_file(hashtbl, parent_dir_id, name);
+	struct ffs_ino ino;
+	if(child->len <= 0 || child->len > FFS_MAX_FILENAME_LEN) {
+		ino.ino = INVALID_INO;
+	}
+	else {
+		ino = insert_file(hashtbl, parent_dir_id, child);
+	}
 	return ino;
 }
 
@@ -258,9 +264,9 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 
 /* 根据文件名查找slot，生成文件的ino */
 static inline ffs_ino_t get_file_ino
-(struct inode *inode, struct HashTable *file_ht, char *filename, struct ffs_inode **raw_inode, struct buffer_head **bh)
+(struct inode *inode, struct HashTable *file_ht, struct qstr *filename, struct ffs_inode **raw_inode, struct buffer_head **bh)
 {
-	unsigned int hashcode = BKDRHash(filename);
+	unsigned long hashcode = BKDRHash(filename->name, filename->len);
 	unsigned long bucket_id;
 	int slt;
 	struct super_block *sb = inode->i_sb;
@@ -298,7 +304,7 @@ static inline ffs_ino_t get_file_ino
 	for (slt = 0; slt < SLOT_NUM; slt++)
 	{
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
-		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap) && !strcmp(filename, (*raw_inode)->filename.name)) {
+		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap) && !strcmp(filename->name, (*raw_inode)->filename.name)) {
 			break;
 		}
 	}
@@ -319,5 +325,8 @@ static inline ffs_ino_t get_file_ino
 unsigned long flatfs_file_inode_by_name
 (struct HashTable *hashtbl, struct inode *parent, struct qstr *child, struct ffs_inode **raw_inode, struct buffer_head **bh)
 {
-	return get_file_ino(parent, hashtbl, (char *)(child->name), raw_inode, bh);
+	if(child->len > FFS_MAX_FILENAME_LEN || child->len <= 0) {
+		return INVALID_INO;
+	}
+	return get_file_ino(parent, hashtbl, child, raw_inode, bh);
 }

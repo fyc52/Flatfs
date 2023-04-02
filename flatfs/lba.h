@@ -5,7 +5,7 @@
 
 struct ffs_inode_info* FFS_I(struct inode * inode);
 
-unsigned int BKDRHash(char *str);
+unsigned int BKDRHash(char *str, int len);
 
 /* create table */
 void init_file_ht(struct HashTable **file_ht);

@@ -118,6 +118,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	raw_inode->size = inode->i_size;
 	raw_inode->valid = fi->valid;
 	raw_inode->filename.name_len = fi->filename.name_len;
+	memset(raw_inode->filename.name, 0, FFS_MAX_FILENAME_LEN);
 	memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
 
 out:
