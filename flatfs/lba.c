@@ -304,8 +304,9 @@ static inline ffs_ino_t get_file_ino
 	for (slt = 0; slt < SLOT_NUM; slt++)
 	{
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
-		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap) && !strcmp(filename->name, (*raw_inode)->filename.name)) {
-			break;
+		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) {
+			if((*raw_inode)->filename.name_len == filename->len && !strcmp(filename->name, (*raw_inode)->filename.name))
+				break;
 		}
 	}
 	///printk("get_file_ino, slt:%d\n", slt);

@@ -116,7 +116,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->valid = 1;
 		fi->inode_type = DIR_INODE;
 		fi->size = 0;
-		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
+		fi->filename.name_len = dentry->d_name.len;
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
 	}
 	else {
@@ -132,7 +132,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->valid = 1;
 		fi->size = 0;
 		fi->inode_type = FILE_INODE;
-		fi->filename.name_len = my_strlen((char *)(dentry->d_name.name));
+		fi->filename.name_len = dentry->d_name.len;
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
 		//printk("mknod --- ino:%ld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
 	}
