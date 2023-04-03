@@ -47,6 +47,8 @@ static void flatfs_put_super(struct super_block *sb)
 
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
+	if (flags == I_DIRTY_TIME)
+		return;
 	struct buffer_head *ibh = NULL;
 	struct super_block *sb = inode->i_sb;
 	struct ffs_inode* raw_inode;

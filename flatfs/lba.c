@@ -302,8 +302,9 @@ static inline ffs_ino_t get_file_ino
 	if (unlikely(!(*bh))) {
 		return INVALID_INO;
 	}
-
+	lock_buffer(*bh);
 	raw_inode_page = (struct ffs_inode_page *)((*bh)->b_data);
+	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	for (slt = 0; slt < SLOT_NUM; slt++)
 	{
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
@@ -312,6 +313,8 @@ static inline ffs_ino_t get_file_ino
 				break;
 		}
 	}
+	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	unlock_buffer(*bh);
 	///printk("get_file_ino, slt:%d\n", slt);
 	if (slt >= SLOT_NUM) {
 		return INVALID_INO;
