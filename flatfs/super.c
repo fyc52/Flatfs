@@ -153,12 +153,18 @@ static struct inode *ffs_alloc_inode(struct super_block *sb)
 	return &fi->vfs_inode;
 }
 
+static void ffs_free_in_core_inode(struct inode *inode)
+{
+	kmem_cache_free(ffs_inode_cachep, FFS_I(inode));
+}
+
 struct super_operations flatfs_super_ops = {
 	.statfs = flatfs_super_statfs,
 	.drop_inode = generic_delete_inode, /* VFS提供的通用函数，会判断是否定义具体文件系统的超级块操作函数delete_inode，若定义的就调用具体的inode删除函数(如ext3_delete_inode )，否则调用truncate_inode_pages和clear_inode函数(在具体文件系统的delete_inode函数中也必须调用这两个函数)。 */
 	.put_super = flatfs_put_super,
 	.dirty_inode = ffs_dirty_inode,
 	.alloc_inode = ffs_alloc_inode,
+	.free_inode	= ffs_free_in_core_inode,
 	.destroy_inode	= ffs_destroy_inode,
 };
 

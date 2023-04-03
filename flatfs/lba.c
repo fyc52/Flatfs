@@ -272,6 +272,7 @@ static inline ffs_ino_t get_file_ino
 	struct super_block *sb = inode->i_sb;
 	lba_t pblk;
 	int flag = 0;
+	unsigned long flags;
 	struct ffs_inode_page *raw_inode_page; /* 8 slots composed bukcet */
 	struct ffs_ino ino;
 	struct ffs_ino dir_ino;
@@ -281,6 +282,7 @@ static inline ffs_ino_t get_file_ino
 
 	mask = (FILE_BUCKET_NUM - 1LU);
 	bucket_id = (unsigned long)hashcode & mask;
+	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	//("get_file_ino, file_ht type:%d, bkt_id:%d\n", file_ht->dtype, bucket_id);
 	for (slt = 0; slt < SLOT_NUM; slt ++) {
 		//printk("get_file_ino, slt:%d\n", slt);
@@ -289,6 +291,7 @@ static inline ffs_ino_t get_file_ino
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 
 	if (flag == 0) {
 		return INVALID_INO;
