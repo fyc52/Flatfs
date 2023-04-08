@@ -3,6 +3,8 @@
 #include <linux/buffer_head.h>
 #include <linux/blk_types.h>
 #include <linux/namei.h>
+#include <linux/backing-dev.h>
+
 #ifndef _TEST_H_
 #define _TEST_H_
 #include "flatfs_d.h"
@@ -27,45 +29,59 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	int bucket_id;
 	int slot_id = 0;
 	struct ffs_ino ffs_ino;
+	sector_t pblk;
+	umode_t mode = 0;
 
 	if (dentry->d_name.len > FFS_MAX_FILENAME_LEN)
-		goto out2;
+		goto out;
 	
 	//printk(KERN_INFO "flatfs: flatfs_dir_inode_by_name\n");
 	ino = flatfs_dir_inode_by_name(dir->i_sb->s_fs_info, dir->i_ino, &dentry->d_name);
-
 	dir_id = dir->i_ino;
 	//printk(KERN_INFO "flatfs: flatfs_dir_inode_by_name, dir_id = %d\n", dir_id);
 	/* 子目录树没有找到，前往hashtbl查询子文件 */
 	if(ino == 0) {
 		ino = flatfs_file_inode_by_name(ffs_sb->hashtbl[dir_id], dir, &dentry->d_name, &raw_inode, &bh);
 	}
+	else {
+		printk(KERN_INFO "flatfs: get ino = %lx\n", ino);
+		printk("lookup dir name: %s\n", dentry->d_name.name);
+		pblk = compose_dir_lba(ino);
+		bh = sb_bread(dir->i_sb, pblk);//这里不使用bread，避免读盘
+		raw_inode = (struct ffs_inode *) bh->b_data;
+		mode = S_IFDIR;
+		goto get_dir;
+	}
 		
 	/* 子目录树和子文件中均没找到，说明没有这个子文件/目录 */
 	if(ino == 0) { 
 		inode = NULL;
 		//printk(KERN_INFO "inode is NULL\n");
-		goto out2;
+		goto out;
+	}
+	else {
+		//printk("lookup file name: %s\n", dentry->d_name.name);
+		mode = S_IFREG;
 	}
 	//printk(KERN_INFO "flatfs: get ino = %lx\n", ino);
 	/* 有子文件/目录 */
+get_dir:
 	inode = iget_locked(dir->i_sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 	if (!(inode->i_state & I_NEW)) {
 		/* 在内存中有最新的inode，直接结束 */
 		//printk(KERN_INFO "flatfs: new inode OK\n");
-		goto out1;
+		goto out;
 	}
-
+	if(unlikely(!raw_inode)) {
+		goto out;
+	}
 	/* 
 	 * 有子文件/目录，但是在内存中没有最新的inode，需要读盘 
 	 * 一般这个函数开机的时候才会调用，按照我们的设计，这个时候只可能是文件，
 	 * 因为目录树存在内存了
 	*/
-	if(unlikely(!raw_inode)) {
-		goto out1;
-	}
 	//printk(KERN_INFO "flatfs: get raw_inode OK\n");
 
 	struct ffs_inode_info *fi = FFS_I(inode);
@@ -74,19 +90,34 @@ static struct dentry *ffs_lookup(struct inode *dir, struct dentry *dentry, unsig
 	// 用盘内inode赋值inode操作
 	inode->i_size = raw_inode->size;											
 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
-	inode->i_uid  = dir->i_uid;
-	inode->i_gid  = dir->i_gid;
-	inode->i_rdev = dir->i_sb->s_dev;
+	inode->i_atime.tv_nsec = inode->i_mtime.tv_nsec = inode->i_ctime.tv_nsec = 0;
+	inode->i_uid = current_fsuid();											/* Low 16 bits of Owner Uid */
+	inode->i_gid = current_fsgid();	
+	//inode->i_rdev = dir->i_sb->s_dev;
 	inode->i_mapping->a_ops = &ffs_aops;
-
-	inode->i_mode |= S_IFREG ;
-	inode->i_op = &ffs_file_inode_ops;
-	inode->i_fop = &ffs_file_file_ops;
-	set_nlink(inode, 1);            //不允许硬链接，常规文件的nlink固定为1
-
-out1:
+	fi->size = raw_inode->size;
+	if (!fi->filename.name_len) {
+		fi->filename.name_len = dentry->d_name.len;
+		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
+	}
+	if (mode == S_IFDIR) {
+		printk("looup dir ok\n");
+		inode->i_mode = mode;
+		inode->i_op = &ffs_dir_inode_ops;
+		inode->i_fop = &ffs_dir_operations;
+		fi->inode_type = DIR_INODE;
+	}
+	else {
+		//printk("looup file ok\n");
+		inode->i_mode = mode;
+		inode->i_op = &ffs_file_inode_ops;
+		inode->i_fop = &ffs_file_file_ops;
+		fi->inode_type = FILE_INODE;
+	}
+	inc_nlink(inode);		
 	if(inode) unlock_new_inode(inode);
-out2:
+	
+out:
 	if(bh) brelse(bh);
 	return d_splice_alias(inode, dentry);//将inode与dentry绑定
 }
@@ -108,7 +139,8 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	// 为新inode分配ino#
 	if(mknod_is_dir) {
 		unsigned long dir_id = fill_one_dir_entry(dir->i_sb->s_fs_info, dentry->d_name.name);
-		//printk("mknod dir id: %lu\n", dir_id);
+		printk("mknod dir id: %lu\n", dir_id);
+		printk("mknod dir name: %s\n", dentry->d_name.name);
 		// unsigned long parent_ino = dir->i_ino;
 		insert_dir(dir->i_sb->s_fs_info, ffs_dir_ino.dir_seg.dir, dir_id);
 		init_file_ht(&(ffs_sb->hashtbl[dir_id]));
