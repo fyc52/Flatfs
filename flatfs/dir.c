@@ -230,9 +230,11 @@ ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
     int start;
 
     for(dir_node = dir->subdirs->head, start = 0; start < dir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
-        if(namelen == dir_node->de->namelen && !strncmp(name, dir_node->de->dir_name, namelen)) {
-            ino = compose_ino(dir_node->de->dir_id, -1, -1, 0);
-            break;
+        if(namelen == dir_node->de->namelen) {
+            if(!strncmp(name, dir_node->de->dir_name, namelen)) {
+                ino = compose_ino(dir_node->de->dir_id, -1, -1, 0);
+                break;
+            }
         }
     }
     return ino;
