@@ -155,7 +155,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		// printk(KERN_INFO "flatfs: create\n");
 		int dir_id = ffs_dir_ino.dir_seg.dir;
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
-		ffs_ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dir_id], dir, dir_id, &dentry->d_name);
+		ffs_ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[dir_id], dir, &dentry->d_name);
 		if (ffs_ino.ino == INVALID_INO) 
 		{
 			return -1;
@@ -166,7 +166,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		fi->inode_type = FILE_INODE;
 		fi->filename.name_len = dentry->d_name.len;
 		memcpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
-		//printk("mknod --- ino:%ld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, fi->dir_id, fi->bucket_id, fi->slot_id);
+		printk("mknod --- ino:%ld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
 	}
 
 	inode->i_ino = ino;

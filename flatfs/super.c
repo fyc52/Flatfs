@@ -97,11 +97,6 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		{
 			raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
 			raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
-			// printk("slot num :%d\n", raw_inode_page->header.valid_slot_num);
-			if (!test_bit(ffs_ino.file_seg.slot, raw_inode_page->header.slot_bitmap)) {
-				raw_inode_page->header.valid_slot_num++;
-			}
-			bitmap_set(raw_inode_page->header.slot_bitmap, ffs_ino.file_seg.slot, 1);
 		}
 	}
 	else if(fi->inode_type == FILE_INODE) 

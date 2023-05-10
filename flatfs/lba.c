@@ -66,7 +66,7 @@ unsigned int BKDRHash(char *str, int len)
  * insert into file_hash
  * return file_seg
  */
-static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_dir, struct qstr *filename)
+static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode *parent_dir, struct qstr *filename)
 {
 	unsigned long hashcode = BKDRHash(filename->name, filename->len);
 	unsigned long mask;
@@ -74,28 +74,42 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, int parent_d
 	__u8 slt;
 	struct ffs_ino ino;
 	unsigned long flags;
+	struct ffs_inode *raw_inode;
+	struct ffs_inode_page *raw_inode_page;
+	sector_t pblk;
+	struct buffer_head *ibh;
+
 	ino.ino = INVALID_INO;
 	mask = (FILE_BUCKET_NUM - 1LU);
 
 	bucket_id = (unsigned long)hashcode & mask;
+	pblk = compose_file_lba((int)(parent_dir->i_ino), bucket_id, 0, 0, 0);
+	ibh = sb_bread(parent_dir->i_sb, pblk);
+
+	if (unlikely(!ibh)){
+		printk(KERN_ERR "allocate bh for ffs_inode fail");
+		return ino;
+	}
 
 	/* lock for multiple create file, unlock after mark inode dirty */
 	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
-
-	slt = find_first_zero_bit(file_ht->buckets[bucket_id].slot_bitmap, SLOT_NUM);
+	raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
+	slt = find_first_zero_bit(raw_inode_page->header.slot_bitmap, SLOT_NUM);
 	if (slt == SLOT_NUM)
 	{
 		spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 		return ino;
 	}
-	bitmap_set(file_ht->buckets[bucket_id].slot_bitmap, slt, 1);
-	file_ht->buckets[bucket_id].valid_slot_count++;
+	bitmap_set(raw_inode_page->header.slot_bitmap, slt, 1);
+	raw_inode_page->header.valid_slot_num++;
 	file_ht->total_slot_count++;
+	mark_buffer_dirty(ibh);
+	brelse(ibh);
+	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	
 	ino.file_seg.slot = slt;
 	ino.file_seg.bkt = bucket_id;
-	ino.file_seg.dir = parent_dir;
-	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	ino.file_seg.dir = (int)(parent_dir->i_ino);
 	return ino;
 }
 
@@ -194,14 +208,14 @@ lba_t ffs_get_data_lba(struct inode *inode, lba_t iblock)
 /**
  * 根据文件名分配slot，并返回ino
  */
-struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child)
+struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, struct qstr *child)
 {
 	struct ffs_ino ino;
 	if(child->len <= 0 || child->len > FFS_MAX_FILENAME_LEN) {
 		ino.ino = INVALID_INO;
 	}
 	else {
-		ino = insert_file(hashtbl, parent_dir_id, child);
+		ino = insert_file(hashtbl, parent, child);
 	}
 	return ino;
 }

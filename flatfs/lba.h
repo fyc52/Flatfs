@@ -20,7 +20,7 @@ int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id);
 unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, struct qstr *child, struct ffs_inode **raw_inode, struct buffer_head **bh);
 
 /* create file / insert */
-struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, int parent_dir_id, struct qstr *child);
+struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, struct qstr *child);
 
 /* iterator read */
 int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx);
