@@ -28,15 +28,8 @@ void init_file_ht(struct HashTable **file_ht)
 	int bkt;
 
 	(*file_ht) = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);	
-	(*file_ht)->total_slot_count = 0;
 	(*file_ht)->buckets = (struct bucket *)vmalloc(sizeof(struct bucket) * FILE_BUCKET_NUM);
-	
-	for (bkt = 0; bkt < FILE_BUCKET_NUM; bkt++)
-	{
-		bitmap_zero((*file_ht)->buckets[bkt].slot_bitmap, SLOT_NUM);
-		/* 第一个slot固定用来存放该bucket下所有文件的inode信息 */
-		(*file_ht)->buckets[bkt].valid_slot_count = 0;
-	}
+	bitmap_zero((*file_ht)->buckets_bitmap, TT_BUCKET_NUM);
 }
 
 void free_file_ht(struct HashTable **file_ht)
@@ -94,6 +87,11 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 	/* lock for multiple create file, unlock after mark inode dirty */
 	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
+	if (test_bit(bucket_id, file_ht->buckets_bitmap) == 0) 
+	{
+		bitmap_set(file_ht->buckets_bitmap, bucket_id, 1);
+		bitmap_zero(raw_inode_page->header.slot_bitmap, SLOT_NUM);
+	}
 	slt = find_first_zero_bit(raw_inode_page->header.slot_bitmap, SLOT_NUM);
 	if (slt == SLOT_NUM)
 	{
@@ -102,7 +100,6 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 	}
 	bitmap_set(raw_inode_page->header.slot_bitmap, slt, 1);
 	raw_inode_page->header.valid_slot_num++;
-	file_ht->total_slot_count++;
 	mark_buffer_dirty(ibh);
 	brelse(ibh);
 	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
@@ -138,7 +135,10 @@ int delete_file(struct HashTable *file_ht, struct inode *dir, int bucket_id, int
 	if (test_bit(slot_id, raw_inode_page->header.slot_bitmap)) {
 		raw_inode_page->header.valid_slot_num--;
 		bitmap_clear(raw_inode_page->header.slot_bitmap, slot_id, 1);
-		file_ht->total_slot_count--;
+		if (raw_inode_page->header.valid_slot_num == 0)
+		{
+			bitmap_clear(file_ht->buckets_bitmap, bucket_id, 1);
+		}
 		//printk("bitmap_clear ok, dir = %d, bkt = %d, slt = %d\n", dir->i_ino, bucket_id, slot_id);
 	}
 	// printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
@@ -233,7 +233,7 @@ struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct 
 	return ino;
 }
 
-int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx)
+int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx, unsigned long *ls_bitmap)
 {
 	int bkt, slt;
 	int pos = 0;
@@ -249,24 +249,16 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 	
 	for (bkt = 0; bkt < bucket_num; bkt++)
 	{
-		int flag = 0;
-		for (slt = 0; slt < FILE_SLOT_NUM; slt++)
-		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap) && test_bit(slt, hashtbl->buckets[bkt].ls_slot_bitmap))
-			{
-				flag = 1;
-				break;
-			}
-		}
-		if (flag == 0) continue;
+		if(!test_bit(bkt, hashtbl->buckets_bitmap)) continue;
 		pblk = compose_file_lba(ffs_ino.dir_seg.dir, bkt, 0, 0, 0);
 		ibh = sb_bread(sb, pblk);
 		raw_inode_page = (struct ffs_inode_page *)(ibh->b_data);
 		// printk("ino:%ld", ino);
 		for (slt = 0; slt < FILE_SLOT_NUM; slt++)
 		{
-			if (test_bit(slt, hashtbl->buckets[bkt].slot_bitmap) && test_bit(slt, hashtbl->buckets[bkt].ls_slot_bitmap))
+			if (test_bit(slt, raw_inode_page->header.slot_bitmap))
 			{
+				if(!test_bit(bkt * SLOT_NUM + slt, ls_bitmap)) continue;
 				/* 开始传 */
 				unsigned char d_type = FT_UNKNOWN;
 
@@ -275,14 +267,14 @@ int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino
 				//printk("bucket_id:%x, slot_id:%x, filename:%s\n", bkt, slt, raw_inode->filename.name);
 				if(dir_emit(ctx, raw_inode->filename.name, raw_inode->filename.name_len, le64_to_cpu(ino), d_type))
 				{
-					bitmap_clear(hashtbl->buckets[bkt].ls_slot_bitmap, slt, 1);
+					bitmap_clear(ls_bitmap, bkt * SLOT_NUM + slt, 1);
 					ctx->pos ++;
 					//printk("bkt:%d, slt:%d\n", bkt, slt);
 				}
 				/* 上下文指针原本指向目录项文件的位置，现在我们设计变了，改成了表示第pos个子目录 */
 			}
 		}
-		if(ibh) brelse(ibh);
+		brelse(ibh);
 	}
 	
 	return 0;
@@ -323,7 +315,7 @@ static inline ffs_ino_t get_file_ino
 	for (slt = 0; slt < SLOT_NUM; slt++)
 	{
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
-		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) {
+		if (test_bit(slt, raw_inode_page->header.slot_bitmap)) {
 			if((*raw_inode)->filename.name_len == filename->len && !strcmp(filename->name, (*raw_inode)->filename.name))
 				break;
 		}

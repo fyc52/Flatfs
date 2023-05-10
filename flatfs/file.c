@@ -38,6 +38,8 @@
 #include "lba.h"
 #endif
 
+DECLARE_BITMAP(ls_slot_bitmap, SLOT_NUM * TT_BUCKET_NUM);
+
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 			   struct buffer_head *bh, int create)
 {
@@ -171,16 +173,10 @@ static int ffs_readdir(struct file *file, struct dir_context *ctx){
 
 	if(!ctx->pos)
 	{
-		for(bkt = 0; bkt < TT_BUCKET_NUM; bkt ++) 
-		{
-			for(slt = 0; slt < FILE_SLOT_NUM; slt ++)
-			{
-				bitmap_set(ffs_sb->hashtbl[ffs_ino.dir_seg.dir]->buckets[bkt].ls_slot_bitmap, slt, 1);
-			}
-		}
+		bitmap_fill(ls_slot_bitmap, SLOT_NUM * TT_BUCKET_NUM);
 	}
 	read_dir_dirs(ffs_sb, ffs_ino.ino, ctx);
-	read_dir_files(ffs_sb->hashtbl[ffs_ino.dir_seg.dir], ino, ffs_ino.ino, ctx);
+	read_dir_files(ffs_sb->hashtbl[ffs_ino.dir_seg.dir], ino, ffs_ino.ino, ctx, ls_slot_bitmap);
 
 	return 0;
 }

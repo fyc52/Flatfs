@@ -23,7 +23,7 @@ unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode 
 struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, struct qstr *child);
 
 /* iterator read */
-int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx);
+int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx, unsigned long *ls_bitmap);
 
 lba_t compose_file_lba(int dir_id, int bucket_id, int slot_id, int block_id, int flag);
 lba_t compose_dir_lba(int dir_id);
