@@ -139,7 +139,7 @@ int delete_file(struct HashTable *file_ht, struct inode *dir, int bucket_id, int
 		raw_inode_page->header.valid_slot_num--;
 		bitmap_clear(raw_inode_page->header.slot_bitmap, slot_id, 1);
 		file_ht->total_slot_count--;
-		printk("bitmap_clear ok, dir = %d, bkt = %d, slt = %d\n", dir->i_ino, bucket_id, slot_id);
+		//printk("bitmap_clear ok, dir = %d, bkt = %d, slt = %d\n", dir->i_ino, bucket_id, slot_id);
 	}
 	// printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
 	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
@@ -309,27 +309,15 @@ static inline ffs_ino_t get_file_ino
 
 	mask = (FILE_BUCKET_NUM - 1LU);
 	bucket_id = (unsigned long)hashcode & mask;
-	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	//("get_file_ino, file_ht type:%d, bkt_id:%d\n", file_ht->dtype, bucket_id);
-	for (slt = 0; slt < SLOT_NUM; slt ++) {
-		//printk("get_file_ino, slt:%d\n", slt);
-		if (test_bit(slt, file_ht->buckets[bucket_id].slot_bitmap)) {
-			flag = 1;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 
-	if (flag == 0) {
-		return INVALID_INO;
-	}
 	pblk = compose_file_lba(dir_ino.dir_seg.dir, bucket_id, 0, 0, 0);
 	//printk("get_file_ino, pblk:%d\n", pblk);
 	(*bh) = sb_bread(sb, pblk);
 	if (unlikely(!(*bh))) {
+		spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 		return INVALID_INO;
 	}
-	lock_buffer(*bh);
 	raw_inode_page = (struct ffs_inode_page *)((*bh)->b_data);
 	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	for (slt = 0; slt < SLOT_NUM; slt++)
@@ -341,7 +329,6 @@ static inline ffs_ino_t get_file_ino
 		}
 	}
 	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
-	unlock_buffer(*bh);
 	///printk("get_file_ino, slt:%d\n", slt);
 	if (slt >= SLOT_NUM) {
 		return INVALID_INO;
