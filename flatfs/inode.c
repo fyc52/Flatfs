@@ -212,7 +212,7 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	if(fi->valid == 0 || fi->inode_type == DIR_INODE) goto out;
 	/*delete file in hashtbl*/
 	ffs_ino.ino = inode->i_ino;
-	err = delete_file(ffs_sb->hashtbl[ffs_ino.file_seg.dir], ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
+	err = delete_file(ffs_sb->hashtbl[ffs_ino.file_seg.dir], dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
 	if (!err) {
 		printk("unlink failed, dirid: %d, bucketid: %d, slotid: %d\n", ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
 		goto out;

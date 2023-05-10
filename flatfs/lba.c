@@ -106,33 +106,46 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 	mark_buffer_dirty(ibh);
 	brelse(ibh);
 	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
-	
+
 	ino.file_seg.slot = slt;
 	ino.file_seg.bkt = bucket_id;
 	ino.file_seg.dir = (int)(parent_dir->i_ino);
 	return ino;
 }
 
-int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id)
+int delete_file(struct HashTable *file_ht, struct inode *dir, int bucket_id, int slot_id)
 {
 	unsigned long flags;
+	sector_t pblk;
 	int bkt_num = FILE_BUCKET_NUM;
+	struct buffer_head *ibh = NULL;
+	struct ffs_inode* raw_inode;
+	struct ffs_inode_page *raw_inode_page;
+
 	if (bucket_id == -1 || bucket_id > bkt_num || slot_id > SLOT_NUM)
 		return 0;
+
 	//printk("start to delete file\n");
-	//if(bucket->bkt_lock) spin_lock(&(file_ht->buckets[bucket_id].bkt_lock));
-	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
-	if (!test_bit(slot_id, file_ht->buckets[bucket_id].slot_bitmap))
-	{
-		spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	pblk = compose_file_lba(dir->i_ino, bucket_id, 0, 0, 0);
+	ibh = sb_bread(dir->i_sb, pblk);//这里不使用bread，避免读盘	
+ 	if (unlikely(!ibh)){
+		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return 0;
 	}
 
-	file_ht->buckets[bucket_id].valid_slot_count--;
-	file_ht->total_slot_count--;
-	bitmap_clear(file_ht->buckets[bucket_id].slot_bitmap, slot_id, 1);
+	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
+	if (test_bit(slot_id, raw_inode_page->header.slot_bitmap)) {
+		raw_inode_page->header.valid_slot_num--;
+		bitmap_clear(raw_inode_page->header.slot_bitmap, slot_id, 1);
+		file_ht->total_slot_count--;
+		printk("bitmap_clear ok, dir = %d, bkt = %d, slt = %d\n", dir->i_ino, bucket_id, slot_id);
+	}
 	// printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
 	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+
+	mark_buffer_dirty(ibh);//触发回写
+	brelse(ibh);//put_bh, 对应getblk
 	return 1;
 }
 

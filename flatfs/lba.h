@@ -14,7 +14,7 @@ void init_file_ht(struct HashTable **file_ht);
 void free_file_ht(struct HashTable **file_ht);
 
 /* unlink / delete */
-int delete_file(struct HashTable *file_ht, int bucket_id, int slot_id);
+int delete_file(struct HashTable *file_ht, struct inode *dir, int bucket_id, int slot_id);
 
 /* lookup / find */
 unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode *parent, struct qstr *child, struct ffs_inode **raw_inode, struct buffer_head **bh);
