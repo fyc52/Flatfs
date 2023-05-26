@@ -38,7 +38,7 @@ void init_root_entry(struct flatfs_sb_info *sb_i, struct inode * ino)
     //printk(KERN_INFO "init_root_entry 1\n");
     sb_i->root->dir_id = FLATFS_ROOT_INO;
     // strcpy(root->dir_name, inode_to_name(ino));
-    memcpy(sb_i->root->dir_name, "/", strlen("/"));
+    strncpy(sb_i->root->dir_name, "/", strlen("/"));
     sb_i->root->namelen = 1;
     sb_i->root->rec_len = FFS_DIR_REC_LEN(sb_i->root->namelen);
     //printk(KERN_INFO "ino2name : %s\n", sb_i->root->dir_name);
@@ -88,7 +88,7 @@ unsigned long fill_one_dir_entry(struct flatfs_sb_info *sb_i, char *dir_name)
     de->rec_len = FFS_DIR_REC_LEN(de->namelen);
     if(de->namelen > 0) {
         //printk("fill_one_dir_entry: %2s\n", dir_name);
-        memcpy(de->dir_name, dir_name, de->namelen);
+        strncpy(de->dir_name, dir_name, de->namelen);
     }
     sb_i->dtree_root->dir_entry_num++;
     return dir_id;

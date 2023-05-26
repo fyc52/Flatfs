@@ -10,6 +10,7 @@
 #include <linux/dcache.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/semaphore.h>
 #include <linux/bitmap.h>
 #include <linux/types.h>
 
@@ -126,8 +127,9 @@ struct ffs_inode_page_header
 };
 
 enum {
-    FILE_INODE = 0,
-    DIR_INODE = 1
+    FILE_INODE = 1,
+    DIR_INODE = 2,
+    INODE_CREATE = 4
 };
 
 struct ffs_inode         // 磁盘inode
@@ -146,10 +148,11 @@ struct ffs_inode_page   // 磁盘inode_page
 struct ffs_inode_info   // 内存文件系统特化inode
 {					   
     struct inode vfs_inode;
-    int valid;
-    int inode_type;
+    __u8 valid;
+    __u8 inode_type;
     loff_t size;
     //unsigned long i_flags;
+    struct semaphore filename_sem;
     struct ffs_name filename;
 };
 
@@ -242,12 +245,8 @@ struct slot {
     struct ffs_name filename;
 };
 
-struct bucket {
-    spinlock_t bkt_lock;
-};
-
 struct HashTable {
-    struct bucket *buckets;
+    struct semaphore *bkt_sem;
     DECLARE_BITMAP(buckets_bitmap, TT_BUCKET_NUM);
 };
 

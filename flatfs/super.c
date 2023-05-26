@@ -47,11 +47,10 @@ static void flatfs_put_super(struct super_block *sb)
 
 static void ffs_dirty_inode(struct inode *inode, int flags)
 {
-	if (flags == I_DIRTY_TIME)
-		return;
 	struct buffer_head *ibh = NULL;
 	struct super_block *sb = inode->i_sb;
 	struct ffs_inode* raw_inode;
+	struct HashTable *file_ht;
 	sector_t pblk;
 	//目录的inode在实现中也要做持久化
 
@@ -60,6 +59,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	struct inode *bdev_inode = bdev->bd_inode;
 	struct ffs_inode_page *raw_inode_page;
 	struct ffs_ino ffs_ino;
+
 	ffs_ino.ino = inode->i_ino;
 	if (bdev_inode == NULL) 
 	{
@@ -70,63 +70,76 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 
 	if (fi) 
 	{	
-		if(fi->inode_type == DIR_INODE)
+		if(fi->inode_type & DIR_INODE)
 			pblk = compose_dir_lba(ffs_ino.dir_seg.dir);
-		else
+		else if(fi->inode_type & FILE_INODE)
+		{
 			pblk = compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, 0, 0, 0);
+			file_ht = FFS_SB(sb)->hashtbl[ffs_ino.file_seg.dir];
+		}
+	}
+	else
+	{
+		printk("fi err\n");
 	}
 	//printk(KERN_INFO "sb->s_bdev = %d, fs type = %s, pblk = %lld\n", inode->i_sb->s_dev, sb->s_type->name, pblk);
 	ibh = sb_bread(sb, pblk);//这里不使用bread，避免读盘
 	
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
+		if(fi->inode_type & FILE_INODE) 
+			up(&file_ht->bkt_sem[ffs_ino.file_seg.bkt]);
 		return ;
 	}	
-	lock_buffer(ibh);
-	
-	if(fi->valid) 
+
+	if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) 
 	{
-		if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) 
-		{
-			printk("file name len error\n");
-			goto out;
-		}
-		if(fi->inode_type == DIR_INODE)
-			raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
-		else 
-		{
-			raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
-			raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
-		}
+		printk("file name len error\n");
+		if(fi->inode_type & FILE_INODE) 
+			up(&file_ht->bkt_sem[ffs_ino.file_seg.bkt]);
+		goto out;
 	}
-	else if(fi->inode_type == FILE_INODE) 
+	
+	if(fi->inode_type & FILE_INODE)
 	{
 		raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
 		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
 	}
-	else {
-		goto out;
+	else if(fi->inode_type & DIR_INODE)
+	{
+		raw_inode = (struct ffs_inode *) ibh->b_data;//b_data就是地址，我们的inode位于bh内部offset为0的地方
 	}
 
-	raw_inode->size = inode->i_size;
-	raw_inode->valid = fi->valid;
-	raw_inode->filename.name_len = fi->filename.name_len;
-	memset(raw_inode->filename.name, 0, FFS_MAX_FILENAME_LEN);
-	memcpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
+	if(fi->inode_type & INODE_CREATE)
+	{
+		memset(raw_inode, 0, sizeof(struct ffs_inode));	
+		raw_inode->size = inode->i_size;
+		raw_inode->valid = fi->valid;
+		raw_inode->filename.name_len = fi->filename.name_len;
+		strncpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
+		if(raw_inode->filename.name_len == 0 || strncmp(raw_inode->filename.name, fi->filename.name, fi->filename.name_len))
+		{
+			printk("dirty_inode false, filename:%s\n", fi->filename.name);
+		}
+		fi->inode_type -= INODE_CREATE;
+		up(&(fi->filename_sem));
+	}
+	set_buffer_uptodate(ibh);//表示可以回写
+	mark_buffer_dirty(ibh);
+	//if(fi->inode_type == FILE_INODE) printk("valid slt:%d,bucket_id:%lu, raw_inode filename:%s\n", raw_inode_page->header.valid_slot_num, ffs_ino.file_seg.bkt, raw_inode->filename.name);
 
 out:
-	if (!buffer_uptodate(ibh))
-   		set_buffer_uptodate(ibh);//表示可以回写
-	unlock_buffer(ibh);
-
-	mark_buffer_dirty(ibh);//触发回写
-	if(ibh) brelse(ibh);//put_bh, 对应getblk
+	brelse(ibh);//put_bh, 对应getblk
 }
 
 static void ffs_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
-	kmem_cache_free(ffs_inode_cachep, FFS_I(inode));
+	struct ffs_inode_info *fi = FFS_I(inode);
+	down_interruptible(&(fi->filename_sem));
+	//printk("inode->i_ino:%lld\n", inode->i_ino);
+	kmem_cache_free(ffs_inode_cachep, fi);
+	up(&(fi->filename_sem));
 }
 
 static void ffs_destroy_inode(struct inode *inode)
@@ -141,14 +154,17 @@ static struct inode *ffs_alloc_inode(struct super_block *sb)
 	if (!fi)
 		return NULL;
 	atomic64_set(&fi->vfs_inode.i_version, 1);
-	// fi->vfs_inode.i_version = 1;
 
 	return &fi->vfs_inode;
 }
 
 static void ffs_free_in_core_inode(struct inode *inode)
 {
-	kmem_cache_free(ffs_inode_cachep, FFS_I(inode));
+	struct ffs_inode_info *fi = FFS_I(inode);
+	down_interruptible(&(fi->filename_sem));
+	printk("inode->i_ino:%lld\n", inode->i_ino);
+	kmem_cache_free(ffs_inode_cachep, fi);
+	up(&(fi->filename_sem));
 }
 
 struct super_operations flatfs_super_ops = {
@@ -157,7 +173,7 @@ struct super_operations flatfs_super_ops = {
 	.put_super = flatfs_put_super,
 	.dirty_inode = ffs_dirty_inode,
 	.alloc_inode = ffs_alloc_inode,
-	.free_inode	= ffs_free_in_core_inode,
+	//.free_inode	= ffs_free_in_core_inode,
 	.destroy_inode	= ffs_destroy_inode,
 };
 
@@ -179,11 +195,11 @@ struct inode *flatfs_iget(struct super_block *sb, int mode, dev_t dev)
 		ei = FFS_I(inode);
 		ei->valid = 1;
 		ei->inode_type = DIR_INODE;
-		
+	
 		lba_t pblk = compose_ino(ffs_ino.dir_seg.dir, -1, -1, 0);
 		bh = sb_bread(sb, pblk);
 		
-		memcpy(ei->filename.name, "/", strlen("/"));
+		strncpy(ei->filename.name, "/", strlen("/"));
 		ei->filename.name_len = my_strlen("/");
 
 		inode->i_sb = sb;
@@ -347,7 +363,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	}
 
 	mark_inode_dirty(inode);
-	if(inode) unlock_new_inode(inode);
+	unlock_new_inode(inode);
 	brelse(bh);
 	/* FS-FILLIN your filesystem specific mount logic/checks here */
 	return 0;
@@ -379,12 +395,12 @@ static struct file_system_type flatfs_fs_type = {
 	.name = "flatfs",
 	.mount = flatfs_mount,	   //创建sb,老版本get_sb
 	.kill_sb = flatfs_kill_sb, //删除sb
-							   /*  .fs_flags */
 };
 
 static void init_once(void *foo)
 {
 	struct ffs_inode_info *fi = (struct ffs_inode_info *) foo;
+	sema_init(&(fi->filename_sem), 1);
 	inode_init_once(&fi->vfs_inode);
 }
 
@@ -393,7 +409,7 @@ static int __init init_inodecache(void)
 	ffs_inode_cachep = kmem_cache_create("ffs_inode_cache",
 					     sizeof(struct ffs_inode_info),
 					     0, (SLAB_RECLAIM_ACCOUNT|
-						SLAB_MEM_SPREAD|SLAB_ACCOUNT),
+						SLAB_MEM_SPREAD|SLAB_ACCOUNT|SLAB_HWCACHE_ALIGN),
 					     init_once);
 	if (ffs_inode_cachep == NULL)
 		return -ENOMEM;

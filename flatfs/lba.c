@@ -28,14 +28,18 @@ void init_file_ht(struct HashTable **file_ht)
 	int bkt;
 
 	(*file_ht) = (struct HashTable *)kzalloc(sizeof(struct HashTable), GFP_KERNEL);	
-	(*file_ht)->buckets = (struct bucket *)vmalloc(sizeof(struct bucket) * FILE_BUCKET_NUM);
+	(*file_ht)->bkt_sem = (struct semaphore *)vmalloc(sizeof(struct semaphore) * TT_BUCKET_NUM);
 	bitmap_zero((*file_ht)->buckets_bitmap, TT_BUCKET_NUM);
+	for(bkt = 0; bkt < TT_BUCKET_NUM; bkt ++)
+	{
+		sema_init(&((*file_ht)->bkt_sem[bkt]), 1);
+	}
 }
 
 void free_file_ht(struct HashTable **file_ht)
 {
 
-	vfree((*file_ht)->buckets);
+	vfree((*file_ht)->bkt_sem);
 	kfree(*file_ht);
 	*file_ht = NULL;
 }
@@ -43,12 +47,13 @@ void free_file_ht(struct HashTable **file_ht)
 // BKDR Hash Function
 unsigned int BKDRHash(char *str, int len)
 {
-	unsigned int seed = 4397;
+	unsigned int seed = 10;
 	unsigned int hash = 0;
 
 	while (len > 0)
 	{
-		hash = hash * seed + (*str++);
+		hash = hash * seed + *str - '0';
+		str++;
 		len--;
 	}
 
@@ -64,9 +69,8 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 	unsigned long hashcode = BKDRHash(filename->name, filename->len);
 	unsigned long mask;
 	unsigned long bucket_id;
-	__u8 slt;
+	int slt;
 	struct ffs_ino ino;
-	unsigned long flags;
 	struct ffs_inode *raw_inode;
 	struct ffs_inode_page *raw_inode_page;
 	sector_t pblk;
@@ -77,32 +81,35 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 
 	bucket_id = (unsigned long)hashcode & mask;
 	pblk = compose_file_lba((int)(parent_dir->i_ino), bucket_id, 0, 0, 0);
+	if (down_interruptible(&file_ht->bkt_sem[bucket_id])) 
+	{
+        printk(KERN_INFO "Semaphore acquisition failed\n");
+        return ino;
+    }
 	ibh = sb_bread(parent_dir->i_sb, pblk);
-
 	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return ino;
 	}
-
-	/* lock for multiple create file, unlock after mark inode dirty */
-	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
-	if (test_bit(bucket_id, file_ht->buckets_bitmap) == 0) 
+	/* lock for multiple create file, unlock after mark inode dirty */
+	if (!__test_and_set_bit_le(bucket_id, file_ht->buckets_bitmap)) 
 	{
 		bitmap_set(file_ht->buckets_bitmap, bucket_id, 1);
-		bitmap_zero(raw_inode_page->header.slot_bitmap, SLOT_NUM);
+		memset(&(raw_inode_page->header), 0, sizeof(struct ffs_inode_page_header));
 	}
+
 	slt = find_first_zero_bit(raw_inode_page->header.slot_bitmap, SLOT_NUM);
-	if (slt == SLOT_NUM)
-	{
-		spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	if (slt >= SLOT_NUM)
+	{	
+		printk(KERN_INFO "Bucket slot over\n");
+		up(&file_ht->bkt_sem[bucket_id]);
 		return ino;
 	}
 	bitmap_set(raw_inode_page->header.slot_bitmap, slt, 1);
 	raw_inode_page->header.valid_slot_num++;
-	mark_buffer_dirty(ibh);
 	brelse(ibh);
-	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	up(&file_ht->bkt_sem[bucket_id]);
 
 	ino.file_seg.slot = slt;
 	ino.file_seg.bkt = bucket_id;
@@ -112,40 +119,33 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 
 int delete_file(struct HashTable *file_ht, struct inode *dir, int bucket_id, int slot_id)
 {
-	unsigned long flags;
 	sector_t pblk;
 	int bkt_num = FILE_BUCKET_NUM;
 	struct buffer_head *ibh = NULL;
 	struct ffs_inode* raw_inode;
 	struct ffs_inode_page *raw_inode_page;
 
-	if (bucket_id == -1 || bucket_id > bkt_num || slot_id > SLOT_NUM)
+	if (bucket_id == -1 || bucket_id > bkt_num || slot_id >= SLOT_NUM)
 		return 0;
 
 	//printk("start to delete file\n");
 	pblk = compose_file_lba(dir->i_ino, bucket_id, 0, 0, 0);
+	down_interruptible(&file_ht->bkt_sem[bucket_id]);
 	ibh = sb_bread(dir->i_sb, pblk);//这里不使用bread，避免读盘	
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return 0;
 	}
 
-	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
 	if (test_bit(slot_id, raw_inode_page->header.slot_bitmap)) {
 		raw_inode_page->header.valid_slot_num--;
 		bitmap_clear(raw_inode_page->header.slot_bitmap, slot_id, 1);
-		if (raw_inode_page->header.valid_slot_num == 0)
-		{
-			bitmap_clear(file_ht->buckets_bitmap, bucket_id, 1);
-		}
 		//printk("bitmap_clear ok, dir = %d, bkt = %d, slt = %d\n", dir->i_ino, bucket_id, slot_id);
 	}
 	// printk("bitmap: %x\n", *(file_ht->buckets[bucket_id].slot_bitmap));
-	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
-
-	mark_buffer_dirty(ibh);//触发回写
 	brelse(ibh);//put_bh, 对应getblk
+	up(&file_ht->bkt_sem[bucket_id]);
 	return 1;
 }
 
@@ -225,12 +225,52 @@ struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct 
 {
 	struct ffs_ino ino;
 	if(child->len <= 0 || child->len > FFS_MAX_FILENAME_LEN) {
+		printk("Name len err\n");
 		ino.ino = INVALID_INO;
 	}
 	else {
 		ino = insert_file(hashtbl, parent, child);
 	}
 	return ino;
+}
+
+void flatfs_debug(char *filen, struct inode *inode)
+{
+	unsigned long hashcode;
+	unsigned long bucket_id;
+	int slt;
+	struct super_block *sb = inode->i_sb;
+	lba_t pblk;
+	int len = strlen("00000001");
+	int i;
+	unsigned long mask;
+	printk("debug1, filen:%s\n", filen);
+
+	mask = (FILE_BUCKET_NUM - 1LU);
+	for(i = 1; i <= 1000000; i ++)
+    {
+		struct ffs_inode_page *raw_inode_page; /* 8 slots composed bukcet */
+		struct ffs_inode *raw_inode;
+		struct buffer_head *bh;
+		char filename[100];
+		sprintf(filename, "%08d", i);
+		if(strcmp(filen, filename)) continue;
+		bucket_id = i;
+		//("get_file_ino, file_ht type:%d, bkt_id:%d\n", file_ht->dtype, bucket_id);
+
+		pblk = compose_file_lba(4, i, 0, 0, 0);
+		//printk("get_file_ino, pblk:%d\n", pblk);
+		bh = sb_bread(sb, (4 << 21) + i);
+		raw_inode_page = (struct ffs_inode_page *)(bh->b_data);
+				printk("not mknod, %d,slot num:%d\n", test_bit(bucket_id, FFS_SB(sb)->hashtbl[4]->buckets_bitmap), raw_inode_page->header.valid_slot_num);
+		for(slt = 0; slt < SLOT_NUM; slt ++)
+		{
+			raw_inode = &(raw_inode_page->inode[slt]);
+			printk("slt:%d,bucket_id:%lu,filename:%s not found, raw_inode filename:%s!\n", slt, bucket_id, filen, raw_inode->filename.name);
+		}
+		brelse(bh);
+		break;
+	}
 }
 
 int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx, unsigned long *ls_bitmap)
@@ -291,7 +331,6 @@ static inline ffs_ino_t get_file_ino
 	struct super_block *sb = inode->i_sb;
 	lba_t pblk;
 	int flag = 0;
-	unsigned long flags;
 	struct ffs_inode_page *raw_inode_page; /* 8 slots composed bukcet */
 	struct ffs_ino ino;
 	struct ffs_ino dir_ino;
@@ -305,22 +344,22 @@ static inline ffs_ino_t get_file_ino
 
 	pblk = compose_file_lba(dir_ino.dir_seg.dir, bucket_id, 0, 0, 0);
 	//printk("get_file_ino, pblk:%d\n", pblk);
+	down_interruptible(&file_ht->bkt_sem[bucket_id]);
 	(*bh) = sb_bread(sb, pblk);
 	if (unlikely(!(*bh))) {
-		spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 		return INVALID_INO;
 	}
+
 	raw_inode_page = (struct ffs_inode_page *)((*bh)->b_data);
-	spin_lock_irqsave(&(file_ht->buckets[bucket_id].bkt_lock), flags);
 	for (slt = 0; slt < SLOT_NUM; slt++)
 	{
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
 		if (test_bit(slt, raw_inode_page->header.slot_bitmap)) {
-			if((*raw_inode)->filename.name_len == filename->len && !strcmp(filename->name, (*raw_inode)->filename.name))
+			if((*raw_inode)->filename.name_len == filename->len && !strncmp(filename->name, (*raw_inode)->filename.name, filename->len))
 				break;
 		}
 	}
-	spin_unlock_irqrestore(&(file_ht->buckets[bucket_id].bkt_lock), flags);
+	up(&file_ht->bkt_sem[bucket_id]);
 	///printk("get_file_ino, slt:%d\n", slt);
 	if (slt >= SLOT_NUM) {
 		return INVALID_INO;

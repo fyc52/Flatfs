@@ -21,7 +21,7 @@ unsigned long flatfs_file_inode_by_name(struct HashTable *hashtbl, struct inode 
 
 /* create file / insert */
 struct ffs_ino flatfs_file_slot_alloc_by_name(struct HashTable *hashtbl, struct inode *parent, struct qstr *child);
-
+void flatfs_debug(char *filen, struct inode *inode);
 /* iterator read */
 int read_dir_files(struct HashTable *hashtbl, struct inode *inode, ffs_ino_t ino, struct dir_context *ctx, unsigned long *ls_bitmap);
 
