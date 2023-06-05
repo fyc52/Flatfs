@@ -107,7 +107,6 @@ static inline struct ffs_ino insert_file(struct HashTable *file_ht, struct inode
 		return ino;
 	}
 	bitmap_set(raw_inode_page->header.slot_bitmap, slt, 1);
-	raw_inode_page->header.valid_slot_num++;
 	brelse(ibh);
 	up(&file_ht->bkt_sem[bucket_id]);
 
@@ -136,10 +135,8 @@ int delete_file(struct HashTable *file_ht, struct inode *dir, int bucket_id, int
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
 		return 0;
 	}
-
 	raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
 	if (test_bit(slot_id, raw_inode_page->header.slot_bitmap)) {
-		raw_inode_page->header.valid_slot_num--;
 		bitmap_clear(raw_inode_page->header.slot_bitmap, slot_id, 1);
 		//printk("bitmap_clear ok, dir = %d, bkt = %d, slt = %d\n", dir->i_ino, bucket_id, slot_id);
 	}
@@ -262,7 +259,7 @@ void flatfs_debug(char *filen, struct inode *inode)
 		//printk("get_file_ino, pblk:%d\n", pblk);
 		bh = sb_bread(sb, (4 << 21) + i);
 		raw_inode_page = (struct ffs_inode_page *)(bh->b_data);
-				printk("not mknod, %d,slot num:%d\n", test_bit(bucket_id, FFS_SB(sb)->hashtbl[4]->buckets_bitmap), raw_inode_page->header.valid_slot_num);
+
 		for(slt = 0; slt < SLOT_NUM; slt ++)
 		{
 			raw_inode = &(raw_inode_page->inode[slt]);

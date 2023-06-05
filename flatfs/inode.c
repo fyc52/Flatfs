@@ -230,6 +230,8 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	/* mark inode invalid */
 	fi->valid = 0;
 	inode->i_ctime = dir->i_ctime;
+	
+	
 	mark_inode_dirty(inode);
 	/* drop_nlink & mark_inode_dirty */
 	inode_dec_link_count(inode);

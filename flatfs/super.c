@@ -126,8 +126,6 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	}
 	set_buffer_uptodate(ibh);//表示可以回写
 	mark_buffer_dirty(ibh);
-	//if(fi->inode_type == FILE_INODE) printk("valid slt:%d,bucket_id:%lu, raw_inode filename:%s\n", raw_inode_page->header.valid_slot_num, ffs_ino.file_seg.bkt, raw_inode->filename.name);
-
 out:
 	brelse(ibh);//put_bh, 对应getblk
 }
