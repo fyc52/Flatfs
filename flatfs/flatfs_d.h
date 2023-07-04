@@ -37,7 +37,7 @@ typedef __u64 ffs_ino_t;
 #define FFS_BLOCK_SIZE_BITS 12
 #define FFS_BLOCK_SIZE (1 << FFS_BLOCK_SIZE_BITS)
 
-#define FFS_MAX_FILENAME_LEN 242
+#define FFS_MAX_FILENAME_LEN 226
 
 /* LBA分配设置 */
 #define LBA_TT_BITS 64
@@ -122,6 +122,7 @@ struct ffs_name {
 struct ffs_inode_page_header
 {
     DECLARE_BITMAP(slot_bitmap, SLOT_NUM);
+    __u64 rsv[7];
 };
 
 enum {
@@ -135,7 +136,6 @@ struct ffs_inode         // 磁盘inode
 	int valid;
     loff_t size;
     struct ffs_name filename;
-    __u64 rsv[32];
 };
 
 struct ffs_inode_page   // 磁盘inode_page

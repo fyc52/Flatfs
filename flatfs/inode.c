@@ -149,21 +149,21 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		insert_dir(dir->i_sb->s_fs_info, ffs_dir_ino.dir_seg.dir, dir_id);
 		init_file_ht(&(ffs_sb->hashtbl[dir_id]));
 		ino = dir_id;
-		down_interruptible(&(fi->filename_sem));
 		fi->valid = 1;
 		fi->inode_type = DIR_INODE | INODE_CREATE;
 		fi->size = 0;
 		fi->filename.name_len = dentry->d_name.len;
 		strncpy(fi->filename.name, dentry->d_name.name, fi->filename.name_len);
+		down_interruptible(&(fi->filename_sem));
 	}
 	else {
 		//printk(KERN_INFO "flatfs: create\n");
 		//printk(KERN_INFO "flatfs: pdir_id = %d and file_name = %s\n", dfi->dir_id, (char *)(dentry->d_name.name));
-		down_interruptible(&(fi->filename_sem));
 		ffs_ino = flatfs_file_slot_alloc_by_name(ffs_sb->hashtbl[ffs_dir_ino.dir_seg.dir], dir, &dentry->d_name);
 		if (ffs_ino.ino == INVALID_INO) 
 		{
 			printk("Hash crash\n");
+			up(&(fi->filename_sem));
 			return -1;
 		}
 		ino = ffs_ino.ino;
@@ -174,6 +174,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		strncpy(fi->filename.name, dentry->d_name.name, dentry->d_name.len);
 		if(fi->filename.name_len == 0 || strncmp(fi->filename.name, dentry->d_name.name, dentry->d_name.len))
 			printk("mknod --- ino:%lld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
+		down_interruptible(&(fi->filename_sem));
 	}
 
 	inode->i_ino = ino;

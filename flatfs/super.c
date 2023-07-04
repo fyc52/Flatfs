@@ -64,6 +64,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if (bdev_inode == NULL) 
 	{
 		printk("bdev_inode error\n");
+		if (fi->inode_type & INODE_CREATE) up(&(fi->filename_sem));
 		return ;
 	}
 	//printk("ffs_inode_info, dir_id:%d\n", fi->dir_id);
@@ -87,15 +88,14 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	
  	if (unlikely(!ibh)){
 		printk(KERN_ERR "allocate bh for ffs_inode fail");
-		if(fi->inode_type & FILE_INODE) 
-			up(&file_ht->bkt_sem[ffs_ino.file_seg.bkt]);
+		if(fi->inode_type & INODE_CREATE) up(&file_ht->bkt_sem[ffs_ino.file_seg.bkt]);
 		return ;
 	}	
 
 	if(fi->filename.name_len > FFS_MAX_FILENAME_LEN) 
 	{
 		printk("file name len error\n");
-		if(fi->inode_type & FILE_INODE) 
+		if(fi->inode_type & INODE_CREATE) 
 			up(&file_ht->bkt_sem[ffs_ino.file_seg.bkt]);
 		goto out;
 	}
@@ -337,7 +337,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	{
 		printk("fill_super:Create hashtable OK\n");
 	}
-
+	printk("%lu\n", sizeof(struct ffs_inode_page));
 	sb->s_fs_info = ffs_sb;
 	//ffs_sb->s_sb_block = sb_block;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
