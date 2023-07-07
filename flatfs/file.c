@@ -41,29 +41,28 @@
 DECLARE_BITMAP(ls_slot_bitmap, SLOT_NUM * TT_BUCKET_NUM);
 
 int ffs_get_block_prep(struct inode *inode, sector_t iblock,
-			   struct buffer_head *bh, int create)
+			   struct buffer_head *bh_result, int create)
 {
 	int ret = 0;
  	lba_t pblk = ffs_get_data_lba(inode, iblock);
 	bool new = false, boundary = false;
-	//printk("pblk: %lld\n", pblk);
-
+	
 	/* todo: if pblk is a new block or update */
-	if((iblock << FFS_BLOCK_SIZE_BITS) > FFS_I(inode)->size) {
+	if(((iblock + 1) << FFS_BLOCK_SIZE_BITS) > inode->i_size) {
 		new = true;
 	}
 	if(iblock > FILE_BLOCK_SIZE) {
 		boundary = true;
 	}
 	/* todo: if pblk is out of field */
-
-	map_bh(bh, inode->i_sb, pblk);//核心
+	
+	map_bh(bh_result, inode->i_sb, pblk);//核心
 	if (new)
-		set_buffer_new(bh);
+		set_buffer_new(bh_result);
 	if (boundary)
-		set_buffer_boundary(bh);
+		set_buffer_boundary(bh_result);
+	
 	return ret;
-
 }
 
 static int ffs_write_begin(struct file *file, struct address_space *mapping,
@@ -72,15 +71,26 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 {	
 	int ret;
 	//("write begin\n");
-
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
+	struct buffer_head *bh;
+	struct inode *inode = mapping->host;
+	struct ffs_inode_page *raw_inode_page;
+	struct ffs_inode *raw_inode;
+	struct ffs_ino ffs_ino;
+	ffs_ino.ino = inode->i_ino;
+	struct lba lba;
+	lba.lba = compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, 0, 0, 0);
+	bh = sb_bread(inode->i_sb, lba.lba);
 
 	/* update ffs_inode size */
 	loff_t end = pos + len;
 	if (end >= FFS_I(mapping->host)->size) {
-		FFS_I(mapping->host)->size = end;
+		raw_inode_page = (struct ffs_inode_page *) (bh->b_data);
+		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		raw_inode->size = inode->i_size = FFS_I(inode)->size = end;
 	}
 	
+	brelse(bh);
 	return ret;
 }
 

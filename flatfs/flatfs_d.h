@@ -135,8 +135,7 @@ struct ffs_inode         // 磁盘inode
 {					  
 	int valid;
     loff_t size;
-    __le16 i_mode;	
-    __le32 i_blocks;
+    __le16 i_mode;
     struct ffs_name filename;
 };
 
