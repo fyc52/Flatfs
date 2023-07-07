@@ -113,7 +113,7 @@ get_dir:
 	}
 	else {
 		//printk("looup file ok\n");
-		inode->i_mode = mode;
+		inode->i_mode = raw_inode->i_mode;
 		inode->i_op = &ffs_file_inode_ops;
 		inode->i_fop = &ffs_file_file_ops;
 		fi->inode_type = FILE_INODE;

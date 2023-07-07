@@ -117,6 +117,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		raw_inode->valid = fi->valid;
 		raw_inode->filename.name_len = fi->filename.name_len;
 		strncpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
+		raw_inode->i_mode = inode->i_mode;
 		if(raw_inode->filename.name_len == 0 || strncmp(raw_inode->filename.name, fi->filename.name, fi->filename.name_len))
 		{
 			printk("dirty_inode false, filename:%s\n", fi->filename.name);
@@ -337,7 +338,7 @@ static int flatfs_fill_super(struct super_block *sb, void *data, int silent) // 
 	{
 		printk("fill_super:Create hashtable OK\n");
 	}
-	printk("%lu\n", sizeof(struct ffs_inode_page));
+	printk("ffs_inode_page size:%lu\n", sizeof(struct ffs_inode_page));
 	sb->s_fs_info = ffs_sb;
 	//ffs_sb->s_sb_block = sb_block;
 	//kzalloc(sizeof(struct flatfs_sb_info), GFP_KERNEL); // kzalloc=kalloc+memset（0），GFP_KERNEL是内存分配标志
