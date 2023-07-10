@@ -113,7 +113,6 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if(fi->inode_type & INODE_CREATE)
 	{
 		memset(raw_inode, 0, sizeof(struct ffs_inode));	
-		raw_inode->size = inode->i_size;
 		raw_inode->valid = fi->valid;
 		raw_inode->filename.name_len = fi->filename.name_len;
 		strncpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
@@ -125,6 +124,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		fi->inode_type -= INODE_CREATE;
 		up(&(fi->filename_sem));
 	}
+	raw_inode->size = inode->i_size;
 	set_buffer_uptodate(ibh);//表示可以回写
 	mark_buffer_dirty(ibh);
 out:
@@ -136,9 +136,10 @@ static void ffs_i_callback(struct rcu_head *head)
 	struct inode *inode = container_of(head, struct inode, i_rcu);
 	struct ffs_inode_info *fi = FFS_I(inode);
 	down_interruptible(&(fi->filename_sem));
-	//printk("inode->i_ino:%lld\n", inode->i_ino);
 	kmem_cache_free(ffs_inode_cachep, fi);
 	up(&(fi->filename_sem));
+	//printk("inode->i_ino:%lld\n", inode->i_ino);
+	
 }
 
 static void ffs_destroy_inode(struct inode *inode)

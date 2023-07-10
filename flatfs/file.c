@@ -72,25 +72,14 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 	int ret;
 	//("write begin\n");
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
-	struct buffer_head *bh;
 	struct inode *inode = mapping->host;
-	struct ffs_inode_page *raw_inode_page;
-	struct ffs_inode *raw_inode;
-	struct ffs_ino ffs_ino;
-	ffs_ino.ino = inode->i_ino;
-	struct lba lba;
-	lba.lba = compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, 0, 0, 0);
-	bh = sb_bread(inode->i_sb, lba.lba);
 
 	/* update ffs_inode size */
 	loff_t end = pos + len;
 	if (end >= FFS_I(mapping->host)->size) {
-		raw_inode_page = (struct ffs_inode_page *) (bh->b_data);
-		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
-		raw_inode->size = inode->i_size = FFS_I(inode)->size = end;
+		inode->i_size = FFS_I(inode)->size = end;
 	}
 	
-	brelse(bh);
 	return ret;
 }
 
