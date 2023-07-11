@@ -48,7 +48,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 	bool new = false, boundary = false;
 	
 	/* todo: if pblk is a new block or update */
-	if(((iblock + 1) << FFS_BLOCK_SIZE_BITS) > inode->i_size) {
+	if((iblock << FFS_BLOCK_SIZE_BITS) > inode->i_size) {
 		new = true;
 	}
 	if(iblock > FILE_BLOCK_SIZE) {
