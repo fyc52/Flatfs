@@ -116,7 +116,6 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		raw_inode->valid = fi->valid;
 		raw_inode->filename.name_len = fi->filename.name_len;
 		strncpy(raw_inode->filename.name, fi->filename.name, fi->filename.name_len);
-		raw_inode->i_mode = inode->i_mode;
 		if(raw_inode->filename.name_len == 0 || strncmp(raw_inode->filename.name, fi->filename.name, fi->filename.name_len))
 		{
 			printk("dirty_inode false, filename:%s\n", fi->filename.name);
@@ -124,6 +123,7 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 		fi->inode_type -= INODE_CREATE;
 		up(&(fi->filename_sem));
 	}
+	raw_inode->i_mode = inode->i_mode;
 	raw_inode->size = inode->i_size;
 	set_buffer_uptodate(ibh);//表示可以回写
 	mark_buffer_dirty(ibh);
@@ -144,7 +144,27 @@ static void ffs_i_callback(struct rcu_head *head)
 
 static void ffs_destroy_inode(struct inode *inode)
 {
+	struct ffs_inode_info *fi = FFS_I(inode);
+	loff_t size = 0;
+	if (test_and_clear_bit_le(0, &(fi->inode_dirty))) {
+		if (fi->inode_type & FILE_INODE) size = fi->size;
+	}
 	call_rcu(&inode->i_rcu, ffs_i_callback);
+	if (size) {
+		struct buffer_head *bh;
+		struct ffs_inode_page *raw_inode_page;
+		struct ffs_inode *raw_inode;
+		struct ffs_ino ffs_ino;
+		ffs_ino.ino = inode->i_ino;
+		struct lba lba;
+		lba.lba = compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, 0, 0, 0);
+		bh = sb_bread(inode->i_sb, lba.lba);
+		raw_inode_page = (struct ffs_inode_page *) (bh->b_data);
+		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		raw_inode->size = size;
+		if (!strcmp("f1", raw_inode->filename.name)) printk("lba:%ld, ffs_destroy_inode, size = %d, \n", lba.lba, raw_inode->size);
+		brelse(bh);
+	}
 }
 
 static struct inode *ffs_alloc_inode(struct super_block *sb)

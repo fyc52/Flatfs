@@ -92,6 +92,7 @@ get_dir:
 	fi->valid = 1;
 	
 	// 用盘内inode赋值inode操作
+	if (!strcmp("f1", raw_inode->filename.name)) printk("lookup, f1 size = %d\n", raw_inode->size);
 	inode->i_size = raw_inode->size;											
 	inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 	inode->i_atime.tv_nsec = inode->i_mtime.tv_nsec = inode->i_ctime.tv_nsec = 0;
@@ -105,7 +106,7 @@ get_dir:
 		strncpy(fi->filename.name, dentry->d_name.name, dentry->d_name.len);
 	}
 	if (mode == S_IFDIR) {
-		printk("looup dir ok\n");
+		printk("lookup dir ok\n");
 		inode->i_mode = mode;
 		inode->i_op = &ffs_dir_inode_ops;
 		inode->i_fop = &ffs_dir_operations;

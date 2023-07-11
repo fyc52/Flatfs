@@ -73,11 +73,15 @@ static int ffs_write_begin(struct file *file, struct address_space *mapping,
 	//("write begin\n");
 	ret = block_write_begin(mapping, pos, len, flags, pagep, ffs_get_block_prep);
 	struct inode *inode = mapping->host;
+	struct ffs_inode_info *fi = FFS_I(inode);
 
 	/* update ffs_inode size */
 	loff_t end = pos + len;
 	if (end >= FFS_I(mapping->host)->size) {
-		inode->i_size = FFS_I(inode)->size = end;
+		inode->i_size = fi->size = end;
+		if (!test_bit_le(0, &(fi->inode_dirty))) {
+			set_bit_le(0, &(fi->inode_dirty));
+		}
 	}
 	
 	return ret;

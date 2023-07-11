@@ -151,6 +151,7 @@ struct ffs_inode_info   // 内存文件系统特化inode
     __u8 valid;
     __u8 inode_type;
     loff_t size;
+    bool inode_dirty;
     //unsigned long i_flags;
     struct semaphore filename_sem;
     struct ffs_name filename;

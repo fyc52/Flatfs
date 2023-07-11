@@ -340,7 +340,6 @@ static inline ffs_ino_t get_file_ino
 	//("get_file_ino, file_ht type:%d, bkt_id:%d\n", file_ht->dtype, bucket_id);
 
 	pblk = compose_file_lba(dir_ino.dir_seg.dir, bucket_id, 0, 0, 0);
-	//printk("get_file_ino, pblk:%d\n", pblk);
 	down_interruptible(&file_ht->bkt_sem[bucket_id]);
 	(*bh) = sb_bread(sb, pblk);
 	if (unlikely(!(*bh))) {
@@ -353,7 +352,10 @@ static inline ffs_ino_t get_file_ino
 		(*raw_inode) = &(raw_inode_page->inode[slt]);
 		if (test_bit(slt, raw_inode_page->header.slot_bitmap)) {
 			if((*raw_inode)->filename.name_len == filename->len && !strncmp(filename->name, (*raw_inode)->filename.name, filename->len))
+			{
+				if (!strcmp("f1", (*raw_inode)->filename.name)) printk("lba:%ld, ffs lookup, size = %d, \n", pblk, (*raw_inode)->size);
 				break;
+			}
 		}
 	}
 	up(&file_ht->bkt_sem[bucket_id]);
