@@ -176,6 +176,7 @@ ffs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 		if(fi->filename.name_len == 0 || strncmp(fi->filename.name, dentry->d_name.name, dentry->d_name.len))
 			printk("mknod --- ino:%lld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
 		down_interruptible(&(fi->filename_sem));
+		//printk("mknod --- ino:%lld, dir_id:%d, bucket_id:%d, slot_id:%d\n", ino, ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
 	}
 
 	inode->i_ino = ino;
@@ -198,7 +199,42 @@ static int ffs_rename (struct inode * old_dir, struct dentry * old_dentry,
 			struct inode * new_dir,	struct dentry * new_dentry,
 			unsigned int flags)
 {
-	return 0;
+	struct inode * old_inode = d_inode(old_dentry);
+	struct inode * new_inode = d_inode(new_dentry);
+	int err = 0;
+	printk("ffs_rename\n");
+	if (old_inode->i_mode & S_IFREG) {
+		if (old_dir->i_ino == new_dir->i_ino) {
+			printk("file ffs_rename\n");
+			printk("old_name:%s ino:%lld\n", old_dentry->d_name.name, old_inode->i_ino);
+			ffs_mknod(old_dir, new_dentry, old_inode->i_mode, 0);
+			ffs_unlink(old_dir, old_dentry);
+		}
+		else {
+			printk("file move\n");
+			ffs_mknod(new_dir, new_dentry, old_inode->i_mode, 0);
+			ffs_unlink(old_dir, old_dentry);
+		}
+		
+	}
+	else if (old_inode->i_mode & S_IFDIR) {
+		new_inode->i_ino = old_inode->i_ino;
+		if (old_dir->i_ino == new_dir->i_ino) {
+		    printk("dir ffs_rename\n");
+			err = flatfs_dir_inode_rename(FFS_SB(new_dir->i_sb), new_dir->i_ino, new_inode->i_ino, &new_dentry->d_name);
+			if (!err) return -1;
+		}
+		else {
+			printk("old_name:%s ino:%lld, new name:%s ino:%lld\n", old_dentry->d_name.name, old_inode->i_ino, new_dentry->d_name.name, new_inode->i_ino);
+			err = flatfs_move_dir_inode(FFS_SB(old_inode->i_sb), old_dir->i_ino, new_dir->i_ino, old_inode->i_ino, &new_dentry->d_name);
+			if (!err) return -1;
+			err = flatfs_dir_inode_rename(FFS_SB(new_dir->i_sb), new_dir->i_ino, new_inode->i_ino, &new_dentry->d_name);
+			if (!err) return -1;
+		}
+		d_instantiate(new_dentry, old_inode);
+	}
+
+	return err;
 }
 
 
@@ -220,7 +256,7 @@ static int ffs_unlink(struct inode *dir, struct dentry *dentry)
 	int err;
 	int start;
 
-	if(fi->valid == 0 || fi->inode_type == DIR_INODE) goto out;
+	if(fi->inode_type == DIR_INODE) goto out;
 	ffs_ino.ino = inode->i_ino;
 	/*delete file in hashtbl*/
 	err = delete_file(ffs_sb->hashtbl[ffs_ino.file_seg.dir], dir, ffs_ino.file_seg.bkt, ffs_ino.file_seg.slot);
@@ -290,7 +326,7 @@ struct inode_operations ffs_dir_inode_ops = {
 	.mkdir          = ffs_mkdir,
 	.rmdir          = ffs_rmdir,
 	.mknod          = ffs_mknod,	//该函数由系统调用mknod（）调用，创建特殊文件（设备文件、命名管道或套接字）。要创建的文件放在dir目录中，其目录项为dentry，关联的设备为rdev，初始权限由mode指定。
-	.rename         = simple_rename,
+	.rename         = ffs_rename,
 };
 
 

@@ -50,7 +50,7 @@ typedef __u64 ffs_ino_t;
 #define FILE_SLOT_NUM  (1 << FILE_SLOT_BITS)
 
 /* block refers to file offset */
-#define FILE_BLOCK_BITS LBA_TT_BITS - DIR_BITS - FILE_SLOT_BITS - FILE_BUCKET_BITS - FFS_BLOCK_SIZE_BITS
+#define FILE_BLOCK_BITS 18
 #define FILE_BLOCK_SIZE (1ULL << FILE_BLOCK_BITS)
 
 
@@ -298,3 +298,6 @@ extern void lock_buffer(struct buffer_head *bh);
 extern void brelse(struct buffer_head *bh);
 extern struct dentry *d_make_root(struct inode *root_inode);
 ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long parent_ino, struct qstr *child);
+int flatfs_move_dir_inode(struct flatfs_sb_info *sb_i, unsigned long old_parent_ino, unsigned long new_parent_ino, unsigned long dir_ino, struct qstr *child); 
+int flatfs_dir_inode_rename(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsigned long dir_id, struct qstr *child);
+static int ffs_unlink(struct inode *dir, struct dentry *dentry);

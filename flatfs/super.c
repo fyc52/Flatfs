@@ -103,7 +103,16 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	if(fi->inode_type & FILE_INODE)
 	{
 		raw_inode_page = (struct ffs_inode_page *) (ibh->b_data);
-		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		down_interruptible(&(FFS_SB(inode->i_sb)->hashtbl[ffs_ino.file_seg.dir]->bkt_sem[ffs_ino.file_seg.bkt]));
+		if (test_bit(ffs_ino.file_seg.slot, raw_inode_page->header.slot_bitmap))
+			raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		else {
+			//printk("invaild inode\n");
+			up(&(FFS_SB(inode->i_sb)->hashtbl[ffs_ino.file_seg.dir]->bkt_sem[ffs_ino.file_seg.bkt]));
+			if(fi->inode_type & INODE_CREATE) 
+				up(&file_ht->bkt_sem[ffs_ino.file_seg.bkt]);
+			goto out2;
+		}
 	}
 	else if(fi->inode_type & DIR_INODE)
 	{
@@ -125,6 +134,9 @@ static void ffs_dirty_inode(struct inode *inode, int flags)
 	}
 	raw_inode->i_mode = inode->i_mode;
 	raw_inode->size = inode->i_size;
+	if(fi->inode_type & FILE_INODE) 
+		up(&(FFS_SB(inode->i_sb)->hashtbl[ffs_ino.file_seg.dir]->bkt_sem[ffs_ino.file_seg.bkt]));
+out2:
 	set_buffer_uptodate(ibh);//表示可以回写
 	mark_buffer_dirty(ibh);
 out:
@@ -160,9 +172,17 @@ static void ffs_destroy_inode(struct inode *inode)
 		lba.lba = compose_file_lba(ffs_ino.file_seg.dir, ffs_ino.file_seg.bkt, 0, 0, 0);
 		bh = sb_bread(inode->i_sb, lba.lba);
 		raw_inode_page = (struct ffs_inode_page *) (bh->b_data);
-		raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		down_interruptible(&(FFS_SB(inode->i_sb)->hashtbl[ffs_ino.file_seg.dir]->bkt_sem[ffs_ino.file_seg.bkt]));
+		if (test_bit(ffs_ino.file_seg.slot, raw_inode_page->header.slot_bitmap))
+			raw_inode = &(raw_inode_page->inode[ffs_ino.file_seg.slot]);
+		else {
+			printk("ffs_destroy_inode invaild inode\n");
+			goto out;
+		}
 		raw_inode->size = size;
 		if (!strcmp("f1", raw_inode->filename.name)) printk("lba:%ld, ffs_destroy_inode, size = %d, \n", lba.lba, raw_inode->size);
+out:
+		up(&(FFS_SB(inode->i_sb)->hashtbl[ffs_ino.file_seg.dir]->bkt_sem[ffs_ino.file_seg.bkt]));
 		brelse(bh);
 	}
 }

@@ -63,7 +63,6 @@ void insert_dir(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsign
 
     if(dir->dir_size == 0) {
         dir->subdirs->head = dir->subdirs->tail = dle;
-
     }
     else {
         dir->subdirs->tail->next = dle;
@@ -240,3 +239,78 @@ ffs_ino_t flatfs_dir_inode_by_name(struct flatfs_sb_info *sb_i, unsigned long pa
     return ino;
 }
 
+int flatfs_move_dir_inode(struct flatfs_sb_info *sb_i, unsigned long old_parent_ino, unsigned long new_parent_ino, unsigned long dir_ino, struct qstr *child) 
+{
+	struct dir_entry *old_parent_dir = &(sb_i->dtree_root->de[old_parent_ino]);
+    struct dir_entry *new_parent_dir = &(sb_i->dtree_root->de[new_parent_ino]);
+    struct dir_entry *dir = &(sb_i->dtree_root->de[dir_ino]);
+    struct dir_list_entry *dle;
+    struct dir_list_entry *new_dle;
+    struct dir_list_entry *last, *next;
+    int start, pos;  
+    const char *name = child->name;
+    int namelen = child->len;  
+    // printk("remove_dir, dir name:%s, parent size:%d, parent_dir->subdirs->head:%d\n", dir->dir_name, parent_dir->dir_size, parent_dir->subdirs->head->de->dir_id);
+
+    for(dle = old_parent_dir->subdirs->head, start = 0; start < old_parent_dir->dir_size && dle != NULL; start ++) {
+        //printk("remove_dir, dir name:%s ,dir id:%d\n", dle->de->dir_name, dle->de->dir_id);
+        if(dir->dir_id != dle->de->dir_id) 
+        {
+            dle = dle->next;
+            continue;
+        }
+        last = dle->last;
+        next = dle->next;  
+        //printk("remove_dir, dir next:%s ,dir id next:%d\n", next->de->dir_name, next->de->dir_id); 
+        
+        if(start == 0) {  
+            old_parent_dir->subdirs->head = next; 
+            //printk("remove_dir, head next:%s ,head next id:%d\n", dir->subdirs->head->de->dir_name, dir->subdirs->head->de->dir_id); 
+        } 
+        else {
+            if(last != NULL) last->next = next;
+        }
+
+        if(start == dir->dir_size - 1) {
+            old_parent_dir->subdirs->tail = last;
+        } 
+        else {
+            if(next != NULL) next->last = last;
+        }
+        old_parent_dir->dir_size --;
+
+        memcpy(dir->dir_name, name, namelen);
+        dir->namelen = namelen;
+        if(new_parent_dir->dir_size == 0) {
+            new_parent_dir->subdirs->head = new_parent_dir->subdirs->tail = dle;
+        }
+        else {
+            new_parent_dir->subdirs->tail->next = dle;
+            dle->last = new_parent_dir->subdirs->tail;
+            new_parent_dir->subdirs->tail = dle;
+        }
+        new_parent_dir->dir_size ++;
+        return 0;
+    }
+    return -1;
+}
+
+
+int flatfs_dir_inode_rename(struct flatfs_sb_info *sb_i, unsigned long parent_dir_id, unsigned long dir_ino, struct qstr *child) 
+{
+	struct dir_entry *pdir = &(sb_i->dtree_root->de[parent_dir_id]);
+    struct dir_entry *dir = &(sb_i->dtree_root->de[dir_ino]);
+    struct dir_list_entry *dir_node;
+    const char *name = child->name;
+    int namelen = child->len;
+    int start;
+
+    for(dir_node = pdir->subdirs->head, start = 0; start < pdir->dir_size && dir_node != NULL; start ++, dir_node = dir_node->next) {
+        if (dir_node->de->dir_id == dir->dir_id) {
+            memcpy(dir->dir_name, name, namelen);
+            dir->namelen = namelen;
+            return 1;
+        }
+    }
+    return 0;
+}

@@ -55,7 +55,7 @@ int ffs_get_block_prep(struct inode *inode, sector_t iblock,
 		boundary = true;
 	}
 	/* todo: if pblk is out of field */
-	
+	//printk("pblk:%ld\n", pblk);
 	map_bh(bh_result, inode->i_sb, pblk);//核心
 	if (new)
 		set_buffer_new(bh_result);
